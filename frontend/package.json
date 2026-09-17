@@ -1,0 +1,43 @@
+{
+  "name": "donttrashit",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@chatscope/chat-ui-kit-react": "^2.1.1",
+    "@supabase/supabase-js": "^2.49.8",
+    "axios": "^1.18.1",
+    "bootstrap-icons": "^1.13.1",
+    "date-fns": "^4.4.0",
+    "emoji-picker-react": "^4.19.1",
+    "framer-motion": "^12.42.2",
+    "lucide-react": "^1.23.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.4",
+    "recharts": "^3.10.1",
+    "socket.io-client": "^4.8.3",
+    "sonner": "^2.0.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.5.2",
+    "eslint": "^9.13.0",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-refresh": "^0.4.14",
+    "globals": "^15.11.0",
+    "postcss": "^8.5.16",
+    "tailwindcss": "^3.4.17",
+    "vite": "^5.4.10"
+  }
+}
