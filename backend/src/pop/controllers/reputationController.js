@@ -375,10 +375,8 @@ export const getReputation = async (
           full_name,
           email,
           avatar_url,
-          business_name,
-          person_type,
-          business_verified,
-          is_service_provider
+          location,
+          services
         )
       `)
       .eq('user_id', targetUserId)
@@ -405,10 +403,8 @@ export const getReputation = async (
           full_name,
           email,
           avatar_url,
-          business_name,
-          person_type,
-          business_verified,
-          is_service_provider
+          location,
+          services
         `)
         .eq('id', targetUserId)
         .maybeSingle();
@@ -485,11 +481,19 @@ export const getTopProviders = async (
       Math.max(1, requestedLimit)
     );
 
-    const {
-      personType,
-    } = req.query;
+    /*
+     * NOTE:
+     * A `personType` filter previously existed here but was
+     * keyed off `profiles.person_type`, which is not a real
+     * column. If a "business vs individual" distinction is
+     * reintroduced later, drive it from a real source
+     * (e.g. presence of active entries in profiles.services).
+     */
 
-    let query = supabase
+    const {
+      data,
+      error,
+    } = await supabase
       .from('pop_reputation')
       .select(`
         user_id,
@@ -502,10 +506,8 @@ export const getTopProviders = async (
           full_name,
           email,
           avatar_url,
-          business_name,
-          person_type,
-          business_verified,
-          is_service_provider
+          location,
+          services
         )
       `)
       .gte('total_jobs', 5)
@@ -513,18 +515,6 @@ export const getTopProviders = async (
         ascending: false,
       })
       .limit(limit);
-
-    if (personType) {
-      query = query.eq(
-        'profiles.person_type',
-        personType
-      );
-    }
-
-    const {
-      data,
-      error,
-    } = await query;
 
     if (error) {
       throw error;

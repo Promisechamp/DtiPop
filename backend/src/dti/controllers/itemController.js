@@ -643,7 +643,6 @@ export const getItems = async (req, res) => {
           full_name,
           avatar_url,
           location,
-          country,
           rating
         ),
         winner:profiles!winner_id(
@@ -813,7 +812,7 @@ export const getItemById = async (
           full_name,
           avatar_url,
           location,
-          country,
+          
           phone,
           bio,
           rating,

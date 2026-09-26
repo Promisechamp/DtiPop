@@ -30,7 +30,7 @@ router.get('/google/url', getGoogleAuthUrl);
 router.get('/google/callback', googleAuthCallback);
 
 // Protected routes
-router.get('/me', authenticate, getCurrentUser);
+router.get('/getMe', authenticate, getCurrentUser);
 router.post('/logout', authenticate, logout);
 
 export default router;

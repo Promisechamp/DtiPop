@@ -24,6 +24,7 @@ const Select = ({
   searchable = false,
   disabled = false,
   showIcon = true,
+		autoFocusSearch = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -34,6 +35,7 @@ const Select = ({
   const triggerRef = useRef(null);
   const inputRef = useRef(null);
   const listRef = useRef(null);
+		const rootRef = useRef(null);
   const portalId = useRef(
     `select-portal-${Math.random().toString(36).slice(2, 9)}`
   ).current;
@@ -64,18 +66,25 @@ const Select = ({
       window.addEventListener("resize", updateCoords);
       window.addEventListener("scroll", updateCoords, { capture: true });
     }
+				
+				
+				
+const handleClickOutside = (e) => {
+  // Clicks anywhere inside this Select's own tree
+  // (trigger, chips, clear button, mobile bottom-sheet Modal, its options)
+  if (rootRef.current && rootRef.current.contains(e.target)) {
+    return;
+  }
 
-    const handleClickOutside = (e) => {
-      if (
-        triggerRef.current &&
-        !triggerRef.current.contains(e.target) &&
-        !e.target.closest(`[data-select-portal="${portalId}"]`)
-      ) {
-        setIsOpen(false);
-        setSearchTerm("");
-        setHighlightedIndex(-1);
-      }
-    };
+  // Clicks inside the desktop portal (rendered into document.body)
+  if (e.target.closest(`[data-select-portal="${portalId}"]`)) {
+    return;
+  }
+
+  setIsOpen(false);
+  setSearchTerm("");
+  setHighlightedIndex(-1);
+};
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
@@ -86,12 +95,23 @@ const Select = ({
   }, [isOpen, isMobile, updateCoords, portalId]);
 
   // Auto-focus search when opening
-  useEffect(() => {
-    if (isOpen && searchable && inputRef.current) {
-      const t = setTimeout(() => inputRef.current?.focus(), 30);
-      return () => clearTimeout(t);
-    }
-  }, [isOpen, searchable]);
+  // Auto-focus search when opening (opt-in only)
+useEffect(() => {
+  if (
+    autoFocusSearch &&
+    isOpen &&
+    searchable &&
+    inputRef.current
+  ) {
+    const t = setTimeout(
+      () => inputRef.current?.focus(),
+      30
+    );
+    return () => clearTimeout(t);
+  }
+}, [isOpen, searchable, autoFocusSearch]);
+
+
 
   // ─── Filtering ───
   const filteredOptions = options.filter((option) => {
@@ -390,7 +410,7 @@ const Select = ({
   };
 
   return (
-    <div className={`relative ${className}`}>
+    <div ref={rootRef} className={`relative ${className}`}>
       {label && (
         <label className="mb-1.5 block text-sm font-semibold text-ink-700">
           {label}

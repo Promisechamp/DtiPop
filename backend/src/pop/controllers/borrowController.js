@@ -888,11 +888,6 @@ export const createBorrowRequest = async (
   }
 };
 
-
-
-
-
-
 // ============================================================
 // GET BORROW REQUESTS
 // ============================================================
@@ -1093,9 +1088,6 @@ export const getBorrowRequests = async (req, res, forcedFilters = {}) => {
     });
   }
 };
-
-
-
 
 // ============================================================
 // GET SINGLE BORROW REQUEST
@@ -2514,8 +2506,6 @@ export const getMyBorrowRequests = async (req, res) => {
   });
 };
 
-
-
 // ============================================================
 // MY LENDS
 // ============================================================
@@ -2534,9 +2524,6 @@ export const getMyLendRequests = async (req, res) => {
     ownerId: userId,
   });
 };
-
-
-
 
 // ============================================================
 // PUBLIC BORROW HISTORY
@@ -2615,9 +2602,7 @@ export const getPublicBorrowHistory = async (req, res) => {
           requester:profiles!pop_borrow_requests_requester_id_fkey (
             id,
             full_name,
-            avatar_url,
-            business_name,
-            person_type
+            avatar_url
           ),
 
           pop_assets (
@@ -2678,10 +2663,6 @@ export const getPublicBorrowHistory = async (req, res) => {
                 borrow.requester.full_name,
               avatarUrl:
                 borrow.requester.avatar_url,
-              businessName:
-                borrow.requester.business_name,
-              personType:
-                borrow.requester.person_type,
             }
           : null,
 

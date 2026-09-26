@@ -78,9 +78,17 @@ export const purchasesAPI = {
   archive: (id) => popApi.patch(`/pop/purchases/${id}/archive`),
   getArchived: (params = {}) => popApi.get("/pop/purchases/archived", { params }),
   restore: (id) => popApi.put(`/pop/purchases/${id}/restore`),
-  findUserByEmail: (email) => popApi.get("/pop/purchases/find-user", { params: { email } }),
-  transfer: (id, recipientEmail = null, type = "direct_gift", amount, currency, notes) => 
-    popApi.post(`/pop/purchases/${id}/transfer`, { 
+  findUserByEmail: (email) =>
+    popApi.get("/pop/purchases/find-user", { params: { email } }),
+  transfer: (
+    id,
+    recipientEmail = null,
+    type = "direct_gift",
+    amount,
+    currency,
+    notes
+  ) =>
+    popApi.post(`/pop/purchases/${id}/transfer`, {
       recipientEmail: recipientEmail || undefined,
       type,
       amount,
@@ -96,7 +104,8 @@ export const warrantiesAPI = {
   getAll: (params = {}) => popApi.get("/pop/warranties", { params }),
   getById: (warrantyId) => popApi.get(`/pop/warranties/${warrantyId}`),
   create: (data) => popApi.post("/pop/warranties", data),
-  update: (warrantyId, data) => popApi.put(`/pop/warranties/${warrantyId}`, data),
+  update: (warrantyId, data) =>
+    popApi.put(`/pop/warranties/${warrantyId}`, data),
   delete: (warrantyId) => popApi.delete(`/pop/warranties/${warrantyId}`),
 };
 
@@ -105,7 +114,8 @@ export const warrantiesAPI = {
 // ============================================================
 export const complaintsAPI = {
   create: (data) => popApi.post("/pop/complaints", data),
-  getByPurchase: (purchaseId) => popApi.get(`/pop/complaints/purchase/${purchaseId}`),
+  getByPurchase: (purchaseId) =>
+    popApi.get(`/pop/complaints/purchase/${purchaseId}`),
   update: (id, data) => popApi.put(`/pop/complaints/${id}`, data),
   delete: (id) => popApi.delete(`/pop/complaints/${id}`),
 };
@@ -119,7 +129,8 @@ export const claimsAPI = {
   create: (data) => popApi.post("/pop/claims", data),
   update: (claimId, data) => popApi.put(`/pop/claims/${claimId}`, data),
   delete: (claimId) => popApi.delete(`/pop/claims/${claimId}`),
-  summarize: (complaints) => popApi.post("/pop/claims/summarize", { complaints }),
+  summarize: (complaints) =>
+    popApi.post("/pop/claims/summarize", { complaints }),
   forward: (claimId) => popApi.post(`/pop/claims/${claimId}/forward`),
 };
 
@@ -128,10 +139,12 @@ export const claimsAPI = {
 // ============================================================
 export const dashboardAPI = {
   getStats: () => popApi.get("/pop/dashboard/stats"),
-  getRecentPurchases: (limit = 5) => popApi.get("/pop/dashboard/recent-purchases", { params: { limit } }),
+  getRecentPurchases: (limit = 5) =>
+    popApi.get("/pop/dashboard/recent-purchases", { params: { limit } }),
   getWarrantyOverview: () => popApi.get("/pop/dashboard/warranty-overview"),
   getOverview: () => popApi.get("/pop/dashboard"),
-  getExpiringWarranties: (days = 30) => popApi.get("/pop/dashboard/expiring-warranties", { params: { days } }),
+  getExpiringWarranties: (days = 30) =>
+    popApi.get("/pop/dashboard/expiring-warranties", { params: { days } }),
   getActivity: (params = {}) => popApi.get("/pop/dashboard/activity", { params }),
   getDTIDonations: () => popApi.get("/pop/dashboard/dti-donations"),
 };
@@ -191,7 +204,7 @@ export const categoriesAPI = {
 };
 
 // ============================================================
-//  HOUSEHOLDS
+// HOUSEHOLDS
 // ============================================================
 export const householdsAPI = {
   create: (data) => popApi.post("/pop/households", data),
@@ -199,12 +212,13 @@ export const householdsAPI = {
   getById: (id) => popApi.get(`/pop/households/${id}`),
   update: (id, data) => popApi.put(`/pop/households/${id}`, data),
   delete: (id) => popApi.delete(`/pop/households/${id}`),
-  
+
   // Members
-  addMember: (householdId, data) => popApi.post(`/pop/households/${householdId}/members`, data),
-  updateMemberRole: (householdId, memberId, data) => 
+  addMember: (householdId, data) =>
+    popApi.post(`/pop/households/${householdId}/members`, data),
+  updateMemberRole: (householdId, memberId, data) =>
     popApi.put(`/pop/households/${householdId}/members/${memberId}`, data),
-  removeMember: (householdId, memberId) => 
+  removeMember: (householdId, memberId) =>
     popApi.delete(`/pop/households/${householdId}/members/${memberId}`),
   leave: (householdId) => popApi.post(`/pop/households/${householdId}/leave`),
 };
@@ -218,7 +232,7 @@ export const assetsAPI = {
   getById: (id) => popApi.get(`/pop/assets/${id}`),
   update: (id, data) => popApi.put(`/pop/assets/${id}`, data),
   delete: (id) => popApi.delete(`/pop/assets/${id}`),
-  getByHousehold: (householdId, params = {}) => 
+  getByHousehold: (householdId, params = {}) =>
     popApi.get(`/pop/assets/household/${householdId}`, { params }),
 };
 
@@ -231,9 +245,9 @@ export const documentsAPI = {
   getById: (id) => popApi.get(`/pop/documents/${id}`),
   update: (id, data) => popApi.put(`/pop/documents/${id}`, data),
   delete: (id) => popApi.delete(`/pop/documents/${id}`),
-  getByHousehold: (householdId, params = {}) => 
+  getByHousehold: (householdId, params = {}) =>
     popApi.get(`/pop/documents/household/${householdId}`, { params }),
-  getByAsset: (assetId, params = {}) => 
+  getByAsset: (assetId, params = {}) =>
     popApi.get(`/pop/documents/asset/${assetId}`, { params }),
 };
 
@@ -246,10 +260,11 @@ export const maintenanceAPI = {
   getById: (id) => popApi.get(`/pop/maintenance/${id}`),
   update: (id, data) => popApi.put(`/pop/maintenance/${id}`, data),
   delete: (id) => popApi.delete(`/pop/maintenance/${id}`),
-  complete: (id, notes) => popApi.post(`/pop/maintenance/${id}/complete`, { notes }),
-  getByHousehold: (householdId, params = {}) => 
+  complete: (id, notes) =>
+    popApi.post(`/pop/maintenance/${id}/complete`, { notes }),
+  getByHousehold: (householdId, params = {}) =>
     popApi.get(`/pop/maintenance/household/${householdId}`, { params }),
-  getByAsset: (assetId, params = {}) => 
+  getByAsset: (assetId, params = {}) =>
     popApi.get(`/pop/maintenance/asset/${assetId}`, { params }),
 };
 
@@ -264,10 +279,9 @@ export const tasksAPI = {
   delete: (id) => popApi.delete(`/pop/tasks/${id}`),
   complete: (id, notes) => popApi.post(`/pop/tasks/${id}/complete`, { notes }),
   getMyTasks: (params = {}) => popApi.get("/pop/tasks/my", { params }),
-  getByHousehold: (householdId, params = {}) => 
+  getByHousehold: (householdId, params = {}) =>
     popApi.get(`/pop/tasks/household/${householdId}`, { params }),
 };
-
 
 // ============================================================
 // REQUESTS
@@ -276,6 +290,7 @@ export const requestsAPI = {
   create: (data) => popApi.post("/pop/requests", data),
   getAll: (params = {}) => popApi.get("/pop/requests", { params }),
   getById: (id) => popApi.get(`/pop/requests/${id}`),
+  get: (id) => popApi.get(`/pop/requests/${id}`),
   update: (id, data) => popApi.put(`/pop/requests/${id}`, data),
   delete: (id) => popApi.delete(`/pop/requests/${id}`),
   fulfill: (id, notes) => popApi.post(`/pop/requests/${id}/fulfill`, { notes }),
@@ -284,19 +299,42 @@ export const requestsAPI = {
     popApi.get(`/pop/requests/household/${householdId}`, { params }),
   getOpenByHousehold: (householdId, params = {}) =>
     popApi.get(`/pop/requests/household/${householdId}/open`, { params }),
+  getProviders: (requestId) => popApi.get(`/pop/requests/${requestId}/providers`),
+		getProviderProfile: (providerId) =>
+  popApi.get(`/pop/requests/providers/${providerId}/profile`),
+  findMatchingProviders: (requestId, params = {}) =>
+    popApi.get(`/pop/requests/${requestId}/matching-providers`, { params }),
+  findProviders: (requestId, params = {}) =>
+    popApi.get(`/pop/requests/${requestId}/matching-providers`, { params }),
+  connectProvider: (requestId, data) =>
+    popApi.post(`/pop/requests/${requestId}/providers`, data),
+  respondToProviderRequest: (relationshipId, action) =>
+    popApi.patch(`/pop/requests/provider-relationships/${relationshipId}/respond`, { action }),
+  respondProvider: (relationshipId, action) =>
+    popApi.patch(`/pop/requests/provider-relationships/${relationshipId}/respond`, { action }),
+  startProviderRequest: (relationshipId) =>
+    popApi.patch(`/pop/requests/provider-relationships/${relationshipId}/start`),
+  startProvider: (relationshipId) =>
+    popApi.patch(`/pop/requests/provider-relationships/${relationshipId}/start`),
+  completeProviderRequest: (relationshipId, data = {}) =>
+    popApi.patch(`/pop/requests/provider-relationships/${relationshipId}/complete`, data),
+  completeProvider: (relationshipId, data = {}) =>
+    popApi.patch(`/pop/requests/provider-relationships/${relationshipId}/complete`, data),
 };
+
 
 
 // ============================================================
 // BORROW
 // ============================================================
-
 export const borrowAPI = {
-  create: (data) => popApi.post('/pop/borrow', data),
-  getAll: (params = {}) => popApi.get('/pop/borrow', { params }),
-  getMyBorrows: (params = {}) => popApi.get('/pop/borrow/my-borrows', { params }),
-  getMyLends: (params = {}) => popApi.get('/pop/borrow/my-lends', { params }),
-		getPublicHistory: (userId, params = {}) => popApi.get(`/pop/borrow/public/${userId}/history`, { params, }),
+  create: (data) => popApi.post("/pop/borrow", data),
+  getAll: (params = {}) => popApi.get("/pop/borrow", { params }),
+  getMyBorrows: (params = {}) =>
+    popApi.get("/pop/borrow/my-borrows", { params }),
+  getMyLends: (params = {}) => popApi.get("/pop/borrow/my-lends", { params }),
+  getPublicHistory: (userId, params = {}) =>
+    popApi.get(`/pop/borrow/public/${userId}/history`, { params }),
   getById: (id) => popApi.get(`/pop/borrow/${id}`),
   selectBorrower: (id) => popApi.post(`/pop/borrow/${id}/select`),
   acceptSelection: (id) => popApi.post(`/pop/borrow/${id}/accept`),
@@ -304,29 +342,19 @@ export const borrowAPI = {
   markPickedUp: (id, data = {}) => popApi.post(`/pop/borrow/${id}/pickup`, data),
   markInUse: (id) => popApi.post(`/pop/borrow/${id}/in-use`),
   markReturned: (id, data = {}) => popApi.post(`/pop/borrow/${id}/return`, data),
-  markCompleted: (id, data = {}) => popApi.post(`/pop/borrow/${id}/complete`, data),
+  markCompleted: (id, data = {}) =>
+    popApi.post(`/pop/borrow/${id}/complete`, data),
   cancel: (id, data = {}) => popApi.post(`/pop/borrow/${id}/cancel`, data),
-};
-
-// ============================================================
-// SERVICES
-// ============================================================
-export const servicesAPI = {
-  create: (data) => popApi.post("/pop/services", data),
-  getAll: (params = {}) => popApi.get("/pop/services", { params }),
-  getById: (id) => popApi.get(`/pop/services/${id}`),
-  update: (id, data) => popApi.put(`/pop/services/${id}`, data),
-  delete: (id) => popApi.delete(`/pop/services/${id}`),
-  toggle: (id) => popApi.patch(`/pop/services/${id}/toggle`),
 };
 
 // ============================================================
 // REPUTATION
 // ============================================================
 export const reputationAPI = {
-  getMyReputation: () => popApi.get('/pop/reputation'),
+  getMyReputation: () => popApi.get("/pop/reputation"),
   get: (userId) => popApi.get(`/pop/reputation/${userId}`),
-  getTopProviders: (params = {}) => popApi.get( '/pop/reputation/top-providers', { params } ),
+  getTopProviders: (params = {}) =>
+    popApi.get("/pop/reputation/top-providers", { params }),
 };
 
 // ============================================================
@@ -335,18 +363,24 @@ export const reputationAPI = {
 export const sharingAPI = {
   upsert: (data) => popApi.post("/pop/sharing", data),
   getAll: (params = {}) => popApi.get("/pop/sharing", { params }),
-  getAvailable: (params = {}) => popApi.get("/pop/sharing/available", { params }),
+  getAvailable: (params = {}) =>
+    popApi.get("/pop/sharing/available", { params }),
   getByAsset: (assetId) => popApi.get(`/pop/sharing/asset/${assetId}`),
   update: (id, data) => popApi.put(`/pop/sharing/${id}`, data),
   toggle: (id) => popApi.patch(`/pop/sharing/${id}/toggle`),
   delete: (id) => popApi.delete(`/pop/sharing/${id}`),
 };
 
-
+// ============================================================
+// COMMUNITY REVIEWS
+// ============================================================
 export const communityReviewAPI = {
-  submit: (borrowRequestId, data) => popApi.post(`/pop/community-reviews/${borrowRequestId}`, data ),
-  getByUser: (userId, params = {}) => popApi.get(`/pop/community-reviews/user/${userId}`, { params } ),
-  getMine: (params = {}) => popApi.get( '/pop/community-reviews/my-reviews', { params } ),
+  submit: (borrowRequestId, data) =>
+    popApi.post(`/pop/community-reviews/${borrowRequestId}`, data),
+  getByUser: (userId, params = {}) =>
+    popApi.get(`/pop/community-reviews/user/${userId}`, { params }),
+  getMine: (params = {}) =>
+    popApi.get("/pop/community-reviews/my-reviews", { params }),
 };
 
 export default popApi;

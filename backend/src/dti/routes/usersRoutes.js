@@ -1,11 +1,16 @@
-// backend/routes/userRoutes.js
 import express from 'express';
-import { 
+import {
   getProfile,
   checkProfile,
   updateProfile,
-		updateMyLocation,
+  updateMyLocation,
   getUserStats,
+  createService,
+  getServices,
+  getService,
+  updateService,
+  deleteService,
+  toggleServiceActive,
   forgotPassword,
   resetPassword,
   changePassword
@@ -14,36 +19,25 @@ import { authenticate } from '../../middleware/auth.js';
 
 const router = express.Router();
 
-// ============================================
-// PUBLIC ROUTES (No Authentication Required)
-// ============================================
-
-// Password management (public)
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 
-// Check if user has a profile
 router.get('/check-profile/:userId', checkProfile);
-
-// Get user stats by ID
 router.get('/:userId/stats', getUserStats);
 
-// ============================================
-// PROTECTED USER ROUTES (Require Authentication)
-// ============================================
-// These MUST come BEFORE the /:userId route
 router.use(authenticate);
 
-// Profile management
 router.put('/profile', updateProfile);
 router.patch('/profile/location', updateMyLocation);
-
-// Change password for logged-in users
 router.put('/profile/password', changePassword);
 
-// ============================================
-// GET PROFILE BY ID - MUST BE LAST
-// ============================================
+router.post('/services', createService);
+router.get('/services', getServices);
+router.get('/services/:id', getService);
+router.put('/services/:id', updateService);
+router.delete('/services/:id', deleteService);
+router.patch('/services/:id/toggle', toggleServiceActive);
+
 router.get('/:userId', getProfile);
 
 export default router;

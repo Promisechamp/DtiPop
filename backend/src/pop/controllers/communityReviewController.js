@@ -306,14 +306,12 @@ export const submitCommunityReview = async (
         reviewer:reviewer_id (
           id,
           full_name,
-          avatar_url,
-          business_name
+          avatar_url
         ),
         reviewed_user:reviewed_user_id (
           id,
           full_name,
-          avatar_url,
-          business_name
+          avatar_url
         )
       `)
       .single();
@@ -524,8 +522,7 @@ export const getUserCommunityReviews = async (
         reviewer:reviewer_id (
           id,
           full_name,
-          avatar_url,
-          business_name
+          avatar_url
         )
       `, {
         count: 'exact',
@@ -676,8 +673,7 @@ export const getMyCommunityReviews = async (
         reviewed_user:reviewed_user_id (
           id,
           full_name,
-          avatar_url,
-          business_name
+          avatar_url
         )
       `, {
         count: 'exact',

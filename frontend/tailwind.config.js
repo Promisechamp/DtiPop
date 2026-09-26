@@ -90,7 +90,7 @@ export default {
         violet:    "var(--shadow-violet)",
         cyan:      "var(--shadow-cyan)",
         navbar:    "var(--shadow-navbar)",
-        glow:      "var(--shadow-glow)",
+        actionMenu:      "var(--shadow-actionMenu)",
         inner:     "inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)",
       },
 

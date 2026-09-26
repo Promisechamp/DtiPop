@@ -1,5 +1,6 @@
 import express from 'express';
 import { authenticate } from '../../middleware/auth.js';
+
 import {
   createRequest,
   getRequests,
@@ -7,6 +8,19 @@ import {
   updateRequest,
   deleteRequest,
   fulfillRequest,
+
+  // Provider profile / matching
+  getProviderProfile,
+  getRequestProviders,
+  findRequestProviders,
+  connectRequestProvider,
+
+  // Provider relationship lifecycle
+  respondToRequestProvider,
+  startRequestProvider,
+  completeRequestProvider,
+
+  // Household / user requests
   getHouseholdRequests,
   getMyRequests,
   getOpenHouseholdRequests,
@@ -14,26 +28,62 @@ import {
 
 const router = express.Router();
 
-// All request routes require authentication
 router.use(authenticate);
 
-// Create
+// ─────────────────────────────────────────────
+// Requests
+// ─────────────────────────────────────────────
+
 router.post('/', createRequest);
 
-// List with filters
 router.get('/', getRequests);
 router.get('/my', getMyRequests);
+
 router.get('/household/:householdId', getHouseholdRequests);
 router.get('/household/:householdId/open', getOpenHouseholdRequests);
 
-// Single
+// ─────────────────────────────────────────────
+// Provider profile / matching
+// Keep these BEFORE /:id for clarity and safety.
+// ─────────────────────────────────────────────
+
+// Provider profile lookup (no request context needed)
+router.get('/providers/:providerId/profile', getProviderProfile);
+router.get('/:id/providers', getRequestProviders);
+router.get('/:id/matching-providers', findRequestProviders);
+
+router.post('/:id/providers', connectRequestProvider);
+
+// ─────────────────────────────────────────────
+// Provider relationship lifecycle
+// pending → accepted/declined → in_progress → completed
+// ─────────────────────────────────────────────
+
+router.patch(
+  '/provider-relationships/:id/respond',
+  respondToRequestProvider
+);
+
+router.patch(
+  '/provider-relationships/:id/start',
+  startRequestProvider
+);
+
+router.patch(
+  '/provider-relationships/:id/complete',
+  completeRequestProvider
+);
+
+// ─────────────────────────────────────────────
+// Single request
+// Keep this AFTER the more specific /:id/... routes.
+// ─────────────────────────────────────────────
+
 router.get('/:id', getRequest);
 
-// Update and delete
 router.put('/:id', updateRequest);
 router.delete('/:id', deleteRequest);
 
-// Fulfill
 router.post('/:id/fulfill', fulfillRequest);
 
 export default router;

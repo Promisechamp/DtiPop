@@ -202,7 +202,7 @@ export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
   logout: () => api.post('/auth/logout'),
-  getMe: () => api.get('/auth/me'),
+  getMe: () => api.get('/auth/getMe'),
   verifyEmail: (token) => api.get('/auth/verify-email', { params: { token } }),
   resendVerification: (email) => api.post('/auth/resend-verification', { email }),
   checkConfirmation: (email) => api.get('/auth/check-confirmation', { params: { email } }),
@@ -310,14 +310,20 @@ export const winnersAPI = {
 // ============================================
 export const usersAPI = {
   getProfile: (userId) => api.get(`/users/${userId}`),
-  getMe: () => api.get('/users/me'),
   updateProfile: (data) => api.put('/users/profile', data),
   updateLocation: (location) => api.patch('/users/profile/location', location),
   getStats: (userId) => api.get(`/users/${userId}/stats`),
   uploadAvatar: (data) => api.post('/users/avatar', data),
   forgotPassword: (email) => api.post('/users/forgot-password', { email }),
   resetPassword: (password, token) => api.post('/users/reset-password', { password, token }),
-  changePassword: (currentPassword, newPassword) =>  api.put('/users/profile/password', { currentPassword, newPassword }),
+  changePassword: (currentPassword, newPassword) => api.put('/users/profile/password', { currentPassword, newPassword }),
+
+  createService: (data) => api.post('/users/services', data),
+  getServices: (params = {}) => api.get('/users/services', { params }),
+  getService: (id) => api.get(`/users/services/${id}`),
+  updateService: (id, data) => api.put(`/users/services/${id}`, data),
+  deleteService: (id) => api.delete(`/users/services/${id}`),
+  toggleService: (id) => api.patch(`/users/services/${id}/toggle`),
 };
 
 

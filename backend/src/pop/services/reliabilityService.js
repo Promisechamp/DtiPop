@@ -1,27 +1,27 @@
-// backend/src/pop/services/reliabilityService.js
-
 import { supabase } from '../../db/index.js';
 
 // ============================================================
 // CREATE RELIABILITY EVENT ONCE
 // ============================================================
 //
-// 4E-5A added the idempotency protection:
+// Borrow event identity:
+//   borrow_request_id + user_id + event_type
 //
-//   (borrow_request_id, user_id, event_type)
+// Service event identity:
+//   request_id + request_provider_id + user_id + event_type
 //
-// This function guarantees that the same lifecycle event cannot
-// be recorded twice.
+// The database UNIQUE constraint remains the final protection
+// against race conditions.
 //
-// Returns:
-//   { created: true, event }
-//   { created: false, event }  <-- already existed
-//
+// IMPORTANT:
+// Reputation counters are updated only when `created === true`.
 // ============================================================
 
 export const createReliabilityEventOnce = async ({
   userId,
   borrowRequestId = null,
+  requestId = null,
+  requestProviderId = null,
   assetId = null,
   eventType,
   severity = 'neutral',
@@ -37,32 +37,57 @@ export const createReliabilityEventOnce = async ({
   }
 
   // ----------------------------------------------------------
-  // Fast-path lookup
+  // Validate event identity
   // ----------------------------------------------------------
 
-  let existingQuery = supabase
-    .from('pop_reliability_events')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('event_type', eventType)
-    .limit(1);
-
-  if (borrowRequestId) {
-    existingQuery = existingQuery.eq(
-      'borrow_request_id',
-      borrowRequestId
-    );
-  } else {
-    existingQuery = existingQuery.is(
-      'borrow_request_id',
-      null
+  if (requestProviderId && !requestId) {
+    throw new Error(
+      'requestId is required when requestProviderId is supplied'
     );
   }
+
+  // ----------------------------------------------------------
+  // Build identity query
+  // ----------------------------------------------------------
+
+  const buildIdentityQuery = () => {
+    let query = supabase
+      .from('pop_reliability_events')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('event_type', eventType);
+
+    if (borrowRequestId) {
+      query = query.eq(
+        'borrow_request_id',
+        borrowRequestId
+      );
+    } else if (requestId && requestProviderId) {
+      query = query
+        .eq('request_id', requestId)
+        .eq('request_provider_id', requestProviderId);
+    } else if (requestId) {
+      query = query
+        .eq('request_id', requestId)
+        .is('request_provider_id', null);
+    } else {
+      query = query
+        .is('borrow_request_id', null)
+        .is('request_id', null)
+        .is('request_provider_id', null);
+    }
+
+    return query.limit(1);
+  };
+
+  // ----------------------------------------------------------
+  // Fast-path lookup
+  // ----------------------------------------------------------
 
   const {
     data: existing,
     error: existingError,
-  } = await existingQuery.maybeSingle();
+  } = await buildIdentityQuery().maybeSingle();
 
   if (existingError) {
     throw existingError;
@@ -76,7 +101,7 @@ export const createReliabilityEventOnce = async ({
   }
 
   // ----------------------------------------------------------
-  // Attempt insert
+  // Insert
   // ----------------------------------------------------------
 
   const { data: inserted, error: insertError } = await supabase
@@ -84,6 +109,8 @@ export const createReliabilityEventOnce = async ({
     .insert({
       user_id: userId,
       borrow_request_id: borrowRequestId,
+      request_id: requestId,
+      request_provider_id: requestProviderId,
       asset_id: assetId,
       event_type: eventType,
       severity,
@@ -95,55 +122,39 @@ export const createReliabilityEventOnce = async ({
 
   // ----------------------------------------------------------
   // Race-condition protection
-  //
-  // Another worker/request may have inserted the exact same
-  // event between our SELECT and INSERT.
-  //
-  // PostgreSQL unique constraint from 4E-5A protects us.
   // ----------------------------------------------------------
 
   if (insertError) {
     const duplicate =
       insertError.code === '23505' ||
-      insertError.message?.toLowerCase().includes('duplicate') ||
-      insertError.message?.toLowerCase().includes('unique');
+      insertError.message
+        ?.toLowerCase()
+        .includes('duplicate') ||
+      insertError.message
+        ?.toLowerCase()
+        .includes('unique');
 
-    if (duplicate) {
-      let duplicateQuery = supabase
-        .from('pop_reliability_events')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('event_type', eventType)
-        .limit(1);
-
-      if (borrowRequestId) {
-        duplicateQuery = duplicateQuery.eq(
-          'borrow_request_id',
-          borrowRequestId
-        );
-      } else {
-        duplicateQuery = duplicateQuery.is(
-          'borrow_request_id',
-          null
-        );
-      }
-
-      const {
-        data: duplicateEvent,
-        error: duplicateFetchError,
-      } = await duplicateQuery.maybeSingle();
-
-      if (duplicateFetchError) {
-        throw duplicateFetchError;
-      }
-
-      return {
-        created: false,
-        event: duplicateEvent,
-      };
+    if (!duplicate) {
+      throw insertError;
     }
 
-    throw insertError;
+    const {
+      data: duplicateEvent,
+      error: duplicateFetchError,
+    } = await buildIdentityQuery().maybeSingle();
+
+    if (duplicateFetchError) {
+      throw duplicateFetchError;
+    }
+
+    if (!duplicateEvent) {
+      throw insertError;
+    }
+
+    return {
+      created: false,
+      event: duplicateEvent,
+    };
   }
 
   return {
@@ -152,17 +163,94 @@ export const createReliabilityEventOnce = async ({
   };
 };
 
+// ============================================================
+// CALCULATE TRUST SCORE
+// ============================================================
+
+const calculateTrustScore = ({
+  totalBorrows = 0,
+  successfulBorrows = 0,
+  returnedOnTime = 0,
+  damagedItems = 0,
+  totalJobs = 0,
+  successfulJobs = 0,
+  repeatUsers = 0,
+  disputes = 0,
+}) => {
+  let borrowScore = 0;
+
+  if (totalBorrows > 0) {
+    const onTimeRate =
+      returnedOnTime / totalBorrows;
+
+    const successRate =
+      successfulBorrows / totalBorrows;
+
+    borrowScore =
+      ((onTimeRate * 0.6) +
+        (successRate * 0.4)) * 5;
+  }
+
+  let serviceScore = 0;
+
+  if (totalJobs > 0) {
+    const successRate =
+      successfulJobs / totalJobs;
+
+    const repeatRate = Math.min(
+      repeatUsers / totalJobs,
+      1
+    );
+
+    serviceScore =
+      ((successRate * 0.7) +
+        (repeatRate * 0.3)) * 5;
+  }
+
+  let trustScore = 0;
+
+  if (totalBorrows > 0 && totalJobs > 0) {
+    trustScore =
+      (borrowScore * 0.4) +
+      (serviceScore * 0.6);
+  } else if (totalBorrows > 0) {
+    trustScore = borrowScore;
+  } else if (totalJobs > 0) {
+    trustScore = serviceScore;
+  }
+
+  if (damagedItems > 0) {
+    trustScore = Math.max(
+      0,
+      trustScore - damagedItems * 0.5
+    );
+  }
+
+  if (disputes > 0) {
+    trustScore = Math.max(
+      0,
+      trustScore - disputes * 0.5
+    );
+  }
+
+  return Math.min(
+    5,
+    Math.round(trustScore * 100) / 100
+  );
+};
 
 // ============================================================
 // UPDATE REPUTATION COUNTERS
 // ============================================================
 
-const incrementReputation = async (userId, increments) => {
+const incrementReputation = async (
+  userId,
+  increments
+) => {
   if (!userId) {
     throw new Error('userId is required');
   }
 
-  // Fetch existing reputation.
   const {
     data: current,
     error: fetchError,
@@ -177,25 +265,63 @@ const incrementReputation = async (userId, increments) => {
   }
 
   // ----------------------------------------------------------
-  // Create reputation record if missing
+  // Create reputation row
   // ----------------------------------------------------------
 
   if (!current) {
+    const totalBorrows =
+      Number(increments.total_borrows || 0);
+
+    const successfulBorrows =
+      Number(increments.successful_borrows || 0);
+
+    const returnedOnTime =
+      Number(increments.returned_on_time || 0);
+
+    const damagedItems =
+      Number(increments.damaged_items || 0);
+
+    const totalJobs =
+      Number(increments.total_jobs || 0);
+
+    const successfulJobs =
+      Number(increments.successful_jobs || 0);
+
+    const disputes =
+      Number(increments.disputes || 0);
+
+    const repeatUsers =
+      Number(increments.repeat_users || 0);
+
+    const trustScore = calculateTrustScore({
+      totalBorrows,
+      successfulBorrows,
+      returnedOnTime,
+      damagedItems,
+      totalJobs,
+      successfulJobs,
+      repeatUsers,
+      disputes,
+    });
+
     const initial = {
       user_id: userId,
 
-      total_borrows: increments.total_borrows || 0,
-      successful_borrows: increments.successful_borrows || 0,
-      returned_on_time: increments.returned_on_time || 0,
-      returned_late: increments.returned_late || 0,
-      damaged_items: increments.damaged_items || 0,
+      total_borrows: totalBorrows,
+      successful_borrows: successfulBorrows,
+      returned_on_time: returnedOnTime,
+      returned_late:
+        Number(increments.returned_late || 0),
+      damaged_items: damagedItems,
 
-      total_jobs: 0,
-      successful_jobs: 0,
-      disputes: 0,
-      repeat_users: 0,
+      total_jobs: totalJobs,
+      successful_jobs: successfulJobs,
+      disputes,
+      repeat_users: repeatUsers,
 
-      trust_score: 0,
+      trust_score: trustScore,
+
+      // Rating belongs to the review system.
       rating: 0,
     };
 
@@ -209,6 +335,11 @@ const incrementReputation = async (userId, increments) => {
       .single();
 
     if (error) {
+      // Another request may have created the row first.
+      if (error.code === '23505') {
+        return incrementReputation(userId, increments);
+      }
+
       throw error;
     }
 
@@ -216,7 +347,7 @@ const incrementReputation = async (userId, increments) => {
   }
 
   // ----------------------------------------------------------
-  // Calculate new counters
+  // Calculate next counters
   // ----------------------------------------------------------
 
   const next = {
@@ -240,89 +371,36 @@ const incrementReputation = async (userId, increments) => {
       Number(current.damaged_items || 0) +
       Number(increments.damaged_items || 0),
 
-    total_jobs: Number(current.total_jobs || 0),
-    successful_jobs: Number(current.successful_jobs || 0),
-    disputes: Number(current.disputes || 0),
-    repeat_users: Number(current.repeat_users || 0),
+    total_jobs:
+      Number(current.total_jobs || 0) +
+      Number(increments.total_jobs || 0),
 
-    // Keep existing rating here.
-    // Community reviews will handle rating separately.
+    successful_jobs:
+      Number(current.successful_jobs || 0) +
+      Number(increments.successful_jobs || 0),
+
+    disputes:
+      Number(current.disputes || 0) +
+      Number(increments.disputes || 0),
+
+    repeat_users:
+      Number(current.repeat_users || 0) +
+      Number(increments.repeat_users || 0),
+
+    // Never overwrite rating here.
     rating: Number(current.rating || 0),
   };
 
-  // ----------------------------------------------------------
-  // Recalculate trust score
-  // ----------------------------------------------------------
-
-  let borrowScore = 0;
-
-  if (next.total_borrows > 0) {
-    const onTimeRate =
-      next.returned_on_time / next.total_borrows;
-
-    const successRate =
-      next.successful_borrows / next.total_borrows;
-
-    borrowScore =
-      ((onTimeRate * 0.6) +
-        (successRate * 0.4)) * 5;
-  }
-
-  let serviceScore = 0;
-
-  if (next.total_jobs > 0) {
-    const successRate =
-      next.successful_jobs / next.total_jobs;
-
-    const repeatRate = Math.min(
-      next.repeat_users / next.total_jobs,
-      1
-    );
-
-    serviceScore =
-      ((successRate * 0.7) +
-        (repeatRate * 0.3)) * 5;
-  }
-
-  let trustScore = 0;
-
-  if (
-    next.total_borrows > 0 &&
-    next.total_jobs > 0
-  ) {
-    trustScore =
-      (borrowScore * 0.4) +
-      (serviceScore * 0.6);
-  } else if (next.total_borrows > 0) {
-    trustScore = borrowScore;
-  } else if (next.total_jobs > 0) {
-    trustScore = serviceScore;
-  }
-
-  if (next.damaged_items > 0) {
-    trustScore = Math.max(
-      0,
-      trustScore -
-        (next.damaged_items * 0.5)
-    );
-  }
-
-  if (next.disputes > 0) {
-    trustScore = Math.max(
-      0,
-      trustScore -
-        (next.disputes * 0.5)
-    );
-  }
-
-  trustScore = Math.min(
-    5,
-    Math.round(trustScore * 100) / 100
-  );
-
-  // ----------------------------------------------------------
-  // Save
-  // ----------------------------------------------------------
+  const trustScore = calculateTrustScore({
+    totalBorrows: next.total_borrows,
+    successfulBorrows: next.successful_borrows,
+    returnedOnTime: next.returned_on_time,
+    damagedItems: next.damaged_items,
+    totalJobs: next.total_jobs,
+    successfulJobs: next.successful_jobs,
+    repeatUsers: next.repeat_users,
+    disputes: next.disputes,
+  });
 
   const {
     data,
@@ -335,6 +413,12 @@ const incrementReputation = async (userId, increments) => {
       returned_on_time: next.returned_on_time,
       returned_late: next.returned_late,
       damaged_items: next.damaged_items,
+
+      total_jobs: next.total_jobs,
+      successful_jobs: next.successful_jobs,
+      disputes: next.disputes,
+      repeat_users: next.repeat_users,
+
       trust_score: trustScore,
     })
     .eq('id', current.id)
@@ -348,29 +432,15 @@ const incrementReputation = async (userId, increments) => {
   return data;
 };
 
-
 // ============================================================
 // PROCESS RELIABILITY EVENT
-// ============================================================
-//
-// IMPORTANT:
-//
-// Reputation counters are changed ONLY when the reliability
-// event is newly created.
-//
-// If the event already exists:
-//     created = false
-//
-// therefore:
-//     NO reputation increment.
-//
-// This prevents duplicate worker executions from inflating
-// reputation.
 // ============================================================
 
 export const processReliabilityEvent = async ({
   userId,
   borrowRequestId = null,
+  requestId = null,
+  requestProviderId = null,
   assetId = null,
   eventType,
   severity = 'neutral',
@@ -380,6 +450,8 @@ export const processReliabilityEvent = async ({
   const result = await createReliabilityEventOnce({
     userId,
     borrowRequestId,
+    requestId,
+    requestProviderId,
     assetId,
     eventType,
     severity,
@@ -393,16 +465,17 @@ export const processReliabilityEvent = async ({
       created: false,
       reputationUpdated: false,
       event: result.event,
+      reputation: null,
     };
   }
-
-  // ----------------------------------------------------------
-  // Lifecycle events that affect borrow counters
-  // ----------------------------------------------------------
 
   let increments = null;
 
   switch (eventType) {
+    // --------------------------------------------------------
+    // BORROW
+    // --------------------------------------------------------
+
     case 'borrow_completed':
       increments = {
         total_borrows: 1,
@@ -428,10 +501,29 @@ export const processReliabilityEvent = async ({
       };
       break;
 
+    // --------------------------------------------------------
+    // SERVICE
+    // --------------------------------------------------------
+
+    case 'service_completed':
+      increments = {
+        total_jobs: 1,
+        successful_jobs: 1,
+      };
+      break;
+
+    // --------------------------------------------------------
+    // LEDGER-ONLY EVENTS
+    // --------------------------------------------------------
+
+    case 'borrower_ghosted':
+    case 'lender_ghosted':
+    case 'dispute_opened':
+    case 'dispute_resolved':
+    case 'service_cancelled':
+    case 'provider_ghosted':
+    case 'requester_ghosted':
     default:
-      // Ghosting, disputes, etc. are recorded in the
-      // reliability ledger but do not automatically alter
-      // borrow counters here.
       increments = null;
       break;
   }
@@ -451,4 +543,48 @@ export const processReliabilityEvent = async ({
     event: result.event,
     reputation,
   };
+};
+
+// ============================================================
+// SERVICE COMPLETED
+// ============================================================
+//
+// Single public helper for service / repair / maintenance
+// completion.
+// ============================================================
+
+export const recordServiceCompleted = async ({
+  userId,
+  requestId,
+  requestProviderId,
+  assetId = null,
+  requestType = null,
+  title = null,
+}) => {
+  if (!userId) {
+    throw new Error('userId is required');
+  }
+
+  if (!requestId) {
+    throw new Error('requestId is required');
+  }
+
+  if (!requestProviderId) {
+    throw new Error('requestProviderId is required');
+  }
+
+  return processReliabilityEvent({
+    userId,
+    requestId,
+    requestProviderId,
+    assetId,
+    eventType: 'service_completed',
+    severity: 'positive',
+    description: title
+      ? `Completed request: ${title}`
+      : 'Service request completed.',
+    metadata: {
+      request_type: requestType,
+    },
+  });
 };
