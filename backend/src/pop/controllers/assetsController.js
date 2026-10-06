@@ -1,5 +1,11 @@
+// backend/src/pop/controllers/assetController.js
+
 import { supabase } from "../../db/index.js";
-import { createNotification } from "./notificationController.js";
+
+import {
+  createPOPNotification,
+} from "../../shared/controllers/notificationController.js";
+
 
 /**
  * =========================================================
@@ -25,6 +31,7 @@ const householdIdsMatch = (
   );
 };
 
+
 /**
  * Verify that a user is an active member of a household.
  *
@@ -38,7 +45,10 @@ const verifyHouseholdMembership = async (
     return false;
   }
 
-  const { data, error } = await supabase
+  const {
+    data,
+    error,
+  } = await supabase
     .from("pop_household_members")
     .select("id")
     .eq("household_id", householdId)
@@ -57,6 +67,7 @@ const verifyHouseholdMembership = async (
 
   return !!data;
 };
+
 
 /**
  * Read access:
@@ -87,6 +98,7 @@ const validateAssetAccess = async (
   return false;
 };
 
+
 /**
  * Mutation access:
  *
@@ -103,6 +115,7 @@ const validateAssetOwnership = (
     asset.user_id === userId
   );
 };
+
 
 /**
  * Validate that a purchase belongs to the
@@ -166,6 +179,7 @@ const validatePurchaseForAssetLink = async (
   };
 };
 
+
 /**
  * Standard asset select payload (without sharing).
  */
@@ -197,6 +211,7 @@ const ASSET_SELECT = `
     status
   )
 `;
+
 
 /**
  * Fetch sharing settings for multiple assets.
@@ -242,7 +257,10 @@ const attachSharingSettings = async (
   const sharingMap = new Map();
 
   (sharingRows || []).forEach((row) => {
-    sharingMap.set(row.asset_id, row);
+    sharingMap.set(
+      row.asset_id,
+      row
+    );
   });
 
   return assets.map((asset) => ({
@@ -251,6 +269,7 @@ const attachSharingSettings = async (
       sharingMap.get(asset.id) || null,
   }));
 };
+
 
 /**
  * Fetch sharing settings for one asset.
@@ -289,6 +308,7 @@ const attachSharingSettingsSingle = async (
   };
 };
 
+
 /**
  * =========================================================
  * Create Asset
@@ -321,7 +341,8 @@ export const createAsset = async (
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message: "Authentication required.",
+        message:
+          "Authentication required.",
       });
     }
 
@@ -337,12 +358,15 @@ export const createAsset = async (
     } = req.body;
 
     const targetHouseholdId =
-      normalizeHouseholdId(householdId);
+      normalizeHouseholdId(
+        householdId
+      );
 
     if (!name || !name.trim()) {
       return res.status(400).json({
         success: false,
-        message: "Asset name is required.",
+        message:
+          "Asset name is required.",
       });
     }
 
@@ -395,25 +419,13 @@ export const createAsset = async (
           success: false,
           message:
             "This purchase is already linked to another asset.",
-          assetId: purchase.asset_id,
+          assetId:
+            purchase.asset_id,
         });
       }
 
       /**
-       * IMPORTANT:
-       *
        * Household IDs must match exactly.
-       *
-       * Valid:
-       *   null + null
-       *   householdA + householdA
-       *
-       * Invalid:
-       *   null + householdA
-       *   householdA + null
-       *   householdA + householdB
-       *
-       * Never silently repair this by changing either record.
        */
       if (
         !householdIdsMatch(
@@ -440,18 +452,28 @@ export const createAsset = async (
       .insert({
         household_id:
           targetHouseholdId,
-        user_id: userId,
+
+        user_id:
+          userId,
+
         purchase_id:
           purchaseId || null,
-        name: name.trim(),
+
+        name:
+          name.trim(),
+
         asset_type:
           assetType || null,
+
         location:
           location?.trim() || null,
+
         condition:
           condition || null,
+
         status:
           status || "active",
+
         notes:
           notes?.trim() || null,
       })
@@ -466,8 +488,10 @@ export const createAsset = async (
 
       return res.status(500).json({
         success: false,
-        message: "Failed to create asset.",
-        error: assetError.message,
+        message:
+          "Failed to create asset.",
+        error:
+          assetError.message,
       });
     }
 
@@ -482,13 +506,24 @@ export const createAsset = async (
       } = await supabase
         .from("pop_purchases")
         .update({
-          asset_id: asset.id,
+          asset_id:
+            asset.id,
+
           updated_at:
             new Date().toISOString(),
         })
-        .eq("id", purchaseId)
-        .eq("user_id", userId)
-        .is("asset_id", null);
+        .eq(
+          "id",
+          purchaseId
+        )
+        .eq(
+          "user_id",
+          userId
+        )
+        .is(
+          "asset_id",
+          null
+        );
 
       if (purchaseUpdateError) {
         console.error(
@@ -503,8 +538,14 @@ export const createAsset = async (
         await supabase
           .from("pop_assets")
           .delete()
-          .eq("id", asset.id)
-          .eq("user_id", userId);
+          .eq(
+            "id",
+            asset.id
+          )
+          .eq(
+            "user_id",
+            userId
+          );
 
         return res.status(500).json({
           success: false,
@@ -517,25 +558,46 @@ export const createAsset = async (
     }
 
     /**
-     * Notification.
+     * ========================================================
+     * NOTIFICATION
+     * ========================================================
+     *
+     * This is a POP controller, therefore use:
+     *
+     * createPOPNotification()
+     *
+     * The shared controller will automatically save:
+     *
+     *   source = "pop"
+     *
+     * in public.notifications.
      */
     try {
-      if (
-        typeof createNotification ===
-        "function"
-      ) {
-        const notificationMessage =
-          targetHouseholdId
-            ? `${asset.name} was added to your household assets.`
-            : `${asset.name} was added to your private assets.`;
+      const notificationMessage =
+        targetHouseholdId
+          ? `${asset.name} was added to your household assets.`
+          : `${asset.name} was added to your private assets.`;
 
-        await createNotification(
-          userId,
-          "asset_created",
-          "Asset added",
-          notificationMessage
-        );
-      }
+      await createPOPNotification(
+        userId,
+
+        "asset_created",
+
+        "Asset added",
+
+        notificationMessage,
+
+        {
+          asset_id:
+            asset.id,
+
+          household_id:
+            targetHouseholdId,
+
+          purchase_id:
+            purchaseId || null,
+        }
+      );
     } catch (notificationError) {
       console.warn(
         "Asset notification failed:",
@@ -551,8 +613,13 @@ export const createAsset = async (
       error: finalAssetError,
     } = await supabase
       .from("pop_assets")
-      .select(ASSET_SELECT)
-      .eq("id", asset.id)
+      .select(
+        ASSET_SELECT
+      )
+      .eq(
+        "id",
+        asset.id
+      )
       .single();
 
     if (finalAssetError) {
@@ -565,7 +632,8 @@ export const createAsset = async (
         success: true,
         message:
           "Asset created successfully.",
-        data: withSharing,
+        data:
+          withSharing,
       });
     }
 
@@ -578,8 +646,10 @@ export const createAsset = async (
       success: true,
       message:
         "Asset created successfully.",
-      data: withSharing,
+      data:
+        withSharing,
     });
+
   } catch (error) {
     console.error(
       "createAsset error:",
@@ -594,16 +664,11 @@ export const createAsset = async (
   }
 };
 
+
 /**
  * =========================================================
  * Get Assets
  * =========================================================
- *
- * Read visibility:
- *
- * - User's own private assets
- * - User's own household assets
- * - Assets belonging to households where user is active member
  */
 export const getAssets = async (
   req,
@@ -615,7 +680,8 @@ export const getAssets = async (
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message: "Authentication required.",
+        message:
+          "Authentication required.",
       });
     }
 
@@ -645,11 +711,16 @@ export const getAssets = async (
       .from("pop_assets")
       .select(
         ASSET_SELECT,
-        { count: "exact" }
+        {
+          count: "exact",
+        }
       )
-      .order("created_at", {
-        ascending: false,
-      });
+      .order(
+        "created_at",
+        {
+          ascending: false,
+        }
+      );
 
     /**
      * Explicit household filter.
@@ -685,10 +756,20 @@ export const getAssets = async (
         data: memberships,
         error: membershipError,
       } = await supabase
-        .from("pop_household_members")
-        .select("household_id")
-        .eq("user_id", userId)
-        .eq("status", "active");
+        .from(
+          "pop_household_members"
+        )
+        .select(
+          "household_id"
+        )
+        .eq(
+          "user_id",
+          userId
+        )
+        .eq(
+          "status",
+          "active"
+        );
 
       if (membershipError) {
         console.error(
@@ -705,10 +786,13 @@ export const getAssets = async (
 
       const householdIds =
         memberships?.map(
-          (item) => item.household_id
+          (item) =>
+            item.household_id
         ) || [];
 
-      if (householdIds.length > 0) {
+      if (
+        householdIds.length > 0
+      ) {
         query = query.or(
           `user_id.eq.${userId},household_id.in.(${householdIds.join(
             ","
@@ -737,12 +821,14 @@ export const getAssets = async (
     }
 
     if (search?.trim()) {
-      const safeSearch = search
-        .trim()
-        .replace(
-          /[%_,]/g,
-          (char) => `\\${char}`
-        );
+      const safeSearch =
+        search
+          .trim()
+          .replace(
+            /[%_,]/g,
+            (char) =>
+              `\\${char}`
+          );
 
       query = query.or(
         `name.ilike.%${safeSearch}%,location.ilike.%${safeSearch}%,asset_type.ilike.%${safeSearch}%`
@@ -754,7 +840,9 @@ export const getAssets = async (
       limitNumber;
 
     const to =
-      from + limitNumber - 1;
+      from +
+      limitNumber -
+      1;
 
     query = query.range(
       from,
@@ -777,7 +865,8 @@ export const getAssets = async (
         success: false,
         message:
           "Failed to retrieve assets.",
-        error: error.message,
+        error:
+          error.message,
       });
     }
 
@@ -788,17 +877,27 @@ export const getAssets = async (
 
     return res.json({
       success: true,
-      data: enrichedData,
+      data:
+        enrichedData,
+
       pagination: {
-        page: pageNumber,
-        limit: limitNumber,
-        total: count || 0,
-        totalPages: Math.ceil(
-          (count || 0) /
-            limitNumber
-        ),
+        page:
+          pageNumber,
+
+        limit:
+          limitNumber,
+
+        total:
+          count || 0,
+
+        totalPages:
+          Math.ceil(
+            (count || 0) /
+              limitNumber
+          ),
       },
     });
+
   } catch (error) {
     console.error(
       "getAssets error:",
@@ -813,6 +912,7 @@ export const getAssets = async (
   }
 };
 
+
 /**
  * =========================================================
  * Get Single Asset
@@ -824,13 +924,18 @@ export const getAsset = async (
   res
 ) => {
   try {
-    const userId = getUserId(req);
-    const { id } = req.params;
+    const userId =
+      getUserId(req);
+
+    const {
+      id,
+    } = req.params;
 
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message: "Authentication required.",
+        message:
+          "Authentication required.",
       });
     }
 
@@ -882,7 +987,10 @@ export const getAsset = async (
           updated_at
         )
       `)
-      .eq("id", id)
+      .eq(
+        "id",
+        id
+      )
       .maybeSingle();
 
     if (error) {
@@ -895,14 +1003,16 @@ export const getAsset = async (
         success: false,
         message:
           "Failed to retrieve asset.",
-        error: error.message,
+        error:
+          error.message,
       });
     }
 
     if (!asset) {
       return res.status(404).json({
         success: false,
-        message: "Asset not found.",
+        message:
+          "Asset not found.",
       });
     }
 
@@ -927,8 +1037,10 @@ export const getAsset = async (
 
     return res.json({
       success: true,
-      data: enrichedAsset,
+      data:
+        enrichedAsset,
     });
+
   } catch (error) {
     console.error(
       "getAsset error:",
@@ -943,38 +1055,32 @@ export const getAsset = async (
   }
 };
 
+
 /**
  * =========================================================
  * Update Asset
  * =========================================================
- *
- * Mutation rules:
- *
- * - Only asset owner may update.
- * - Household membership is required when moving the asset
- *   into a household.
- * - Linked Purchase and Asset household IDs must match
- *   exactly.
- * - The controller never changes the Purchase household.
  */
 export const updateAsset = async (
   req,
   res
 ) => {
   try {
-    const userId = getUserId(req);
-    const { id } = req.params;
+    const userId =
+      getUserId(req);
+
+    const {
+      id,
+    } = req.params;
 
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message: "Authentication required.",
+        message:
+          "Authentication required.",
       });
     }
 
-    /**
-     * Load the existing Asset.
-     */
     const {
       data: existingAsset,
       error: fetchError,
@@ -989,7 +1095,10 @@ export const updateAsset = async (
           asset_id
         )
       `)
-      .eq("id", id)
+      .eq(
+        "id",
+        id
+      )
       .maybeSingle();
 
     if (fetchError) {
@@ -1013,11 +1122,6 @@ export const updateAsset = async (
       });
     }
 
-    /**
-     * IMPORTANT:
-     *
-     * Household access does not grant mutation ownership.
-     */
     const isOwner =
       validateAssetOwnership(
         existingAsset,
@@ -1044,15 +1148,10 @@ export const updateAsset = async (
         "householdId"
       );
 
-    /**
-     * Determine target relationship.
-     */
     const targetHouseholdId =
       householdIdWasProvided
         ? normalizeHouseholdId(
-            householdIdWasProvided
-              ? req.body.householdId
-              : null
+            req.body.householdId
           )
         : normalizeHouseholdId(
             existingAsset.household_id
@@ -1064,10 +1163,6 @@ export const updateAsset = async (
         : existingAsset.purchase_id ||
           null;
 
-    /**
-     * If household is changing to a household,
-     * the owner must be a member.
-     */
     if (
       householdIdWasProvided &&
       targetHouseholdId !==
@@ -1093,9 +1188,6 @@ export const updateAsset = async (
 
     let targetPurchase = null;
 
-    /**
-     * Validate target Purchase if there is one.
-     */
     if (targetPurchaseId) {
       const purchaseValidation =
         await validatePurchaseForAssetLink(
@@ -1114,10 +1206,6 @@ export const updateAsset = async (
       targetPurchase =
         purchaseValidation.purchase;
 
-      /**
-       * It can already point to this asset.
-       * It cannot point to another asset.
-       */
       if (
         targetPurchase.asset_id &&
         targetPurchase.asset_id !== id
@@ -1131,12 +1219,6 @@ export const updateAsset = async (
         });
       }
 
-      /**
-       * CRITICAL INVARIANT:
-       *
-       * Purchase and Asset household IDs must
-       * be exactly equal.
-       */
       if (
         !householdIdsMatch(
           targetHouseholdId,
@@ -1164,10 +1246,6 @@ export const updateAsset = async (
       (targetPurchaseId || null) !==
       previousPurchaseId;
 
-    /**
-     * If an existing linked purchase is being kept
-     * while the household changes, validate the invariant.
-     */
     if (
       !purchaseIdWasProvided &&
       previousPurchaseId
@@ -1198,9 +1276,8 @@ export const updateAsset = async (
     }
 
     /**
-     * ---------------------------------------------------------
-     * Step 1: Unlink previous purchase if relationship changes
-     * ---------------------------------------------------------
+     * Step 1:
+     * Unlink previous purchase.
      */
     if (
       relationshipChanging &&
@@ -1211,13 +1288,24 @@ export const updateAsset = async (
       } = await supabase
         .from("pop_purchases")
         .update({
-          asset_id: null,
+          asset_id:
+            null,
+
           updated_at:
             new Date().toISOString(),
         })
-        .eq("id", previousPurchaseId)
-        .eq("user_id", userId)
-        .eq("asset_id", id);
+        .eq(
+          "id",
+          previousPurchaseId
+        )
+        .eq(
+          "user_id",
+          userId
+        )
+        .eq(
+          "asset_id",
+          id
+        );
 
       if (oldPurchaseError) {
         console.error(
@@ -1236,9 +1324,8 @@ export const updateAsset = async (
     }
 
     /**
-     * ---------------------------------------------------------
-     * Step 2: Update Asset
-     * ---------------------------------------------------------
+     * Step 2:
+     * Update Asset.
      */
     const updateData = {};
 
@@ -1252,12 +1339,17 @@ export const updateAsset = async (
         targetPurchaseId;
     }
 
+    const {
+      name,
+      assetType,
+      location,
+      condition,
+      status,
+      notes,
+    } = req.body;
+
     if (name !== undefined) {
       if (!name?.trim()) {
-        /**
-         * If we already unlinked the previous purchase,
-         * restore it before returning.
-         */
         if (
           relationshipChanging &&
           previousPurchaseId
@@ -1265,7 +1357,9 @@ export const updateAsset = async (
           await supabase
             .from("pop_purchases")
             .update({
-              asset_id: id,
+              asset_id:
+                id,
+
               updated_at:
                 new Date().toISOString(),
             })
@@ -1324,8 +1418,14 @@ export const updateAsset = async (
     } = await supabase
       .from("pop_assets")
       .update(updateData)
-      .eq("id", id)
-      .eq("user_id", userId)
+      .eq(
+        "id",
+        id
+      )
+      .eq(
+        "user_id",
+        userId
+      )
       .select()
       .single();
 
@@ -1335,9 +1435,6 @@ export const updateAsset = async (
         updateError
       );
 
-      /**
-       * Restore previous purchase link.
-       */
       if (
         relationshipChanging &&
         previousPurchaseId
@@ -1345,7 +1442,9 @@ export const updateAsset = async (
         await supabase
           .from("pop_purchases")
           .update({
-            asset_id: id,
+            asset_id:
+              id,
+
             updated_at:
               new Date().toISOString(),
           })
@@ -1369,9 +1468,8 @@ export const updateAsset = async (
     }
 
     /**
-     * ---------------------------------------------------------
-     * Step 3: Link new purchase
-     * ---------------------------------------------------------
+     * Step 3:
+     * Link new purchase.
      */
     if (
       relationshipChanging &&
@@ -1382,7 +1480,9 @@ export const updateAsset = async (
       } = await supabase
         .from("pop_purchases")
         .update({
-          asset_id: id,
+          asset_id:
+            id,
+
           updated_at:
             new Date().toISOString(),
         })
@@ -1405,30 +1505,34 @@ export const updateAsset = async (
           newPurchaseError
         );
 
-        /**
-         * Roll Asset back.
-         */
         await supabase
           .from("pop_assets")
           .update({
             purchase_id:
               previousPurchaseId,
+
             household_id:
               previousHouseholdId,
+
             updated_at:
               new Date().toISOString(),
           })
-          .eq("id", id)
-          .eq("user_id", userId);
+          .eq(
+            "id",
+            id
+          )
+          .eq(
+            "user_id",
+            userId
+          );
 
-        /**
-         * Restore previous purchase link.
-         */
         if (previousPurchaseId) {
           await supabase
             .from("pop_purchases")
             .update({
-              asset_id: id,
+              asset_id:
+                id,
+
               updated_at:
                 new Date().toISOString(),
             })
@@ -1453,9 +1557,8 @@ export const updateAsset = async (
     }
 
     /**
-     * ---------------------------------------------------------
-     * Step 4: Final relationship verification
-     * ---------------------------------------------------------
+     * Step 4:
+     * Final relationship verification.
      */
     if (targetPurchaseId) {
       const {
@@ -1486,27 +1589,34 @@ export const updateAsset = async (
           linkedPurchaseError
         );
 
-        /**
-         * Best-effort rollback.
-         */
         await supabase
           .from("pop_assets")
           .update({
             purchase_id:
               previousPurchaseId,
+
             household_id:
               previousHouseholdId,
+
             updated_at:
               new Date().toISOString(),
           })
-          .eq("id", id)
-          .eq("user_id", userId);
+          .eq(
+            "id",
+            id
+          )
+          .eq(
+            "user_id",
+            userId
+          );
 
         if (previousPurchaseId) {
           await supabase
             .from("pop_purchases")
             .update({
-              asset_id: id,
+              asset_id:
+                id,
+
               updated_at:
                 new Date().toISOString(),
             })
@@ -1527,7 +1637,9 @@ export const updateAsset = async (
           await supabase
             .from("pop_purchases")
             .update({
-              asset_id: null,
+              asset_id:
+                null,
+
               updated_at:
                 new Date().toISOString(),
             })
@@ -1558,39 +1670,51 @@ export const updateAsset = async (
         console.error(
           "updateAsset relationship consistency failure:",
           {
-            assetId: id,
+            assetId:
+              id,
+
             purchaseId:
               targetPurchaseId,
+
             assetHouseholdId:
               targetHouseholdId,
+
             purchaseAssetId:
               linkedPurchase.asset_id,
+
             purchaseHouseholdId:
               linkedPurchase.household_id,
           }
         );
 
-        /**
-         * Best-effort rollback.
-         */
         await supabase
           .from("pop_assets")
           .update({
             purchase_id:
               previousPurchaseId,
+
             household_id:
               previousHouseholdId,
+
             updated_at:
               new Date().toISOString(),
           })
-          .eq("id", id)
-          .eq("user_id", userId);
+          .eq(
+            "id",
+            id
+          )
+          .eq(
+            "user_id",
+            userId
+          );
 
         if (previousPurchaseId) {
           await supabase
             .from("pop_purchases")
             .update({
-              asset_id: id,
+              asset_id:
+                id,
+
               updated_at:
                 new Date().toISOString(),
             })
@@ -1611,7 +1735,9 @@ export const updateAsset = async (
           await supabase
             .from("pop_purchases")
             .update({
-              asset_id: null,
+              asset_id:
+                null,
+
               updated_at:
                 new Date().toISOString(),
             })
@@ -1634,17 +1760,20 @@ export const updateAsset = async (
     }
 
     /**
-     * ---------------------------------------------------------
-     * Final asset response
-     * ---------------------------------------------------------
+     * Final asset response.
      */
     const {
       data: finalAsset,
       error: finalAssetError,
     } = await supabase
       .from("pop_assets")
-      .select(ASSET_SELECT)
-      .eq("id", id)
+      .select(
+        ASSET_SELECT
+      )
+      .eq(
+        "id",
+        id
+      )
       .single();
 
     if (finalAssetError) {
@@ -1657,7 +1786,8 @@ export const updateAsset = async (
         success: true,
         message:
           "Asset updated successfully.",
-        data: withSharing,
+        data:
+          withSharing,
       });
     }
 
@@ -1670,8 +1800,10 @@ export const updateAsset = async (
       success: true,
       message:
         "Asset updated successfully.",
-      data: withSharing,
+      data:
+        withSharing,
     });
+
   } catch (error) {
     console.error(
       "updateAsset error:",
@@ -1685,6 +1817,7 @@ export const updateAsset = async (
     });
   }
 };
+
 
 /**
  * =========================================================
@@ -1706,13 +1839,18 @@ export const deleteAsset = async (
   res
 ) => {
   try {
-    const userId = getUserId(req);
-    const { id } = req.params;
+    const userId =
+      getUserId(req);
+
+    const {
+      id,
+    } = req.params;
 
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message: "Authentication required.",
+        message:
+          "Authentication required.",
       });
     }
 
@@ -1729,7 +1867,10 @@ export const deleteAsset = async (
           asset_id
         )
       `)
-      .eq("id", id)
+      .eq(
+        "id",
+        id
+      )
       .maybeSingle();
 
     if (fetchError) {
@@ -1753,9 +1894,6 @@ export const deleteAsset = async (
       });
     }
 
-    /**
-     * Household access does not grant delete permission.
-     */
     const isOwner =
       validateAssetOwnership(
         asset,
@@ -1779,7 +1917,9 @@ export const deleteAsset = async (
       } = await supabase
         .from("pop_purchases")
         .update({
-          asset_id: null,
+          asset_id:
+            null,
+
           updated_at:
             new Date().toISOString(),
         })
@@ -1820,8 +1960,14 @@ export const deleteAsset = async (
     } = await supabase
       .from("pop_assets")
       .delete()
-      .eq("id", id)
-      .eq("user_id", userId);
+      .eq(
+        "id",
+        id
+      )
+      .eq(
+        "user_id",
+        userId
+      );
 
     if (deleteError) {
       console.error(
@@ -1836,7 +1982,9 @@ export const deleteAsset = async (
         await supabase
           .from("pop_purchases")
           .update({
-            asset_id: id,
+            asset_id:
+              id,
+
             updated_at:
               new Date().toISOString(),
           })
@@ -1864,6 +2012,7 @@ export const deleteAsset = async (
       message:
         "Asset deleted successfully.",
     });
+
   } catch (error) {
     console.error(
       "deleteAsset error:",
@@ -1878,6 +2027,7 @@ export const deleteAsset = async (
   }
 };
 
+
 /**
  * =========================================================
  * Get Household Assets
@@ -1888,12 +2038,18 @@ export const getHouseholdAssets = async (
   req,
   res
 ) => {
-  const { householdId } = req.params;
+  const {
+    householdId,
+  } = req.params;
 
   req.query = {
     ...req.query,
     householdId,
   };
 
-  return getAssets(req, res);
+  return getAssets(
+    req,
+    res
+  );
 };
+

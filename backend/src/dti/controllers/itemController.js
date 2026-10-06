@@ -2,7 +2,7 @@
 
 import { supabase } from '../../db/index.js';
 import { deleteMultipleImages } from '../../utils/cloudinary.js';
-import { createNotification } from './notificationController.js';
+import { createDTINotification } from '../../shared/controllers/notificationController.js';
 
 /* ============================================================
    CONSTANTS
@@ -422,7 +422,7 @@ const safeNotification = async (
   }
 
   try {
-    await createNotification(
+    await createDTINotification(
       userId,
       type,
       title,

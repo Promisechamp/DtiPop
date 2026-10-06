@@ -1,5 +1,5 @@
 import { supabase } from '../../db/index.js';
-import { createNotification } from './notificationController.js';
+import { createPOPNotification } from '../../shared/controllers/notificationController.js';
 import { isOverdue } from '../../utils/dateHelpers.js';
 
 // ============================================================
@@ -161,7 +161,7 @@ export const createTask = async (req, res) => {
 
     // Notify assignee if different from creator
     if (assignedTo && assignedTo !== userId) {
-      await createNotification(
+      await createPOPNotification(
         assignedTo,
         'task_assigned',
         'Task assigned',
@@ -170,7 +170,7 @@ export const createTask = async (req, res) => {
     }
 
     // Notify creator
-    await createNotification(
+    await createPOPNotification(
       userId,
       'task_created',
       'Task created',
@@ -452,7 +452,7 @@ export const updateTask = async (req, res) => {
 
     // Notify assignee if changed and not the same as the updater
     if (assignedTo !== undefined && assignedTo !== userId && assignedTo !== access.data.assigned_to) {
-      await createNotification(
+      await createPOPNotification(
         assignedTo,
         'task_assigned',
         'Task assigned',
@@ -463,7 +463,7 @@ export const updateTask = async (req, res) => {
     // If status completed and task is linked to maintenance, maybe update maintenance too?
     // This could be handled separately.
 
-    await createNotification(
+    await createPOPNotification(
       userId,
       'task_updated',
       'Task updated',
@@ -553,7 +553,7 @@ export const completeTask = async (req, res) => {
     }
 
     // Notification
-    await createNotification(
+    await createPOPNotification(
       userId,
       'task_completed',
       'Task completed',
@@ -562,7 +562,7 @@ export const completeTask = async (req, res) => {
 
     // Also notify creator if different
     if (access.data.created_by !== userId) {
-      await createNotification(
+      await createPOPNotification(
         access.data.created_by,
         'task_completed',
         'Task completed',
@@ -622,7 +622,7 @@ export const deleteTask = async (req, res) => {
     if (error) throw error;
 
     // Notification
-    await createNotification(
+    await createPOPNotification(
       userId,
       'task_deleted',
       'Task deleted',

@@ -1,7 +1,7 @@
 // backend/controllers/chatController.js
 import { supabase } from '../../db/index.js';
-import { sendNotification } from '../../index.js';
-import { createNotification } from './notificationController.js';
+
+import { createDTINotification } from '../../shared/controllers/notificationController.js';
 
 
 /**
@@ -317,7 +317,7 @@ export const processMessage = async (conversationId, userId, content, fileData =
       message_preview: fileData ? '📎 ' + (fileData.fileName || 'File') : (content || '').substring(0, 50)
     };
 
-    await createNotification(
+    await createDTINotification(
       otherUserId,
       'chat',
       'New Message',

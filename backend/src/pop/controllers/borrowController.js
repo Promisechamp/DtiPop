@@ -1,5 +1,8 @@
 import { supabase } from '../../db/index.js';
-import { createNotification } from './notificationController.js';
+import {
+  createPOPNotification,
+} from "../../shared/controllers/notificationController.js";
+
 import { updateReputation } from './reputationController.js';
 
 // ============================================================
@@ -824,7 +827,7 @@ export const createBorrowRequest = async (
     // --------------------------------------------------------
 
     try {
-      await createNotification({
+      await createPOPNotification({
         userId: ownerId,
         type: 'borrow_requested',
         title: 'Borrow request',
@@ -839,7 +842,7 @@ export const createBorrowRequest = async (
         },
       });
 
-      await createNotification({
+      await createPOPNotification({
         userId,
         type: 'borrow_requested',
         title: 'Borrow request sent',
@@ -1310,7 +1313,7 @@ export const selectBorrower = async (
     }
 
     try {
-      await createNotification({
+      await createPOPNotification({
         userId:
           selected.requester_id,
         type:
@@ -1329,7 +1332,7 @@ export const selectBorrower = async (
         },
       });
 
-      await createNotification({
+      await createPOPNotification({
         userId:
           selected.owner_id,
         type:
@@ -1475,7 +1478,7 @@ export const acceptBorrowSelection = async (
 
     if (borrowRequest?.owner_id) {
       try {
-        await createNotification({
+        await createPOPNotification({
           userId:
             borrowRequest.owner_id,
           type:
@@ -1637,7 +1640,7 @@ export const markPickedUp = async (
     }
 
     try {
-      await createNotification({
+      await createPOPNotification({
         userId: data.owner_id,
         type: 'borrow_picked_up',
         title: 'Item picked up',
@@ -1907,7 +1910,7 @@ export const markReturned = async (
       });
 
     try {
-      await createNotification({
+      await createPOPNotification({
         userId:
           data.owner_id,
         type: 'borrow_returned',
@@ -2101,7 +2104,7 @@ export const markCompleted = async (
       });
 
     try {
-      await createNotification({
+      await createPOPNotification({
         userId:
           data.requester_id,
         type:
@@ -2120,7 +2123,7 @@ export const markCompleted = async (
         },
       });
 
-      await createNotification({
+      await createPOPNotification({
         userId:
           data.owner_id,
         type:
@@ -2267,7 +2270,7 @@ export const cancelBorrowRequest = async (
           ? data.owner_id
           : data.requester_id;
 
-      await createNotification({
+      await createPOPNotification({
         userId:
           otherPartyId,
         type:
@@ -2418,7 +2421,7 @@ export const expireBorrowSelection = async (
       data.borrowRequest;
 
     try {
-      await createNotification({
+      await createPOPNotification({
         userId:
           borrowRequest.requester_id,
         type:
@@ -2437,7 +2440,7 @@ export const expireBorrowSelection = async (
         },
       });
 
-      await createNotification({
+      await createPOPNotification({
         userId:
           borrowRequest.owner_id,
         type:

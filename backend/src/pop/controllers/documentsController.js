@@ -1,5 +1,5 @@
 import { supabase } from '../../db/index.js';
-import { createNotification } from './notificationController.js';
+import { createPOPNotification } from '../../shared/controllers/notificationController.js';
 import { uploadToCloudinary, deleteImage } from '../../utils/cloudinary.js';
 
 // ============================================================
@@ -190,7 +190,7 @@ export const createDocument = async (req, res) => {
     if (error) throw error;
 
     // Notification
-    await createNotification(
+    await createPOPNotification(
       userId,
       'document_created',
       'Document created',
@@ -304,7 +304,7 @@ export const createDocumentWithUpload = async (req, res) => {
     }
 
     // Notification
-    await createNotification(
+    await createPOPNotification(
       userId,
       'document_created',
       'Document created',
@@ -583,7 +583,7 @@ export const updateDocument = async (req, res) => {
     }
 
     // Notification
-    await createNotification(
+    await createPOPNotification(
       userId,
       'document_updated',
       'Document updated',
@@ -651,7 +651,7 @@ export const deleteDocument = async (req, res) => {
     }
 
     // Notification
-    await createNotification(
+    await createPOPNotification(
       userId,
       'document_deleted',
       'Document deleted',

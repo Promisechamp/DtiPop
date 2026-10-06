@@ -287,39 +287,62 @@ export const tasksAPI = {
 // REQUESTS
 // ============================================================
 export const requestsAPI = {
-  create: (data) => popApi.post("/pop/requests", data),
-  getAll: (params = {}) => popApi.get("/pop/requests", { params }),
-  getById: (id) => popApi.get(`/pop/requests/${id}`),
-  get: (id) => popApi.get(`/pop/requests/${id}`),
-  update: (id, data) => popApi.put(`/pop/requests/${id}`, data),
-  delete: (id) => popApi.delete(`/pop/requests/${id}`),
-  fulfill: (id, notes) => popApi.post(`/pop/requests/${id}/fulfill`, { notes }),
-  getMyRequests: (params = {}) => popApi.get("/pop/requests/my", { params }),
+  create: (data) =>
+    popApi.post("/pop/requests", data),
+
+  getAll: (params = {}) =>
+    popApi.get("/pop/requests", { params }),
+
+  getById: (id) =>
+    popApi.get(`/pop/requests/${id}`),
+
+  getForMe: (params = {}) =>
+    popApi.get("/pop/requests/for-me", { params }),
+
+  getMyRequests: (params = {}) =>
+    popApi.get("/pop/requests/mine", { params }),
+
   getByHousehold: (householdId, params = {}) =>
     popApi.get(`/pop/requests/household/${householdId}`, { params }),
+
   getOpenByHousehold: (householdId, params = {}) =>
     popApi.get(`/pop/requests/household/${householdId}/open`, { params }),
-  getProviders: (requestId) => popApi.get(`/pop/requests/${requestId}/providers`),
-		getProviderProfile: (providerId) =>
-  popApi.get(`/pop/requests/providers/${providerId}/profile`),
-  findMatchingProviders: (requestId, params = {}) =>
-    popApi.get(`/pop/requests/${requestId}/matching-providers`, { params }),
+
+  update: (id, data) =>
+    popApi.patch(`/pop/requests/${id}`, data),
+
+  delete: (id) =>
+    popApi.delete(`/pop/requests/${id}`),
+
+  fulfill: (id) =>
+    popApi.patch(`/pop/requests/${id}/fulfill`),
+
+  cancel: (id) =>
+    popApi.patch(`/pop/requests/${id}/cancel`),
+
+  getProviders: (requestId) =>
+    popApi.get(`/pop/requests/${requestId}/providers`),
+
   findProviders: (requestId, params = {}) =>
-    popApi.get(`/pop/requests/${requestId}/matching-providers`, { params }),
+    popApi.get(`/pop/requests/${requestId}/providers/find`, { params }),
+
   connectProvider: (requestId, data) =>
     popApi.post(`/pop/requests/${requestId}/providers`, data),
-  respondToProviderRequest: (relationshipId, action) =>
-    popApi.patch(`/pop/requests/provider-relationships/${relationshipId}/respond`, { action }),
-  respondProvider: (relationshipId, action) =>
-    popApi.patch(`/pop/requests/provider-relationships/${relationshipId}/respond`, { action }),
+
+  getProviderProfile: (providerId) =>
+    popApi.get(`/pop/requests/providers/${providerId}/profile`),
+
+  respondToProviderRequest: (relationshipId, action, scope = null) =>
+    popApi.patch(`/pop/request-providers/${relationshipId}/respond`, {
+      action,
+      ...(scope !== null ? { scope } : {}),
+    }),
+
   startProviderRequest: (relationshipId) =>
-    popApi.patch(`/pop/requests/provider-relationships/${relationshipId}/start`),
-  startProvider: (relationshipId) =>
-    popApi.patch(`/pop/requests/provider-relationships/${relationshipId}/start`),
+    popApi.patch(`/pop/request-providers/${relationshipId}/start`),
+
   completeProviderRequest: (relationshipId, data = {}) =>
-    popApi.patch(`/pop/requests/provider-relationships/${relationshipId}/complete`, data),
-  completeProvider: (relationshipId, data = {}) =>
-    popApi.patch(`/pop/requests/provider-relationships/${relationshipId}/complete`, data),
+    popApi.patch(`/pop/request-providers/${relationshipId}/complete`, data),
 };
 
 
@@ -381,6 +404,167 @@ export const communityReviewAPI = {
     popApi.get(`/pop/community-reviews/user/${userId}`, { params }),
   getMine: (params = {}) =>
     popApi.get("/pop/community-reviews/my-reviews", { params }),
+};
+
+
+
+
+// ============================================================
+// REQUESTS CHAT
+// ============================================================
+
+export const requestsChatAPI = {
+  getOrCreateConversation: (requestId, relationshipId) =>
+    popApi.post(
+      `/pop/chat/requests/${requestId}/providers/${relationshipId}/conversation`
+    ),
+
+  getConversations: (params = {}) =>
+    popApi.get('/pop/chat/conversations', {
+      params,
+    }),
+
+  getConversation: (conversationId, params = {}) =>
+    popApi.get(
+      `/pop/chat/conversations/${conversationId}`,
+      { params }
+    ),
+
+  sendMessage: (conversationId, payload) =>
+    popApi.post(
+      `/pop/chat/conversations/${conversationId}/messages`,
+      payload
+    ),
+
+  editMessage: (
+    conversationId,
+    messageId,
+    content
+  ) =>
+    popApi.patch(
+      `/pop/chat/conversations/${conversationId}/messages/${messageId}`,
+      { content }
+    ),
+
+  deleteMessage: (
+    conversationId,
+    messageId,
+    scope = 'me'
+  ) =>
+    popApi.delete(
+      `/pop/chat/conversations/${conversationId}/messages/${messageId}`,
+      {
+        params: {
+          scope,
+        },
+      }
+    ),
+
+  deleteConversation: (
+    conversationId
+  ) =>
+    popApi.delete(
+      `/pop/chat/conversations/${conversationId}`
+    ),
+
+  markRead: (
+    conversationId,
+    upToMessageId = null
+  ) =>
+    popApi.patch(
+      `/pop/chat/conversations/${conversationId}/read`,
+      upToMessageId
+        ? {
+            up_to_message_id:
+              upToMessageId,
+          }
+        : {}
+    ),
+
+  closeConversation: (
+    conversationId,
+    reason = null
+  ) =>
+    popApi.patch(
+      `/pop/chat/conversations/${conversationId}/close`,
+      {
+        reason,
+      }
+    ),
+				
+		
+		reopenConversation: (
+    conversationId,
+    reason = null
+  ) =>
+    popApi.patch(
+      `/pop/chat/conversations/${conversationId}/reopen`,
+      {
+        reason,
+      }
+    ),
+
+  pinConversation: (
+    conversationId,
+    value = true
+  ) =>
+    popApi.patch(
+      `/pop/chat/conversations/${conversationId}/pin`,
+      {
+        value,
+      }
+    ),
+
+  muteConversation: (
+    conversationId,
+    value = true
+  ) =>
+    popApi.patch(
+      `/pop/chat/conversations/${conversationId}/mute`,
+      {
+        value,
+      }
+    ),
+
+  archiveConversation: (
+    conversationId,
+    value = true
+  ) =>
+    popApi.patch(
+      `/pop/chat/conversations/${conversationId}/archive`,
+      {
+        value,
+      }
+    ),
+
+  // ==========================================================
+  // PROTECT CHAT
+  // ==========================================================
+
+  protectConversation: (
+    conversationId,
+    value = true
+  ) =>
+    popApi.patch(
+      `/pop/chat/conversations/${conversationId}/protect`,
+      {
+        value,
+      }
+    ),
+
+  // ==========================================================
+  // DOWNLOAD TRANSCRIPT
+  // ==========================================================
+
+  downloadTranscript: (
+    conversationId
+  ) =>
+    popApi.get(
+      `/pop/chat/conversations/${conversationId}/transcript`,
+      {
+        responseType: 'blob',
+      }
+    ),
 };
 
 export default popApi;

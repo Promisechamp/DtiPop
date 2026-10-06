@@ -2,7 +2,7 @@ import { supabase } from '../../db/index.js';
 import { deleteImage, deleteMultipleImages } from "../../utils/cloudinary.js";
 import { uploadToCloudinary } from "../../utils/cloudinary.js";
 import { calculateWarrantyEnd } from "../../utils/dateHelpers.js";
-import { createNotification } from './notificationController.js';
+import { createPOPNotification } from '../../shared/controllers/notificationController.js';
 
 // ============================================================
 // HELPERS
@@ -825,7 +825,7 @@ const createPurchase = async (req, res) => {
     // ---------------------------------------------------------
 
     try {
-      await createNotification({
+      await createPOPNotification({
         userId,
         type: "purchase_created",
         title: "Purchase added",
@@ -1412,7 +1412,7 @@ const createPurchaseWithBackendUpload = async (req, res) => {
     // ---------------------------------------------------------
 
     try {
-      await createNotification({
+      await createPOPNotification({
         userId,
         type: "purchase_created",
         title: "Purchase added",
@@ -2328,7 +2328,7 @@ const updatePurchase = async (req, res) => {
     // ---------------------------------------------------------
 
     try {
-      await createNotification({
+      await createPOPNotification({
         userId,
         type: "purchase_updated",
         title: "Purchase updated",
@@ -3165,7 +3165,7 @@ const updatePurchaseWithBackendUpload = async (req, res) => {
     // ---------------------------------------------------------
 
     try {
-      await createNotification({
+      await createPOPNotification({
         userId,
         type: "purchase_updated",
         title: "Purchase updated",
@@ -3358,7 +3358,7 @@ const deletePurchase = async (req, res) => {
     // Notification
     // --------------------------------------------------------
 
-    await createNotification(
+    await createPOPNotification(
       userId,
       "purchase_deleted",
       "Purchase deleted",
@@ -3424,7 +3424,7 @@ const archivePurchase = async (req, res) => {
       throw error;
     }
 
-    await createNotification(
+    await createPOPNotification(
       userId,
       "purchase_archived",
       "Purchase archived",
@@ -3600,7 +3600,7 @@ const restorePurchase = async (
       });
     }
 
-    await createNotification(
+    await createPOPNotification(
       userId,
       "purchase_restored",
       "Purchase restored",
@@ -4041,7 +4041,7 @@ const transferPurchase = async (
         ? "Purchase donated"
         : "Purchase sold";
 
-    await createNotification(
+    await createPOPNotification(
       currentUserId,
       notificationType,
       notificationTitle,
@@ -4056,7 +4056,7 @@ const transferPurchase = async (
     );
 
     if (recipient) {
-      await createNotification(
+      await createPOPNotification(
         recipient.id,
         notificationType,
         notificationTitle,

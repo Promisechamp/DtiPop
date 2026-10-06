@@ -17,6 +17,61 @@ const NotificationContext = createContext(null);
 
 const POLL_INTERVAL = 60 * 1000;
 
+/* ============================================================
+   HELPERS
+============================================================ */
+
+/*
+ * Normalizes a Supabase / fetch error into a useful log payload.
+ * Without this, the console just prints `Error {}` and you
+ * cannot tell whether it was a 401, RLS denial, network drop,
+ * or aborted request.
+ */
+const describeError = (error) => {
+  if (!error) {
+    return { message: 'Unknown error' };
+  }
+
+  return {
+    message: error.message || String(error),
+    code: error.code || error.status || null,
+    details: error.details || null,
+    hint: error.hint || null,
+    status: error.status || null,
+  };
+};
+
+/*
+ * Shallow-compare two notification rows by the fields we care
+ * about for rendering. Used to avoid replacing `notifications`
+ * with an identical array, which would re-render every consumer.
+ */
+const areNotificationsEqual = (a, b) => {
+  if (a === b) return true;
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  if (a.length !== b.length) return false;
+
+  for (let index = 0; index < a.length; index += 1) {
+    const left = a[index];
+    const right = b[index];
+
+    if (left === right) continue;
+
+    if (
+      !left ||
+      !right ||
+      left.id !== right.id ||
+      left.is_read !== right.is_read ||
+      left.updated_at !== right.updated_at ||
+      left.created_at !== right.created_at
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
 export const NotificationProvider = ({ children }) => {
   const { user, settings } = useAuth();
 
@@ -30,10 +85,49 @@ export const NotificationProvider = ({ children }) => {
   |--------------------------------------------------------------------------
   | Notification preference
   |--------------------------------------------------------------------------
+  |
+  | Coerced to a boolean so that downstream effect deps never see a
+  | new object reference from `settings`.
+  |
   */
 
   const areNotificationsEnabled =
     settings?.in_app_notifications !== false;
+
+  /*
+  |--------------------------------------------------------------------------
+  | Stable user id
+  |--------------------------------------------------------------------------
+  |
+  | `user` from useAuth is often a new object every time the auth
+  | context re-renders. Deriving a primitive id lets every effect
+  | below key off a value that only changes on actual auth changes.
+  |
+  */
+
+  const userId = user?.id ?? null;
+
+  /*
+  |--------------------------------------------------------------------------
+  | Refs used to keep fetchNotifications stable
+  |--------------------------------------------------------------------------
+  |
+  | `fetchNotifications` needs the current user id and the current
+  | preference, but we do NOT want those values in its dependency
+  | array, because doing so cascades new identities into every
+  | effect that uses it (initial fetch, polling, visibility).
+  |
+  */
+
+  const userIdRef = useRef(userId);
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
+
+  const enabledRef = useRef(areNotificationsEnabled);
+  useEffect(() => {
+    enabledRef.current = areNotificationsEnabled;
+  }, [areNotificationsEnabled]);
 
   /*
   |--------------------------------------------------------------------------
@@ -64,7 +158,10 @@ export const NotificationProvider = ({ children }) => {
   const clearNotifications = useCallback(() => {
     if (!isMountedRef.current) return;
 
-    setNotifications([]);
+    setNotifications((current) =>
+      current.length === 0 ? current : []
+    );
+
     setLoading(false);
   }, []);
 
@@ -72,11 +169,20 @@ export const NotificationProvider = ({ children }) => {
   |--------------------------------------------------------------------------
   | Fetch notifications
   |--------------------------------------------------------------------------
+  |
+  | `userId` and `areNotificationsEnabled` are read from refs so this
+  | callback identity is stable across auth re-renders. It will not
+  | change, so effects depending on it will not tear down / rebuild
+  | on every tick.
+  |
   */
 
   const fetchNotifications = useCallback(
     async (silent = false) => {
-      if (!user || !areNotificationsEnabled) {
+      const activeUserId = userIdRef.current;
+      const enabled = enabledRef.current;
+
+      if (!activeUserId || !enabled) {
         clearNotifications();
         return;
       }
@@ -89,7 +195,7 @@ export const NotificationProvider = ({ children }) => {
         const { data, error } = await supabase
           .from('notifications')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', activeUserId)
           .order('created_at', {
             ascending: false,
           });
@@ -100,11 +206,28 @@ export const NotificationProvider = ({ children }) => {
 
         if (!isMountedRef.current) return;
 
-        setNotifications(data || []);
+        /*
+         * Only replace the array if the rows actually changed.
+         * Prevents a full re-render of every consumer when the
+         * poll returns identical data (which is the common case).
+         */
+        setNotifications((current) => {
+          const next = data || [];
+
+          if (areNotificationsEqual(current, next)) {
+            return current;
+          }
+
+          return next;
+        });
       } catch (error) {
+        /*
+         * Log a structured payload so the console shows the
+         * actual message / code instead of `Error {}`.
+         */
         console.error(
-          'Error fetching notifications:',
-          error
+          '❌ Error fetching notifications:',
+          describeError(error)
         );
       } finally {
         if (!silent && isMountedRef.current) {
@@ -112,11 +235,7 @@ export const NotificationProvider = ({ children }) => {
         }
       }
     },
-    [
-      user,
-      areNotificationsEnabled,
-      clearNotifications,
-    ]
+    [clearNotifications]
   );
 
   /*
@@ -154,8 +273,8 @@ export const NotificationProvider = ({ children }) => {
       );
     } catch (error) {
       console.error(
-        'Error marking notification as read:',
-        error
+        '❌ Error marking notification as read:',
+        describeError(error)
       );
     }
   }, []);
@@ -188,8 +307,8 @@ export const NotificationProvider = ({ children }) => {
       );
     } catch (error) {
       console.error(
-        'Error deleting notification:',
-        error
+        '❌ Error deleting notification:',
+        describeError(error)
       );
     }
   }, []);
@@ -246,8 +365,8 @@ export const NotificationProvider = ({ children }) => {
       };
     } catch (error) {
       console.error(
-        'Error bulk marking notifications as read:',
-        error
+        '❌ Error bulk marking notifications as read:',
+        describeError(error)
       );
 
       throw error;
@@ -301,8 +420,8 @@ export const NotificationProvider = ({ children }) => {
         };
       } catch (error) {
         console.error(
-          'Error bulk deleting notifications:',
-          error
+          '❌ Error bulk deleting notifications:',
+          describeError(error)
         );
 
         throw error;
@@ -318,7 +437,9 @@ export const NotificationProvider = ({ children }) => {
   */
 
   const markAllAsRead = useCallback(async () => {
-    if (!user) return;
+    const activeUserId = userIdRef.current;
+
+    if (!activeUserId) return;
 
     try {
       const { error } = await supabase
@@ -326,7 +447,7 @@ export const NotificationProvider = ({ children }) => {
         .update({
           is_read: true,
         })
-        .eq('user_id', user.id)
+        .eq('user_id', activeUserId)
         .eq('is_read', false);
 
       if (error) {
@@ -343,17 +464,17 @@ export const NotificationProvider = ({ children }) => {
       );
     } catch (error) {
       console.error(
-        'Error marking all notifications as read:',
-        error
+        '❌ Error marking all notifications as read:',
+        describeError(error)
       );
 
       throw error;
     }
-  }, [user]);
+  }, []);
 
   /*
   |--------------------------------------------------------------------------
-  | Real-time subscription
+  | Mount tracking
   |--------------------------------------------------------------------------
   */
 
@@ -365,17 +486,29 @@ export const NotificationProvider = ({ children }) => {
     };
   }, []);
 
+  /*
+  |--------------------------------------------------------------------------
+  | Real-time subscription
+  |--------------------------------------------------------------------------
+  |
+  | Now keyed off `userId` (a primitive) and the boolean preference.
+  | The channel is torn down and rebuilt only when the user
+  | actually changes or notifications are toggled — not on every
+  | auth context re-render.
+  |
+  */
+
   useEffect(() => {
     /*
      * No authenticated user or notifications disabled.
      */
-    if (!user || !areNotificationsEnabled) {
+    if (!userId || !areNotificationsEnabled) {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
 
-      return;
+      return undefined;
     }
 
     /*
@@ -387,7 +520,7 @@ export const NotificationProvider = ({ children }) => {
     }
 
     const channelName =
-      `notifications:${user.id}`;
+      `notifications:${userId}`;
 
     const channel = supabase
       .channel(channelName)
@@ -397,7 +530,7 @@ export const NotificationProvider = ({ children }) => {
           event: 'INSERT',
           schema: 'public',
           table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${userId}`,
         },
         (payload) => {
           const incoming = payload.new;
@@ -450,7 +583,7 @@ export const NotificationProvider = ({ children }) => {
       }
     };
   }, [
-    user,
+    userId,
     areNotificationsEnabled,
   ]);
 
@@ -458,11 +591,25 @@ export const NotificationProvider = ({ children }) => {
   |--------------------------------------------------------------------------
   | Initial fetch
   |--------------------------------------------------------------------------
+  |
+  | fetchNotifications is now stable, so this runs once per user
+  | (and again if notifications are toggled).
+  |
   */
 
   useEffect(() => {
+    if (!userId || !areNotificationsEnabled) {
+      clearNotifications();
+      return;
+    }
+
     fetchNotifications(false);
-  }, [fetchNotifications]);
+  }, [
+    userId,
+    areNotificationsEnabled,
+    fetchNotifications,
+    clearNotifications,
+  ]);
 
   /*
   |--------------------------------------------------------------------------
@@ -475,7 +622,7 @@ export const NotificationProvider = ({ children }) => {
   */
 
   useEffect(() => {
-    if (!user || !areNotificationsEnabled) {
+    if (!userId || !areNotificationsEnabled) {
       return undefined;
     }
 
@@ -487,7 +634,7 @@ export const NotificationProvider = ({ children }) => {
       window.clearInterval(interval);
     };
   }, [
-    user,
+    userId,
     areNotificationsEnabled,
     fetchNotifications,
   ]);
@@ -499,7 +646,7 @@ export const NotificationProvider = ({ children }) => {
   */
 
   useEffect(() => {
-    if (!user || !areNotificationsEnabled) {
+    if (!userId || !areNotificationsEnabled) {
       return undefined;
     }
 
@@ -523,7 +670,7 @@ export const NotificationProvider = ({ children }) => {
       );
     };
   }, [
-    user,
+    userId,
     areNotificationsEnabled,
     fetchNotifications,
   ]);

@@ -1,5 +1,9 @@
 import { supabase } from '../../db/index.js';
-import { createNotification } from './notificationController.js';
+
+import {
+  createPOPNotification,
+} from "../../shared/controllers/notificationController.js";
+
 
 // ============================================================
 // HOUSEHOLD ACCESS HELPERS (shared)
@@ -99,7 +103,7 @@ export const createComplaint = async (req, res) => {
 
     if (error) throw error;
 
-    await createNotification(
+    await createPOPNotification(
       userId,
       'complaint_logged',
       'Complaint logged',
@@ -195,7 +199,7 @@ export const updateComplaint = async (req, res) => {
     if (error) throw error;
 
     // 🔔 Notification: complaint updated
-    await createNotification(
+    await createPOPNotification(
       userId,
       'complaint_updated',
       'Complaint updated',
@@ -250,7 +254,7 @@ export const deleteComplaint = async (req, res) => {
     if (error) throw error;
 
     // 🔔 Notification: complaint deleted
-    await createNotification(
+    await createPOPNotification(
       userId,
       'complaint_deleted',
       'Complaint deleted',

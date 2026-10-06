@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../../db/index.js';
-import { createNotification } from './notificationController.js';
+import { createPOPNotification } from '../../shared/controllers/notificationController.js';
 import {
   recordServiceCompleted,
 } from '../services/reliabilityService.js';
@@ -47,7 +47,6 @@ const TRACKABLE_REQUEST_TYPES = [
 ];
 
 const PROVIDER_RELATIONSHIP_STATUSES = [
-  'contacted',
   'selected',
   'accepted',
   'in_progress',
@@ -57,7 +56,6 @@ const PROVIDER_RELATIONSHIP_STATUSES = [
 ];
 
 const ACTIVE_PROVIDER_RELATIONSHIP_STATUSES = [
-  'contacted',
   'selected',
   'accepted',
   'in_progress',
@@ -142,7 +140,7 @@ const notify = async (userId, payload) => {
   if (!userId) return;
 
   try {
-    await createNotification(userId, payload);
+    await createPOPNotification(userId, payload);
   } catch (error) {
     console.error('Notification error:', error);
   }
@@ -512,7 +510,11 @@ const validateRequestAccess = async (
         visibility,
         provider_access,
         request_type,
-        status
+        status,
+        details,
+        settings,
+        expires_at,
+        created_at
       `)
       .eq('id', requestId)
       .maybeSingle();
@@ -601,6 +603,9 @@ const validateRequestAccess = async (
     role: null,
   };
 };
+
+
+
 
 
 // ============================================================
@@ -716,6 +721,39 @@ const validateProvider = async (
     message: null,
     provider,
   };
+};
+
+
+// ============================================================
+// DESIGNATED PROVIDER HELPERS
+// ============================================================
+
+const getDesignatedRelationship = async (requestId) => {
+  const { data, error } = await supabaseAdmin
+    .from('pop_request_providers')
+    .select('id, provider_id, status, is_designated')
+    .eq('request_id', requestId)
+    .eq('is_designated', true)
+    .not('status', 'in', '(declined,cancelled)')
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data || null;
+};
+
+const clearDesignatedRelationship = async (requestId) => {
+  const { error } = await supabaseAdmin
+    .from('pop_request_providers')
+    .update({ is_designated: false })
+    .eq('request_id', requestId)
+    .eq('is_designated', true);
+
+  if (error) {
+    throw error;
+  }
 };
 
 
@@ -1034,10 +1072,10 @@ export const createRequest = async (req, res) => {
       urgency = 'medium',
       location,
       details = {},
+      settings = {},
       expiresAt,
       visibility = 'household',
       providerAccess = 'none',
-      maintenanceProviderId = null,
     } = req.body || {};
 
     const chosenProviderAccess = providerAccess;
@@ -1083,22 +1121,6 @@ export const createRequest = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: trackable.message,
-      });
-    }
-
-    if (chosenProviderAccess === 'provider' && !maintenanceProviderId) {
-      return res.status(400).json({
-        success: false,
-        message:
-          'maintenanceProviderId is required when providerAccess is provider.',
-      });
-    }
-
-    if (chosenProviderAccess !== 'provider' && maintenanceProviderId) {
-      return res.status(400).json({
-        success: false,
-        message:
-          'maintenanceProviderId can only be supplied when providerAccess is provider.',
       });
     }
 
@@ -1177,6 +1199,20 @@ export const createRequest = async (req, res) => {
       });
     }
 
+    if (!isJsonObject(settings)) {
+      return res.status(400).json({
+        success: false,
+        message: 'settings must be a JSON object.',
+      });
+    }
+
+    const normalizedSettings = {
+      accept_chat:
+        typeof settings.accept_chat === 'boolean'
+          ? settings.accept_chat
+          : true,
+    };
+
     let normalizedExpiresAt = null;
 
     if (expiresAt !== null && expiresAt !== undefined && expiresAt !== '') {
@@ -1186,17 +1222,6 @@ export const createRequest = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: 'expiresAt must be a valid date.',
-        });
-      }
-    }
-
-    if (maintenanceProviderId) {
-      const providerValidation = await validateProvider(maintenanceProviderId);
-
-      if (!providerValidation.valid) {
-        return res.status(providerValidation.status).json({
-          success: false,
-          message: providerValidation.message,
         });
       }
     }
@@ -1218,10 +1243,10 @@ export const createRequest = async (req, res) => {
       location: locationValidation.location,
       visibility: chosenVisibility,
       provider_access: chosenProviderAccess,
-      maintenance_provider_id: maintenanceProviderId || null,
       status: 'open',
       expires_at: normalizedExpiresAt,
       details,
+      settings: normalizedSettings,
     };
 
     const { data, error } = await supabaseAdmin
@@ -1277,8 +1302,6 @@ export const createRequest = async (req, res) => {
 
 
 
-
-
 // ============================================================
 // GET REQUESTS
 // ============================================================
@@ -1309,6 +1332,11 @@ export const getRequests = async (req, res, overrides = {}) => {
     const showOpenOnly = params.showOpenOnly;
     const visibility = params.visibility;
     const providerAccess = params.providerAccess;
+
+    const excludeUserId = params.excludeUserId;
+    const trackableOnly = params.trackableOnly;
+    const excludeConnectedForProvider =
+      params.excludeConnectedForProvider;
 
     const { page, limit } = parsePagination(params.page, params.limit);
 
@@ -1356,11 +1384,39 @@ export const getRequests = async (req, res, overrides = {}) => {
       });
     }
 
-    const accessBranches = [
-      `user_id.eq.${viewerId}`,
-      'visibility.eq.public',
-      'visibility.eq.network',
-    ];
+    let excludedRequestIds = [];
+
+    if (
+      excludeConnectedForProvider === true ||
+      excludeConnectedForProvider === 'true'
+    ) {
+      const { data: existing, error: existingError } =
+        await supabaseAdmin
+          .from('pop_request_providers')
+          .select('request_id')
+          .eq('provider_id', viewerId)
+          .in('status', ACTIVE_PROVIDER_RELATIONSHIP_STATUSES);
+
+      if (existingError) {
+        return res.status(500).json({
+          success: false,
+          message: existingError.message,
+        });
+      }
+
+      excludedRequestIds = (existing || [])
+        .map((row) => row.request_id)
+        .filter(Boolean);
+    }
+
+    const accessBranches = [];
+
+    if (!(excludeUserId === true || excludeUserId === 'true')) {
+      accessBranches.push(`user_id.eq.${viewerId}`);
+    }
+
+    accessBranches.push('visibility.eq.public');
+    accessBranches.push('visibility.eq.network');
 
     if (householdId) {
       accessBranches.push(
@@ -1397,6 +1453,22 @@ export const getRequests = async (req, res, overrides = {}) => {
     if (assetId) query = query.eq('asset_id', assetId);
     if (visibility) query = query.eq('visibility', visibility);
     if (providerAccess) query = query.eq('provider_access', providerAccess);
+
+    if (excludeUserId === true || excludeUserId === 'true') {
+      query = query.neq('user_id', viewerId);
+    }
+
+    if (trackableOnly === true || trackableOnly === 'true') {
+      query = query.in('request_type', TRACKABLE_REQUEST_TYPES);
+    }
+
+    if (excludedRequestIds.length) {
+      query = query.not(
+        'id',
+        'in',
+        `(${excludedRequestIds.join(',')})`
+      );
+    }
 
     if (showOpenOnly === true || showOpenOnly === 'true') {
       query = query.in('status', ['open', 'in_progress']);
@@ -1534,7 +1606,10 @@ export const updateRequest = async (req, res) => {
       });
     }
 
-    const access = await validateRequestAccess(requestId, userId);
+    const access = await validateRequestAccess(
+      requestId,
+      userId
+    );
 
     if (!access.valid) {
       return res.status(access.status).json({
@@ -1546,7 +1621,8 @@ export const updateRequest = async (req, res) => {
     if (access.data.user_id !== userId) {
       return res.status(403).json({
         success: false,
-        message: 'Only the request owner can update this request.',
+        message:
+          'Only the request owner can update this request.',
       });
     }
 
@@ -1556,28 +1632,33 @@ export const updateRequest = async (req, res) => {
       urgency,
       location,
       details,
+      settings,
       expiresAt,
       visibility,
       providerAccess,
-      maintenanceProviderId,
       status,
     } = req.body || {};
 
     const updates = {};
 
     if (title !== undefined) {
-      if (typeof title !== 'string' || !title.trim()) {
+      if (
+        typeof title !== 'string' ||
+        !title.trim()
+      ) {
         return res.status(400).json({
           success: false,
           message: 'Title cannot be empty.',
         });
       }
+
       updates.title = title.trim();
     }
 
     if (description !== undefined) {
       updates.description =
-        typeof description === 'string' && description.trim()
+        typeof description === 'string' &&
+        description.trim()
           ? description.trim()
           : null;
     }
@@ -1589,11 +1670,13 @@ export const updateRequest = async (req, res) => {
           message: 'Invalid urgency.',
         });
       }
+
       updates.urgency = urgency;
     }
 
     if (location !== undefined) {
-      const validation = validateLocation(location);
+      const validation =
+        validateLocation(location);
 
       if (!validation.valid) {
         return res.status(400).json({
@@ -1601,171 +1684,268 @@ export const updateRequest = async (req, res) => {
           message: validation.message,
         });
       }
-      updates.location = validation.location;
+
+      updates.location =
+        validation.location;
     }
 
     if (details !== undefined) {
       if (!isJsonObject(details)) {
         return res.status(400).json({
           success: false,
-          message: 'details must be a JSON object.',
+          message:
+            'details must be a JSON object.',
         });
       }
-      updates.details = details;
+
+      const existingDetails =
+        isJsonObject(
+          access.data.details
+        )
+          ? access.data.details
+          : {};
+
+      updates.details = {
+        ...existingDetails,
+        ...details,
+      };
+    }
+
+    if (settings !== undefined) {
+      if (!isJsonObject(settings)) {
+        return res.status(400).json({
+          success: false,
+          message:
+            'settings must be a JSON object.',
+        });
+      }
+
+      const existingSettings =
+        isJsonObject(
+          access.data.settings
+        )
+          ? access.data.settings
+          : {};
+
+      const mergedSettings = {
+        ...existingSettings,
+        ...settings,
+      };
+
+      if (
+        mergedSettings.accept_chat !== undefined &&
+        typeof mergedSettings.accept_chat !== 'boolean'
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            'settings.accept_chat must be a boolean.',
+        });
+      }
+
+      updates.settings = mergedSettings;
     }
 
     if (expiresAt !== undefined) {
-      if (expiresAt === null || expiresAt === '') {
+      if (
+        expiresAt === null ||
+        expiresAt === ''
+      ) {
         updates.expires_at = null;
       } else {
-        const normalized = validateDate(expiresAt);
+        const normalized =
+          validateDate(expiresAt);
 
         if (!normalized) {
           return res.status(400).json({
             success: false,
-            message: 'expiresAt must be a valid date.',
+            message:
+              'expiresAt must be a valid date.',
           });
         }
+
         updates.expires_at = normalized;
       }
     }
 
     if (visibility !== undefined) {
-      if (!VISIBILITIES.includes(visibility)) {
+      if (
+        !VISIBILITIES.includes(
+          visibility
+        )
+      ) {
         return res.status(400).json({
           success: false,
           message: 'Invalid visibility.',
         });
       }
 
-      if (visibility === 'household' && !access.data.household_id) {
+      if (
+        visibility === 'household' &&
+        !access.data.household_id
+      ) {
         return res.status(400).json({
           success: false,
-          message: 'Household visibility requires a household.',
+          message:
+            'Household visibility requires a household.',
         });
       }
 
-      updates.visibility = visibility;
+      updates.visibility =
+        visibility;
     }
 
     if (providerAccess !== undefined) {
-      if (!MAINTENANCE_ACCESS.includes(providerAccess)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid provider access.',
-        });
-      }
-
-      const trackable = ensureTrackableRequest(access.data.request_type);
-
-      if (providerAccess !== 'none' && !trackable.valid) {
-        return res.status(400).json({
-          success: false,
-          message: trackable.message,
-        });
-      }
-
-      updates.provider_access = providerAccess;
-    }
-
-    if (maintenanceProviderId !== undefined) {
-      const effectiveAccess =
-        providerAccess !== undefined
-          ? providerAccess
-          : access.data.provider_access;
-
-      if (maintenanceProviderId && effectiveAccess !== 'provider') {
+      if (
+        !MAINTENANCE_ACCESS.includes(
+          providerAccess
+        )
+      ) {
         return res.status(400).json({
           success: false,
           message:
-            'maintenanceProviderId requires providerAccess to be provider.',
+            'Invalid provider access.',
         });
       }
 
-      if (!maintenanceProviderId && effectiveAccess === 'provider') {
+      const trackable =
+        ensureTrackableRequest(
+          access.data.request_type
+        );
+
+      if (
+        providerAccess !== 'none' &&
+        !trackable.valid
+      ) {
         return res.status(400).json({
           success: false,
           message:
-            'A maintenance provider is required when providerAccess is provider.',
+            trackable.message,
         });
       }
 
-      if (maintenanceProviderId) {
-        const validation = await validateProvider(maintenanceProviderId);
+      if (
+        providerAccess === 'provider'
+      ) {
+        const designated =
+          await getDesignatedRelationship(
+            requestId
+          );
 
-        if (!validation.valid) {
-          return res.status(validation.status).json({
+        if (!designated) {
+          return res.status(400).json({
             success: false,
-            message: validation.message,
+            message:
+              'providerAccess can only be set to provider when a designated provider relationship exists.',
           });
         }
       }
 
-      updates.maintenance_provider_id = maintenanceProviderId || null;
+      updates.provider_access =
+        providerAccess;
     }
 
     if (status !== undefined) {
-      if (!REQUEST_STATUSES.includes(status)) {
+      if (
+        !REQUEST_STATUSES.includes(
+          status
+        )
+      ) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid request status.',
+          message:
+            'Invalid request status.',
         });
       }
+
+      if (
+        status === 'cancelled'
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            'Use the cancel endpoint to cancel a request.',
+        });
+      }
+
       updates.status = status;
     }
 
     if (!Object.keys(updates).length) {
       return res.status(400).json({
         success: false,
-        message: 'No valid fields were supplied for update.',
+        message:
+          'No valid fields were supplied for update.',
       });
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('pop_requests')
-      .update(updates)
-      .eq('id', requestId)
-      .select(REQUEST_SELECT)
-      .single();
+    const { data, error } =
+      await supabaseAdmin
+        .from('pop_requests')
+        .update(updates)
+        .eq('id', requestId)
+        .select(REQUEST_SELECT)
+        .single();
 
     if (error) {
+      console.error(
+        'updateRequest database error:',
+        error
+      );
+
       return res.status(500).json({
         success: false,
         message: error.message,
       });
     }
 
-    if (status && status !== access.data.status && data.household_id) {
-      const { data: members } = await supabaseAdmin
-        .from('pop_household_members')
-        .select('user_id')
-        .eq('household_id', data.household_id)
-        .eq('status', 'active')
-        .neq('user_id', userId);
+    if (
+      status &&
+      status !== access.data.status &&
+      data.household_id
+    ) {
+      const { data: members } =
+        await supabaseAdmin
+          .from('pop_household_members')
+          .select('user_id')
+          .eq(
+            'household_id',
+            data.household_id
+          )
+          .eq('status', 'active')
+          .neq('user_id', userId);
 
       await Promise.all(
-        (members || []).map((member) =>
-          notify(member.user_id, {
-            type: 'request_status_updated',
-            requestId: data.id,
-            title: data.title,
-            status,
-            message: `Request "${data.title}" is now ${status}.`,
-          })
+        (members || []).map(
+          (member) =>
+            notify(member.user_id, {
+              type:
+                'request_status_updated',
+              requestId: data.id,
+              title: data.title,
+              status,
+              message: `Request "${data.title}" is now ${status}.`,
+            })
         )
       );
     }
 
     return res.json({
       success: true,
-      message: 'Request updated successfully.',
+      message:
+        'Request updated successfully.',
       request: data,
     });
   } catch (error) {
-    console.error('updateRequest error:', error);
+    console.error(
+      'updateRequest error:',
+      error
+    );
+
     return res.status(500).json({
       success: false,
-      message: 'Failed to update request.',
+      message:
+        'Failed to update request.',
       error: error.message,
     });
   }
@@ -2003,6 +2183,152 @@ export const fulfillRequest = async (
       success: false,
       message:
         'Failed to fulfill request.',
+      error: error.message,
+    });
+  }
+};
+
+
+// ============================================================
+// CANCEL REQUEST
+// ============================================================
+
+export const cancelRequest = async (
+  req,
+  res
+) => {
+  try {
+    const userId = getUserId(req);
+    const requestId = req.params.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message:
+          'Authentication required.',
+      });
+    }
+
+    const access = await validateRequestAccess(
+      requestId,
+      userId
+    );
+
+    if (!access.valid) {
+      return res.status(access.status).json({
+        success: false,
+        message: access.message,
+      });
+    }
+
+    if (access.data.user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message:
+          'Only the request owner can cancel this request.',
+      });
+    }
+
+    if (
+      !['open', 'in_progress'].includes(
+        access.data.status
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Only open or in-progress requests can be cancelled.',
+      });
+    }
+
+    const now = new Date().toISOString();
+
+    const { data, error } = await supabaseAdmin
+      .from('pop_requests')
+      .update({
+        status: 'cancelled',
+        cancelled_at: now,
+        cancelled_by: userId,
+      })
+      .eq('id', requestId)
+      .select(REQUEST_SELECT)
+      .single();
+
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    const { data: activeRelationships, error: relError } =
+      await supabaseAdmin
+        .from('pop_request_providers')
+        .select('id, provider_id')
+        .eq('request_id', requestId)
+        .in('status', ACTIVE_PROVIDER_RELATIONSHIP_STATUSES);
+
+    if (relError) {
+      console.error(
+        'cancelRequest relationship fetch error:',
+        relError
+      );
+    }
+
+    if (activeRelationships?.length) {
+      await supabaseAdmin
+        .from('pop_request_providers')
+        .update({
+          status: 'cancelled',
+          cancelled_at: now,
+          is_designated: false,
+        })
+        .eq('request_id', requestId)
+        .in('status', ACTIVE_PROVIDER_RELATIONSHIP_STATUSES);
+
+      await Promise.all(
+        activeRelationships.map((row) =>
+          notify(row.provider_id, {
+            type: 'request_cancelled',
+            requestId,
+            requestProviderId: row.id,
+            title: data.title,
+            message: `The request "${data.title}" was cancelled.`,
+          })
+        )
+      );
+    }
+
+    if (data.household_id) {
+      const { data: members } = await supabaseAdmin
+        .from('pop_household_members')
+        .select('user_id')
+        .eq('household_id', data.household_id)
+        .eq('status', 'active')
+        .neq('user_id', userId);
+
+      await Promise.all(
+        (members || []).map((member) =>
+          notify(member.user_id, {
+            type: 'request_cancelled',
+            requestId: data.id,
+            title: data.title,
+            message: `Request "${data.title}" was cancelled.`,
+          })
+        )
+      );
+    }
+
+    return res.json({
+      success: true,
+      message: 'Request cancelled successfully.',
+      request: data,
+    });
+  } catch (error) {
+    console.error('cancelRequest error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to cancel request.',
       error: error.message,
     });
   }
@@ -2400,6 +2726,200 @@ export const findRequestProviders = async (req, res) => {
 };
 
 
+// ============================================================
+// GET REQUESTS MATCHED TO ME
+// ============================================================
+
+export const getRequestsForMe = async (req, res) => {
+  try {
+    const userId = getUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required.',
+      });
+    }
+
+    const { page, limit, from, to } = parsePagination(
+      req.query.page,
+      req.query.limit
+    );
+
+    const search = req.query.search;
+    const requestType = req.query.requestType;
+    const urgency = req.query.urgency;
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select(PROVIDER_PROFILE_SELECT)
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (profileError) {
+      return res.status(500).json({
+        success: false,
+        message: profileError.message,
+      });
+    }
+
+    const services = getActiveServices(profile);
+
+    const { data: relationshipRows, error: relError } = await supabaseAdmin
+      .from('pop_request_providers')
+      .select('id, request_id, status, service_id, accepted_at, started_at, completed_at')
+      .eq('provider_id', userId)
+      .in('status', ACTIVE_PROVIDER_RELATIONSHIP_STATUSES);
+
+    if (relError) {
+      return res.status(500).json({
+        success: false,
+        message: relError.message,
+      });
+    }
+
+    const relationshipByRequest = new Map();
+    for (const row of relationshipRows || []) {
+      relationshipByRequest.set(row.request_id, row);
+    }
+
+    const householdIds = await getUserHouseholdIds(userId);
+
+    const accessBranches = ['visibility.eq.public', 'visibility.eq.network'];
+
+    if (householdIds.length) {
+      accessBranches.push(
+        `and(visibility.eq.household,household_id.in.(${householdIds.join(',')}))`
+      );
+    }
+
+    let query = supabaseAdmin
+      .from('pop_requests')
+      .select(REQUEST_SELECT)
+      .or(accessBranches.join(','))
+      .in('request_type', TRACKABLE_REQUEST_TYPES)
+      .in('status', ['open', 'in_progress'])
+      .neq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(500);
+
+    if (search?.trim()) {
+      const term = search
+        .trim()
+        .replace(/\\/g, '\\\\')
+        .replace(/%/g, '\\%')
+        .replace(/_/g, '\\_');
+
+      query = query.or(
+        `title.ilike.%${term}%,description.ilike.%${term}%`
+      );
+    }
+
+    if (requestType) query = query.eq('request_type', requestType);
+    if (urgency) query = query.eq('urgency', urgency);
+
+    const { data: rows, error: rowsError } = await query;
+
+    if (rowsError) {
+      return res.status(500).json({
+        success: false,
+        message: rowsError.message,
+      });
+    }
+
+    const ACTIVE_STATES = ['accepted', 'in_progress'];
+    const PENDING_STATES = ['selected'];
+
+    const scored = (rows || [])
+      .map((request) => {
+        const relationship = relationshipByRequest.get(request.id) || null;
+
+        if (relationship) {
+          const isActive = ACTIVE_STATES.includes(relationship.status);
+          const isPending = PENDING_STATES.includes(relationship.status);
+
+          return {
+            ...request,
+            match: {
+              score: isActive ? 1000 : isPending ? 900 : 500,
+              serviceScore: 0,
+              locationScore: 0,
+              service: null,
+              connected: true,
+              relationshipId: relationship.id,
+              relationshipStatus: relationship.status,
+            },
+            sortRank: isActive ? 0 : isPending ? 1 : 2,
+          };
+        }
+
+        if (!services.length) return null;
+
+        let bestService = null;
+        let bestServiceScore = 0;
+
+        for (const service of services) {
+          const score = scoreService(request, service);
+
+          if (score > bestServiceScore) {
+            bestServiceScore = score;
+            bestService = service;
+          }
+        }
+
+        if (bestServiceScore <= 0) return null;
+
+        const locationMode = getLocationMode(request.location);
+
+        const locationScore =
+          locationMode === 'local'
+            ? getLocationMatchScore(request.location, profile.location)
+            : 0;
+
+        return {
+          ...request,
+          match: {
+            score: bestServiceScore + locationScore,
+            serviceScore: bestServiceScore,
+            locationScore,
+            service: bestService,
+            connected: false,
+            relationshipId: null,
+            relationshipStatus: null,
+          },
+          sortRank: 3,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => {
+        if (a.sortRank !== b.sortRank) return a.sortRank - b.sortRank;
+        return b.match.score - a.match.score;
+      })
+      .map(({ sortRank, ...rest }) => rest);
+
+    const total = scored.length;
+    const paginated = scored.slice(from, to + 1);
+
+    return res.json({
+      success: true,
+      requests: paginated,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 0,
+      },
+    });
+  } catch (error) {
+    console.error('getRequestsForMe error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch matched requests.',
+      error: error.message,
+    });
+  }
+};
+
 
 // ============================================================
 // CONNECT / SELECT PROVIDER
@@ -2501,7 +3021,7 @@ export const connectRequestProvider = async (req, res) => {
       .select('id,status,provider_id')
       .eq('request_id', requestId)
       .eq('provider_id', providerId)
-      .not('status', 'in', '(declined,cancelled)')
+      .not('status', 'in', '(declined,cancelled,completed)')
       .limit(1);
 
     if (existingError) {
@@ -2521,6 +3041,20 @@ export const connectRequestProvider = async (req, res) => {
 
     const now = new Date().toISOString();
 
+    const shouldBeDesignated =
+      access.data.provider_access === 'provider';
+
+    if (shouldBeDesignated) {
+      try {
+        await clearDesignatedRelationship(requestId);
+      } catch (clearError) {
+        return res.status(500).json({
+          success: false,
+          message: clearError.message,
+        });
+      }
+    }
+
     const { data: relationship, error: relationshipError } = await supabaseAdmin
       .from('pop_request_providers')
       .insert({
@@ -2531,6 +3065,7 @@ export const connectRequestProvider = async (req, res) => {
           typeof scope === 'string' && scope.trim() ? scope.trim() : null,
         status: 'selected',
         selected_at: now,
+        is_designated: shouldBeDesignated,
       })
       .select('*')
       .single();
@@ -2601,9 +3136,6 @@ export const connectRequestProvider = async (req, res) => {
 };
 
 
-
-
-
 // ============================================================
 // GET REQUEST PROVIDERS
 // ============================================================
@@ -2652,6 +3184,8 @@ export const getRequestProviders = async (req, res) => {
       });
     }
 
+    let designatedProviderId = null;
+
     const providers = (data || []).map((relationship) => {
       const providerServices = getActiveServices(relationship.provider);
 
@@ -2660,6 +3194,10 @@ export const getRequestProviders = async (req, res) => {
             (item) => item?.id === relationship.service_id
           ) || null
         : null;
+
+      if (relationship.is_designated) {
+        designatedProviderId = relationship.provider_id;
+      }
 
       return {
         ...relationship,
@@ -2674,8 +3212,7 @@ export const getRequestProviders = async (req, res) => {
             }
           : null,
         service,
-        isSelected:
-          access.data.maintenance_provider_id === relationship.provider_id,
+        isSelected: relationship.is_designated === true,
       };
     });
 
@@ -2684,7 +3221,7 @@ export const getRequestProviders = async (req, res) => {
       request: {
         id: access.data.id,
         providerAccess: access.data.provider_access,
-        maintenanceProviderId: access.data.maintenance_provider_id,
+        designatedProviderId,
       },
       providers,
     });
@@ -2697,10 +3234,6 @@ export const getRequestProviders = async (req, res) => {
     });
   }
 };
-
-
-
-
 
 
 // ============================================================
@@ -2758,7 +3291,7 @@ export const respondToRequestProvider = async (req, res) => {
       });
     }
 
-    if (!['contacted', 'selected'].includes(relationship.status)) {
+    if (relationship.status !== 'selected') {
       return res.status(400).json({
         success: false,
         message:
@@ -2780,6 +3313,7 @@ export const respondToRequestProvider = async (req, res) => {
         ? {
             status: 'accepted',
             accepted_at: now,
+            selected_at: relationship.selected_at || now,
             scope:
               scope !== null && scope !== undefined
                 ? String(scope).trim() || relationship.scope || null
@@ -2795,7 +3329,7 @@ export const respondToRequestProvider = async (req, res) => {
       .update(updatePayload)
       .eq('id', relationshipId)
       .eq('provider_id', userId)
-      .in('status', ['contacted', 'selected'])
+      .eq('status', 'selected')
       .select('*')
       .single();
 
@@ -2807,27 +3341,44 @@ export const respondToRequestProvider = async (req, res) => {
     }
 
     await notify(relationship.request.user_id, {
-      type:
-        action === 'accept'
-          ? 'request_provider_accepted'
-          : 'request_provider_declined',
-      requestId: relationship.request.id,
-      requestProviderId: relationshipId,
-      title: relationship.request.title,
-      message:
-        action === 'accept'
-          ? `A provider accepted your request "${relationship.request.title}".`
-          : `A provider declined your request "${relationship.request.title}".`,
-    });
+  type:
+    action === 'accept'
+      ? 'request_provider_accepted'
+      : 'request_provider_declined',
+  requestId: relationship.request.id,
+  requestProviderId: relationshipId,
+  title: relationship.request.title,
+  message:
+    action === 'accept'
+      ? `A provider accepted your request "${relationship.request.title}".`
+      : `A provider declined your request "${relationship.request.title}".`,
+});
 
-    return res.json({
-      success: true,
-      message:
-        action === 'accept'
-          ? 'Request accepted successfully.'
-          : 'Request declined successfully.',
-      relationship: updated,
-    });
+const { data: updatedRequest, error: requestError } =
+  await supabaseAdmin
+    .from('pop_requests')
+    .select(REQUEST_SELECT)
+    .eq('id', relationship.request.id)
+    .single();
+
+if (requestError) {
+  console.error(
+    'respondToRequestProvider request reload error:',
+    requestError
+  );
+}
+
+return res.json({
+  success: true,
+  message:
+    action === 'accept'
+      ? 'Request accepted successfully.'
+      : 'Request declined successfully.',
+  request: updatedRequest || null,
+  relationship: updated,
+});
+				
+				
   } catch (error) {
     console.error('respondToRequestProvider error:', error);
     return res.status(500).json({
@@ -2839,515 +3390,353 @@ export const respondToRequestProvider = async (req, res) => {
 };
 
 
-
-
-
 // ============================================================
 // START PROVIDER WORK
 // ============================================================
 
-export const startRequestProvider =
-  async (req, res) => {
-    try {
-      const userId =
-        getUserId(req);
+export const startRequestProvider = async (req, res) => {
+  try {
+    const userId = getUserId(req);
 
-      const relationshipId =
-        req.params.id;
+    const relationshipId = req.params.id;
 
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          message:
-            'Authentication required.',
-        });
-      }
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required.',
+      });
+    }
 
-      const {
-        data: relationship,
-        error,
-      } = await supabaseAdmin
-        .from(
-          'pop_request_providers'
-        )
-        .select(`
+    const { data: relationship, error } = await supabaseAdmin
+      .from('pop_request_providers')
+      .select(`
+        id,
+        request_id,
+        provider_id,
+        status,
+        request:pop_requests (
           id,
-          request_id,
-          provider_id,
+          user_id,
+          title,
+          status
+        )
+      `)
+      .eq('id', relationshipId)
+      .eq('provider_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    if (!relationship) {
+      return res.status(404).json({
+        success: false,
+        message: 'Provider relationship not found.',
+      });
+    }
+
+    if (relationship.status !== 'accepted') {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Only an accepted provider relationship can be started.',
+      });
+    }
+
+    if (!['open', 'in_progress'].includes(relationship.request?.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'The request is no longer active.',
+      });
+    }
+
+    const now = new Date().toISOString();
+
+    const { data: updatedRows, error: updateError } = await supabaseAdmin
+      .from('pop_request_providers')
+      .update({
+        status: 'in_progress',
+        started_at: now,
+      })
+      .eq('id', relationshipId)
+      .eq('provider_id', userId)
+      .eq('status', 'accepted')
+      .select('*');
+
+    if (updateError) {
+      return res.status(500).json({
+        success: false,
+        message: updateError.message,
+      });
+    }
+
+    if (!updatedRows?.length) {
+      return res.status(409).json({
+        success: false,
+        message: 'This provider relationship is no longer accepted.',
+      });
+    }
+
+    const updated = updatedRows[0];
+
+    if (relationship.request.status === 'open') {
+      await supabaseAdmin
+        .from('pop_requests')
+        .update({ status: 'in_progress' })
+        .eq('id', relationship.request_id)
+        .eq('status', 'open');
+    }
+
+    await notify(relationship.request.user_id, {
+      type: 'request_provider_started',
+      requestId: relationship.request_id,
+      requestProviderId: relationshipId,
+      title: relationship.request.title,
+      message: `Work has started on your request "${relationship.request.title}".`,
+    });
+
+    const { data: updatedRequest, error: requestReloadError } =
+      await supabaseAdmin
+        .from('pop_requests')
+        .select(REQUEST_SELECT)
+        .eq('id', relationship.request_id)
+        .single();
+
+    if (requestReloadError) {
+      console.error(
+        'startRequestProvider request reload error:',
+        requestReloadError
+      );
+    }
+
+    return res.json({
+      success: true,
+      message: 'Provider work started successfully.',
+      request: updatedRequest || null,
+      relationship: updated,
+    });
+  } catch (error) {
+    console.error('startRequestProvider error:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to start provider work.',
+      error: error.message,
+    });
+  }
+};
+
+
+
+
+export const completeRequestProvider = async (req, res) => {
+  try {
+    const providerUserId = getUserId(req);
+
+    const relationshipId = req.params.id;
+
+    if (!providerUserId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required.',
+      });
+    }
+
+    const { completionNotes = null } = req.body || {};
+
+    const { data: relationship, error } = await supabaseAdmin
+      .from('pop_request_providers')
+      .select(`
+        *,
+        request:pop_requests (
+          id,
+          user_id,
+          title,
+          request_type,
+          asset_id,
           status,
-          request:pop_requests (
-            id,
-            user_id,
-            title,
-            status,
-            maintenance_provider_id
-          )
-        `)
-        .eq(
-          'id',
-          relationshipId
+          household_id
         )
-        .eq(
-          'provider_id',
-          userId
-        )
-        .maybeSingle();
+      `)
+      .eq('id', relationshipId)
+      .eq('provider_id', providerUserId)
+      .maybeSingle();
 
-      if (error) {
-        return res.status(500).json({
-          success: false,
-          message: error.message,
-        });
-      }
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
 
-      if (!relationship) {
-        return res.status(404).json({
-          success: false,
-          message:
-            'Provider relationship not found.',
-        });
-      }
+    if (!relationship) {
+      return res.status(404).json({
+        success: false,
+        message: 'Provider relationship not found.',
+      });
+    }
 
-      if (
-        relationship.status !==
-        'accepted'
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            'Only an accepted provider relationship can be started.',
-        });
-      }
-
-      if (
-        !['open', 'in_progress'].includes(
-          relationship.request?.status
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            'The request is no longer active.',
-        });
-      }
-
-      const now =
-        new Date().toISOString();
-
-      const {
-        data: updatedRows,
-        error:
-          updateError,
-      } = await supabaseAdmin
-        .from(
-          'pop_request_providers'
-        )
-        .update({
-          status:
-            'in_progress',
-
-          started_at:
-            now,
-        })
-        .eq(
-          'id',
-          relationshipId
-        )
-        .eq(
-          'provider_id',
-          userId
-        )
-        .eq(
-          'status',
-          'accepted'
-        )
-        .select('*');
-
-      if (updateError) {
-        return res.status(500).json({
-          success: false,
-          message:
-            updateError.message,
-        });
-      }
-
-      if (
-        !updatedRows?.length
-      ) {
-        return res.status(409).json({
-          success: false,
-          message:
-            'This provider relationship is no longer accepted.',
-        });
-      }
-
-      const updated =
-        updatedRows[0];
-
-      if (
-        relationship.request.status ===
-        'open'
-      ) {
-        await supabaseAdmin
-          .from('pop_requests')
-          .update({
-            status:
-              'in_progress',
-          })
-          .eq(
-            'id',
-            relationship.request_id
-          )
-          .eq(
-            'status',
-            'open'
-          );
-      }
-
-      await notify(
-        relationship.request.user_id,
-        {
-          type:
-            'request_provider_started',
-
-          requestId:
-            relationship.request_id,
-
-          requestProviderId:
-            relationshipId,
-
-          title:
-            relationship.request
-              .title,
-
-          message:
-            `Work has started on your request "${relationship.request.title}".`,
-        }
-      );
+    if (relationship.status === 'completed') {
+      const { data: existingRequest } = await supabaseAdmin
+        .from('pop_requests')
+        .select(REQUEST_SELECT)
+        .eq('id', relationship.request_id)
+        .single();
 
       return res.json({
         success: true,
-
-        message:
-          'Provider work started successfully.',
-
-        relationship:
-          updated,
-      });
-    } catch (error) {
-      console.error(
-        'startRequestProvider error:',
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          'Failed to start provider work.',
-        error: error.message,
+        message: 'Provider work was already completed.',
+        request: existingRequest || null,
+        relationship,
+        alreadyCompleted: true,
       });
     }
-  };
 
+    if (relationship.status !== 'in_progress') {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Only an in-progress provider relationship can be completed.',
+      });
+    }
 
-// ============================================================
-// COMPLETE PROVIDER WORK
-// ============================================================
+    const now = new Date().toISOString();
 
-export const completeRequestProvider =
-  async (req, res) => {
+    const { data: updatedRows, error: updateError } = await supabaseAdmin
+      .from('pop_request_providers')
+      .update({
+        status: 'completed',
+        completed_at: now,
+        completion_notes:
+          typeof completionNotes === 'string' && completionNotes.trim()
+            ? completionNotes.trim()
+            : null,
+      })
+      .eq('id', relationshipId)
+      .eq('provider_id', providerUserId)
+      .eq('status', 'in_progress')
+      .select(`
+        *,
+        request:pop_requests (
+          id,
+          user_id,
+          title,
+          request_type,
+          asset_id,
+          status,
+          household_id
+        )
+      `);
+
+    if (updateError) {
+      return res.status(500).json({
+        success: false,
+        message: updateError.message,
+      });
+    }
+
+    if (!updatedRows?.length) {
+      return res.status(409).json({
+        success: false,
+        message:
+          'This provider relationship is no longer in progress.',
+      });
+    }
+
+    const completed = updatedRows[0];
+
+    let reliability = null;
+
     try {
-      const providerUserId =
-        getUserId(req);
-
-      const relationshipId =
-        req.params.id;
-
-      if (!providerUserId) {
-        return res.status(401).json({
-          success: false,
-          message:
-            'Authentication required.',
-        });
-      }
-
-      const {
-        completionNotes = null,
-      } = req.body || {};
-
-      const {
-        data: relationship,
-        error,
-      } = await supabaseAdmin
-        .from(
-          'pop_request_providers'
-        )
-        .select(`
-          *,
-          request:pop_requests (
-            id,
-            user_id,
-            title,
-            request_type,
-            asset_id,
-            status,
-            household_id
-          )
-        `)
-        .eq(
-          'id',
-          relationshipId
-        )
-        .eq(
-          'provider_id',
-          providerUserId
-        )
-        .maybeSingle();
-
-      if (error) {
-        return res.status(500).json({
-          success: false,
-          message: error.message,
-        });
-      }
-
-      if (!relationship) {
-        return res.status(404).json({
-          success: false,
-          message:
-            'Provider relationship not found.',
-        });
-      }
-
-      if (
-        relationship.status ===
-        'completed'
-      ) {
-        return res.json({
-          success: true,
-          message:
-            'Provider work was already completed.',
-          relationship,
-          alreadyCompleted: true,
-        });
-      }
-
-      if (
-        relationship.status !==
-        'in_progress'
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            'Only an in-progress provider relationship can be completed.',
-        });
-      }
-
-      const now =
-        new Date().toISOString();
-
-      const {
-        data: updatedRows,
-        error:
-          updateError,
-      } = await supabaseAdmin
-        .from(
-          'pop_request_providers'
-        )
-        .update({
-          status:
-            'completed',
-
-          completed_at:
-            now,
-
-          completion_notes:
-            typeof completionNotes ===
-              'string' &&
-            completionNotes.trim()
-              ? completionNotes.trim()
-              : null,
-        })
-        .eq(
-          'id',
-          relationshipId
-        )
-        .eq(
-          'provider_id',
-          providerUserId
-        )
-        .eq(
-          'status',
-          'in_progress'
-        )
-        .select(`
-          *,
-          request:pop_requests (
-            id,
-            user_id,
-            title,
-            request_type,
-            asset_id,
-            status,
-            household_id
-          )
-        `);
-
-      if (updateError) {
-        return res.status(500).json({
-          success: false,
-          message:
-            updateError.message,
-        });
-      }
-
-      if (
-        !updatedRows?.length
-      ) {
-        return res.status(409).json({
-          success: false,
-          message:
-            'This provider relationship is no longer in progress.',
-        });
-      }
-
-      const completed =
-        updatedRows[0];
-
-      let reliability = null;
-
-      try {
-        reliability =
-          await recordServiceCompleted({
-            userId:
-              providerUserId,
-
-            requestId:
-              completed.request.id,
-
-            requestProviderId:
-              completed.id,
-
-            assetId:
-              completed.request
-                .asset_id ||
-              null,
-
-            requestType:
-              completed.request
-                .request_type ||
-              null,
-
-            title:
-              completed.request
-                .title ||
-              null,
-          });
-      } catch (reliabilityError) {
-        console.error(
-          'recordServiceCompleted error:',
-          reliabilityError
-        );
-      }
-
-      await notify(
-        completed.request?.user_id,
-        {
-          type:
-            'request_provider_completed',
-
-          requestId:
-            completed.request_id,
-
-          requestProviderId:
-            completed.id,
-
-          title:
-            completed.request?.title,
-
-          message:
-            `The provider completed work on "${completed.request?.title}".`,
-        }
-      );
-
-      return res.json({
-        success: true,
-
-        message:
-          'Provider work completed successfully.',
-
-        relationship:
-          completed,
-
-        reliability,
-
-        requestFulfilled:
-          completed.request?.status ===
-          'fulfilled',
+      reliability = await recordServiceCompleted({
+        userId: providerUserId,
+        requestId: completed.request.id,
+        requestProviderId: completed.id,
+        assetId: completed.request.asset_id || null,
+        requestType: completed.request.request_type || null,
+        title: completed.request.title || null,
       });
-    } catch (error) {
+    } catch (reliabilityError) {
       console.error(
-        'completeRequestProvider error:',
-        error
+        'recordServiceCompleted error:',
+        reliabilityError
       );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          'Failed to complete provider work.',
-        error: error.message,
-      });
     }
-  };
+
+    await notify(completed.request?.user_id, {
+      type: 'request_provider_completed',
+      requestId: completed.request_id,
+      requestProviderId: completed.id,
+      title: completed.request?.title,
+      message: `The provider completed work on "${completed.request?.title}".`,
+    });
+
+    const { data: refreshedRequest, error: refreshError } =
+      await supabaseAdmin
+        .from('pop_requests')
+        .select(REQUEST_SELECT)
+        .eq('id', completed.request_id)
+        .single();
+
+    if (refreshError) {
+      console.error(
+        'completeRequestProvider request reload error:',
+        refreshError
+      );
+    }
+
+    return res.json({
+      success: true,
+      message: 'Provider work completed successfully.',
+      request: refreshedRequest || null,
+      relationship: completed,
+      reliability,
+      requestFulfilled: refreshedRequest?.status === 'fulfilled',
+    });
+  } catch (error) {
+    console.error('completeRequestProvider error:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to complete provider work.',
+      error: error.message,
+    });
+  }
+};
+
 
 
 // ============================================================
 // CONVENIENCE ENDPOINTS
 // ============================================================
 
-export const getHouseholdRequests =
-  async (req, res) =>
-    getRequests(
-      req,
-      res,
-      {
-        householdId:
-          req.params.householdId,
-      }
-    );
+export const getHouseholdRequests = async (req, res) =>
+  getRequests(req, res, {
+    householdId: req.params.householdId,
+  });
 
-export const getMyRequests =
-  async (req, res) => {
-    const userId =
-      getUserId(req);
+export const getMyRequests = async (req, res) => {
+  const userId = getUserId(req);
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message:
-          'Authentication required.',
-      });
-    }
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      message: 'Authentication required.',
+    });
+  }
 
-    return getRequests(
-      req,
-      res,
-      {
-        userId,
-      }
-    );
-  };
+  return getRequests(req, res, {
+    userId,
+  });
+};
 
-export const getOpenHouseholdRequests =
-  async (req, res) =>
-    getRequests(
-      req,
-      res,
-      {
-        householdId:
-          req.params.householdId,
-
-        showOpenOnly:
-          'true',
-      }
-    );
+export const getOpenHouseholdRequests = async (req, res) => {
+  getRequests(req, res, {
+    householdId: req.params.householdId,
+    showOpenOnly: 'true',
+  });
+};

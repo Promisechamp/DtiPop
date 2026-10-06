@@ -1,6 +1,6 @@
 import { supabase } from '../../db/index.js';
 import { getWarrantyStatus, getDaysRemaining } from "../../utils/dateHelpers.js";
-import { createNotification } from './notificationController.js';
+import { createPOPNotification } from '../../shared/controllers/notificationController.js';
 
 // ============================================================
 // HELPERS
@@ -373,7 +373,7 @@ export const createWarranty = async (req, res) => {
     if (error) throw error;
 
     // 🔔 Notification
-    await createNotification(
+    await createPOPNotification(
       userId,
       'warranty_created',
       'Warranty created',
@@ -452,7 +452,7 @@ export const updateWarranty = async (req, res) => {
     if (error) throw error;
 
     // 🔔 Notification
-    await createNotification(
+    await createPOPNotification(
       userId,
       'warranty_updated',
       'Warranty updated',
@@ -503,7 +503,7 @@ export const deleteWarranty = async (req, res) => {
     if (error) throw error;
 
     // 🔔 Notification
-    await createNotification(
+    await createPOPNotification(
       userId,
       'warranty_deleted',
       'Warranty deleted',

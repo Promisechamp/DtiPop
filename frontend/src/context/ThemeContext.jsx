@@ -48,6 +48,18 @@ export const ThemeProvider = ({
         return;
       }
 
+      // Only allow themes defined in THEMES
+      const isValidTheme = THEMES.some(
+        (item) => item.id === newTheme
+      );
+
+      if (!isValidTheme) {
+        console.warn(
+          `[Theme] Unknown theme: "${newTheme}"`
+        );
+        return;
+      }
+
       setTheme((currentTheme) => {
         if (currentTheme === newTheme) {
           return currentTheme;
@@ -64,11 +76,13 @@ export const ThemeProvider = ({
       return;
     }
 
+    // Apply theme to <html>
     document.documentElement.setAttribute(
       'data-theme',
       theme
     );
 
+    // Persist selected theme
     try {
       localStorage.setItem(
         'theme',
@@ -89,6 +103,10 @@ export const ThemeProvider = ({
       return;
     }
 
+    // ────────────────────────────────────────────────
+    // Browser / mobile browser theme color
+    // ────────────────────────────────────────────────
+
     let metaTag =
       document.querySelector(
         'meta[name="theme-color"]'
@@ -106,11 +124,18 @@ export const ThemeProvider = ({
       );
     }
 
-    // ✅ Fix: use a dark color for dark theme
     let metaColor = themeObj.primary;
+
+    // Existing deep-slate dark theme
     if (theme === 'dark') {
-      metaColor = '#0f172a'; // slate-900
+      metaColor = '#0a0f1d';
     }
+
+    // New true-black theme
+    if (theme === 'black') {
+      metaColor = '#17171f';
+    }
+
     metaTag.content = metaColor;
   }, [theme]);
 

@@ -1,5 +1,5 @@
 import { supabase } from '../../db/index.js';
-import { createNotification } from './notificationController.js';
+import { createPOPNotification } from '../../shared/controllers/notificationController.js';
 
 // ============================================================
 // HELPERS
@@ -89,7 +89,7 @@ export const createHousehold = async (req, res) => {
     }
 
     // Notification
-    await createNotification(
+    await createPOPNotification(
       userId,
       'household_created',
       'Household created',
@@ -268,7 +268,7 @@ export const updateHousehold = async (req, res) => {
     if (error) throw error;
 
     // Notification for all members? Could be heavy. We'll notify the owner.
-    await createNotification(
+    await createPOPNotification(
       userId,
       'household_updated',
       'Household updated',
@@ -317,7 +317,7 @@ export const deleteHousehold = async (req, res) => {
     if (error) throw error;
 
     // Notification
-    await createNotification(
+    await createPOPNotification(
       userId,
       'household_deleted',
       'Household deleted',
@@ -405,7 +405,7 @@ export const addMember = async (req, res) => {
           .single();
         if (error) throw error;
         // Notify new member
-        await createNotification(
+        await createPOPNotification(
           user.id,
           'household_member_added',
           'Added to household',
@@ -435,7 +435,7 @@ export const addMember = async (req, res) => {
     if (error) throw error;
 
     // Notify new member
-    await createNotification(
+    await createPOPNotification(
       user.id,
       'household_member_added',
       'Added to household',
@@ -443,7 +443,7 @@ export const addMember = async (req, res) => {
     );
 
     // Also notify the adder
-    await createNotification(
+    await createPOPNotification(
       userId,
       'household_member_added',
       'Member added',
@@ -523,7 +523,7 @@ export const updateMemberRole = async (req, res) => {
     if (error) throw error;
 
     // Notify the member
-    await createNotification(
+    await createPOPNotification(
       targetMember.user_id,
       'household_role_changed',
       'Household role updated',
@@ -598,7 +598,7 @@ export const removeMember = async (req, res) => {
     if (error) throw error;
 
     // Notify removed member
-    await createNotification(
+    await createPOPNotification(
       targetMember.user_id,
       'household_member_removed',
       'Removed from household',
@@ -664,7 +664,7 @@ export const leaveHousehold = async (req, res) => {
     if (error) throw error;
 
     // Notification
-    await createNotification(
+    await createPOPNotification(
       userId,
       'household_left',
       'Left household',

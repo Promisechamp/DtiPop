@@ -1,6 +1,6 @@
 // backend/src/controllers/itemDiscussionController.js
 import { supabase } from '../../db/index.js';
-import { createNotification } from './notificationController.js';
+import { createDTINotification } from '../../shared/controllers/notificationController.js';
 
 // RLS is disabled on item_discussions — all authorization happens here.
 
@@ -141,7 +141,7 @@ export const createDiscussionMessage = async (req, res) => {
 
       for (const targetId of notifyIds) {
         const wasMentioned = mentionedUserIds.includes(targetId);
-        await createNotification(
+        await createDTINotification(
           targetId,
           wasMentioned ? 'mention' : 'discussion_reply',
           wasMentioned ? 'You were mentioned' : 'New reply',

@@ -1,5 +1,8 @@
 import { supabase } from '../../db/index.js';
-import { createNotification } from './notificationController.js';
+import {
+  createPOPNotification,
+} from "../../shared/controllers/notificationController.js";
+
 import { GoogleGenAI } from "@google/genai";
 
 const ai = new GoogleGenAI({
@@ -274,7 +277,7 @@ export const createClaim = async (req, res) => {
 
     if (error) throw error;
 
-    await createNotification(
+    await createPOPNotification(
       userId,
       'claim_created',
       'Claim created',
@@ -470,7 +473,7 @@ export const updateClaim = async (req, res) => {
 
     // 🔔 Notification: status updated
     if (status !== undefined) {
-      await createNotification(
+      await createPOPNotification(
         userId,
         'claim_status_updated',
         'Claim status updated',
@@ -526,7 +529,7 @@ export const deleteClaim = async (req, res) => {
     if (error) throw error;
 
     // 🔔 Notification: claim deleted
-    await createNotification(
+    await createPOPNotification(
       userId,
       'claim_deleted',
       'Claim deleted',
@@ -597,7 +600,7 @@ export const forwardClaim = async (req, res) => {
     }
 
     // 🔔 Notification: claim forwarded
-    await createNotification(
+    await createPOPNotification(
       userId,
       'claim_forwarded',
       'Claim forwarded',

@@ -14,7 +14,7 @@ import {
 import { X } from "lucide-react";
 
 /* =========================================================
-   DESIGN SYSTEM
+   MODAL SYSTEM
 ========================================================= */
 
 const SIZES = {
@@ -29,18 +29,28 @@ const POSITIONS = {
   bottom: {
     container:
       "fixed inset-x-0 bottom-0 flex items-end justify-center sm:p-6",
-    panel: "rounded-t-[28px] rounded-b-none sm:rounded-[28px]",
-    initial: { y: "105%", scale: 0.985, opacity: 0 },
-    animate: { y: 0, scale: 1, opacity: 1 },
-    exit: { y: "105%", scale: 0.985, opacity: 0 },
+    panel:
+      "rounded-t-[28px] rounded-b-none sm:rounded-[28px]",
+    initial: {
+      y: "100%",
+      opacity: 0,
+    },
+    animate: {
+      y: 0,
+      opacity: 1,
+    },
+    exit: {
+      y: "100%",
+      opacity: 0,
+    },
     enterTransition: {
       type: "spring",
-      stiffness: 380,
-      damping: 30,
-      mass: 0.9,
+      stiffness: 420,
+      damping: 34,
+      mass: 0.8,
     },
     exitTransition: {
-      duration: 0.32,
+      duration: 0.24,
       ease: [0.32, 0.72, 0, 1],
     },
   },
@@ -48,97 +58,123 @@ const POSITIONS = {
   top: {
     container:
       "fixed inset-x-0 top-0 flex items-start justify-center sm:p-6",
-    panel: "rounded-b-[28px] rounded-t-none sm:rounded-[28px]",
-    initial: { y: "-105%", scale: 0.985, opacity: 0 },
-    animate: { y: 0, scale: 1, opacity: 1 },
-    exit: { y: "-105%", scale: 0.985, opacity: 0 },
+    panel:
+      "rounded-b-[28px] rounded-t-none sm:rounded-[28px]",
+    initial: {
+      y: "-100%",
+      opacity: 0,
+    },
+    animate: {
+      y: 0,
+      opacity: 1,
+    },
+    exit: {
+      y: "-100%",
+      opacity: 0,
+    },
     enterTransition: {
       type: "spring",
-      stiffness: 380,
-      damping: 30,
-      mass: 0.9,
+      stiffness: 420,
+      damping: 34,
+      mass: 0.8,
     },
     exitTransition: {
-      duration: 0.32,
+      duration: 0.24,
       ease: [0.32, 0.72, 0, 1],
     },
   },
 
   left: {
     container:
-      "fixed inset-y-0 left-0 flex items-center justify-start p-4 sm:p-6",
-    panel: "h-full max-h-[min(100%,720px)] rounded-[28px]",
-    initial: { x: "-105%", scale: 0.985, opacity: 0 },
-    animate: { x: 0, scale: 1, opacity: 1 },
-    exit: { x: "-105%", scale: 0.985, opacity: 0 },
+      "fixed inset-y-0 left-0 flex items-center justify-start p-3 sm:p-6",
+    panel:
+      "h-full max-h-[min(100dvh,760px)] rounded-[28px]",
+    initial: {
+      x: "-100%",
+      opacity: 0,
+    },
+    animate: {
+      x: 0,
+      opacity: 1,
+    },
+    exit: {
+      x: "-100%",
+      opacity: 0,
+    },
     enterTransition: {
       type: "spring",
-      stiffness: 360,
-      damping: 30,
-      mass: 0.9,
+      stiffness: 400,
+      damping: 34,
+      mass: 0.85,
     },
     exitTransition: {
-      duration: 0.3,
+      duration: 0.25,
       ease: [0.32, 0.72, 0, 1],
     },
   },
 
   right: {
     container:
-      "fixed inset-y-0 right-0 flex items-center justify-end p-4 sm:p-6",
-    panel: "h-full max-h-[min(100%,720px)] rounded-[28px]",
-    initial: { x: "105%", scale: 0.985, opacity: 0 },
-    animate: { x: 0, scale: 1, opacity: 1 },
-    exit: { x: "105%", scale: 0.985, opacity: 0 },
+      "fixed inset-y-0 right-0 flex items-center justify-end p-3 sm:p-6",
+    panel:
+      "h-full max-h-[min(100dvh,760px)] rounded-[28px]",
+    initial: {
+      x: "100%",
+      opacity: 0,
+    },
+    animate: {
+      x: 0,
+      opacity: 1,
+    },
+    exit: {
+      x: "100%",
+      opacity: 0,
+    },
     enterTransition: {
       type: "spring",
-      stiffness: 360,
-      damping: 30,
-      mass: 0.9,
+      stiffness: 400,
+      damping: 34,
+      mass: 0.85,
     },
     exitTransition: {
-      duration: 0.3,
+      duration: 0.25,
       ease: [0.32, 0.72, 0, 1],
     },
   },
 
   center: {
-    container: "fixed inset-0 flex items-center justify-center p-4",
+    container:
+      "fixed inset-0 flex items-center justify-center p-3 sm:p-6",
     panel: "rounded-[28px]",
-    initial: { scale: 0.9, opacity: 0 },
-    animate: { scale: 1, opacity: 1 },
-    exit: { scale: 0.94, opacity: 0 },
+    initial: {
+      scale: 0.96,
+      opacity: 0,
+    },
+    animate: {
+      scale: 1,
+      opacity: 1,
+    },
+    exit: {
+      scale: 0.97,
+      opacity: 0,
+    },
     enterTransition: {
       type: "spring",
       stiffness: 420,
-      damping: 30,
-      mass: 0.85,
+      damping: 32,
+      mass: 0.8,
     },
     exitTransition: {
-      duration: 0.22,
+      duration: 0.2,
       ease: [0.32, 0.72, 0, 1],
     },
   },
 };
 
-/* =========================================================
-   BACKDROP
-========================================================= */
-
 const BACKDROP_TRANSITION = {
-  enter: {
-    duration: 0.22,
-    ease: "easeOut",
-  },
-  exit: {
-    duration: 0.3,
-    ease: [0.32, 0.72, 0, 1],
-  },
+  duration: 0.22,
+  ease: [0.32, 0.72, 0, 1],
 };
-
-/* =========================================================
-   FOCUSABLE ELEMENTS
-========================================================= */
 
 const FOCUSABLE_SELECTOR = `
   a[href],
@@ -161,11 +197,9 @@ const FOCUSABLE_SELECTOR = `
 const Modal = ({
   isOpen,
   onClose,
-
   title,
   subtitle,
   description,
-
   children,
   footer = null,
 
@@ -185,29 +219,18 @@ const Modal = ({
   zIndex = 50,
 }) => {
   const prefersReducedMotion = useReducedMotion();
+
   const dragControls = useDragControls();
 
   const panelRef = useRef(null);
-
-  /*
-   * Stores the element that had focus before opening.
-   */
   const previousActiveElement = useRef(null);
 
-  /*
-   * Stores the exact scroll position before locking.
-   */
   const scrollPositionRef = useRef(0);
-
-  /*
-   * Prevents duplicate open/close lifecycle handling.
-   */
   const wasOpenRef = useRef(false);
-
-  /*
-   * Prevents focus restoration from happening more than once.
-   */
   const isClosingRef = useRef(false);
+
+  const onCloseRef = useRef(onClose);
+  const initialFocusRefRef = useRef(initialFocusRef);
 
   const titleId = useId();
   const descriptionId = useId();
@@ -216,31 +239,39 @@ const Modal = ({
   const config =
     POSITIONS[position] || POSITIONS.bottom;
 
-  /* =======================================================
-     STABLE CLOSE HANDLER
-  ======================================================= */
+  const modalSize =
+    SIZES[size] || SIZES.md;
 
-  const onCloseRef = useRef(onClose);
+  /* -------------------------------------------------------
+     Keep callbacks current without causing effect churn
+  ------------------------------------------------------- */
 
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
+
+  useEffect(() => {
+    initialFocusRefRef.current =
+      initialFocusRef;
+  }, [initialFocusRef]);
 
   const handleClose = useCallback(() => {
     onCloseRef.current?.();
   }, []);
 
   /* =======================================================
-     BODY SCROLL LOCK
+     SCROLL LOCK + KEYBOARD + FOCUS
   ======================================================= */
 
   useEffect(() => {
     if (!isOpen) {
       wasOpenRef.current = false;
-      return;
+      return undefined;
     }
 
-    if (wasOpenRef.current) return;
+    if (wasOpenRef.current) {
+      return undefined;
+    }
 
     wasOpenRef.current = true;
     isClosingRef.current = false;
@@ -248,9 +279,6 @@ const Modal = ({
     const body = document.body;
     const html = document.documentElement;
 
-    /*
-     * Capture the exact position BEFORE changing anything.
-     */
     const scrollY = window.scrollY;
 
     scrollPositionRef.current = scrollY;
@@ -258,10 +286,6 @@ const Modal = ({
     previousActiveElement.current =
       document.activeElement;
 
-    /*
-     * Save existing inline styles so this component
-     * does not interfere with another scroll-lock system.
-     */
     const previousBodyOverflow =
       body.style.overflow;
 
@@ -271,56 +295,32 @@ const Modal = ({
     const previousHtmlOverscrollBehavior =
       html.style.overscrollBehavior;
 
-    /*
-     * Calculate scrollbar width.
-     */
     const scrollbarWidth =
       window.innerWidth -
-      document.documentElement.clientWidth;
+      html.clientWidth;
 
-    /*
-     * Lock background scrolling.
-     *
-     * IMPORTANT:
-     * We intentionally DO NOT use:
-     *
-     * body.style.position = "fixed"
-     *
-     * because that is what commonly causes the page
-     * to jump when the modal closes.
-     */
     body.style.overflow = "hidden";
 
-    /*
-     * Preserve page width when the scrollbar disappears.
-     */
     if (scrollbarWidth > 0) {
       body.style.paddingRight =
         `${scrollbarWidth}px`;
     }
 
-    /*
-     * Prevent overscroll chaining.
-     */
-    html.style.overscrollBehavior = "none";
-
-    /* =====================================================
-       KEYBOARD HANDLING
-    ===================================================== */
+    html.style.overscrollBehavior =
+      "none";
 
     const handleKeyDown = (event) => {
       if (
-        closeOnEscape &&
-        event.key === "Escape"
+        event.key === "Escape" &&
+        closeOnEscape
       ) {
         event.preventDefault();
+        event.stopPropagation();
+
         handleClose();
         return;
       }
 
-      /*
-       * Focus trap.
-       */
       if (
         event.key !== "Tab" ||
         !panelRef.current
@@ -328,12 +328,25 @@ const Modal = ({
         return;
       }
 
-      const focusable =
+      const focusable = Array.from(
         panelRef.current.querySelectorAll(
           FOCUSABLE_SELECTOR
-        );
+        )
+      ).filter(
+        (element) =>
+          element instanceof HTMLElement &&
+          element.offsetParent !== null
+      );
 
-      if (!focusable.length) return;
+      if (!focusable.length) {
+        event.preventDefault();
+
+        panelRef.current.focus({
+          preventScroll: true,
+        });
+
+        return;
+      }
 
       const first = focusable[0];
       const last =
@@ -341,22 +354,25 @@ const Modal = ({
 
       if (event.shiftKey) {
         if (
-          document.activeElement === first
+          document.activeElement === first ||
+          !panelRef.current.contains(
+            document.activeElement
+          )
         ) {
           event.preventDefault();
+
           last.focus({
             preventScroll: true,
           });
         }
-      } else {
-        if (
-          document.activeElement === last
-        ) {
-          event.preventDefault();
-          first.focus({
-            preventScroll: true,
-          });
-        }
+      } else if (
+        document.activeElement === last
+      ) {
+        event.preventDefault();
+
+        first.focus({
+          preventScroll: true,
+        });
       }
     };
 
@@ -365,27 +381,33 @@ const Modal = ({
       handleKeyDown
     );
 
-    /* =====================================================
-       INITIAL FOCUS
-    ===================================================== */
-
     const focusTimer =
       window.setTimeout(() => {
-        if (!panelRef.current) return;
+        const panel = panelRef.current;
 
-        if (initialFocusRef?.current) {
-          initialFocusRef.current.focus({
+        if (!panel) return;
+
+        const requestedFocus =
+          initialFocusRefRef.current?.current;
+
+        if (
+          requestedFocus &&
+          typeof requestedFocus.focus ===
+            "function"
+        ) {
+          requestedFocus.focus({
             preventScroll: true,
           });
+
           return;
         }
 
         const active =
           document.activeElement;
 
-        const focusIsInside =
+        const activeIsInside =
           active &&
-          panelRef.current.contains(active);
+          panel.contains(active);
 
         const activeIsFormControl =
           active instanceof HTMLElement &&
@@ -393,30 +415,19 @@ const Modal = ({
             "input, textarea, select, [contenteditable='true']"
           );
 
-        /*
-         * Never use normal .focus() here because
-         * it can scroll the document.
-         */
         if (
-          !focusIsInside &&
+          !activeIsInside &&
           !activeIsFormControl
         ) {
-          panelRef.current.focus({
+          panel.focus({
             preventScroll: true,
           });
         }
-      }, 60);
-
-    /* =====================================================
-       CLEANUP
-    ===================================================== */
+      }, 50);
 
     return () => {
       window.clearTimeout(focusTimer);
 
-      /*
-       * Restore exactly what was there before.
-       */
       body.style.overflow =
         previousBodyOverflow;
 
@@ -426,30 +437,20 @@ const Modal = ({
       html.style.overscrollBehavior =
         previousHtmlOverscrollBehavior;
 
-      /*
-       * Restore scroll position on the next frame.
-       *
-       * This is important because restoring it synchronously
-       * while the modal is being removed can race with browser
-       * layout/reflow.
-       */
       const savedScrollY =
         scrollPositionRef.current;
 
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (
-            Math.abs(
-              window.scrollY - savedScrollY
-            ) > 1
-          ) {
-            window.scrollTo({
-              top: savedScrollY,
-              left: 0,
-              behavior: "instant",
-            });
-          }
-        });
+        if (
+          Math.abs(
+            window.scrollY - savedScrollY
+          ) > 1
+        ) {
+          window.scrollTo({
+            top: savedScrollY,
+            left: 0,
+          });
+        }
       });
 
       document.removeEventListener(
@@ -461,15 +462,16 @@ const Modal = ({
     isOpen,
     closeOnEscape,
     handleClose,
-    initialFocusRef,
   ]);
 
   /* =======================================================
-     FOCUS RESTORATION
+     RESTORE FOCUS
   ======================================================= */
 
   const restoreFocus = useCallback(() => {
-    if (isClosingRef.current) return;
+    if (isClosingRef.current) {
+      return;
+    }
 
     isClosingRef.current = true;
 
@@ -496,38 +498,38 @@ const Modal = ({
   }, []);
 
   /* =======================================================
-     REDUCED MOTION
+     MOTION
   ======================================================= */
 
   const animation = useMemo(() => {
-    if (!prefersReducedMotion) {
+    if (prefersReducedMotion) {
       return {
-        initial: config.initial,
-        animate: config.animate,
-        exit: config.exit,
-        enterTransition:
-          config.enterTransition,
-        exitTransition:
-          config.exitTransition,
+        initial: {
+          opacity: 0,
+        },
+        animate: {
+          opacity: 1,
+        },
+        exit: {
+          opacity: 0,
+        },
+        enterTransition: {
+          duration: 0.12,
+        },
+        exitTransition: {
+          duration: 0.1,
+        },
       };
     }
 
     return {
-      initial: {
-        opacity: 0,
-      },
-      animate: {
-        opacity: 1,
-      },
-      exit: {
-        opacity: 0,
-      },
-      enterTransition: {
-        duration: 0.15,
-      },
-      exitTransition: {
-        duration: 0.12,
-      },
+      initial: config.initial,
+      animate: config.animate,
+      exit: config.exit,
+      enterTransition:
+        config.enterTransition,
+      exitTransition:
+        config.exitTransition,
     };
   }, [
     config,
@@ -551,8 +553,8 @@ const Modal = ({
       const velocity = info.velocity.y;
 
       if (
-        distance > 120 ||
-        velocity > 600
+        distance > 110 ||
+        velocity > 650
       ) {
         handleClose();
       }
@@ -564,16 +566,19 @@ const Modal = ({
   );
 
   /* =======================================================
-     ARIA
+     ACCESSIBILITY
   ======================================================= */
 
-  const ariaLabelledBy = title
-    ? titleId
-    : undefined;
+  const ariaLabelledBy =
+    title ? titleId : undefined;
 
-  const ariaDescribedBy = description
-    ? descriptionId
-    : undefined;
+  const ariaDescribedBy =
+    description
+      ? descriptionId
+      : undefined;
+
+  const dialogLabel =
+    title ? undefined : "Dialog";
 
   /* =======================================================
      RENDER
@@ -589,8 +594,9 @@ const Modal = ({
         <motion.div
           key="modal-root"
           className="fixed inset-0"
-          style={{ zIndex }}
-          aria-hidden={false}
+          style={{
+            zIndex,
+          }}
         >
           {/* =================================================
               BACKDROP
@@ -599,8 +605,8 @@ const Modal = ({
           <motion.div
             className="
               fixed inset-0
-              bg-slate-950/45
-              backdrop-blur-[3px]
+              bg-ink-950/55
+              backdrop-blur-[2px]
             "
             initial={{
               opacity: 0,
@@ -611,9 +617,7 @@ const Modal = ({
             exit={{
               opacity: 0,
             }}
-            transition={
-              BACKDROP_TRANSITION.enter
-            }
+            transition={BACKDROP_TRANSITION}
             onClick={
               closeOnOutsideClick
                 ? handleClose
@@ -627,7 +631,13 @@ const Modal = ({
           ================================================= */}
 
           <div
-            className={`${config.container} z-10 w-full`}
+            className={`
+              ${config.container}
+              z-10
+              w-full
+              min-h-0
+              pointer-events-none
+            `}
           >
             {/* =================================================
                 PANEL
@@ -644,23 +654,34 @@ const Modal = ({
               aria-describedby={
                 ariaDescribedBy
               }
+              aria-label={dialogLabel}
               tabIndex={-1}
               className={`
-                relative flex w-full flex-col
-                overflow-hidden outline-none
+                ${modalSize}
 
-                bg-white text-slate-900
-                border border-slate-200/80
-                shadow-[0_24px_80px_rgba(15,23,42,0.18)]
-
-                ${SIZES[size]}
-                ${config.panel}
-
-                max-h-[calc(100dvh-1rem)]
-                sm:max-h-[calc(100vh-3rem)]
-
+                relative
+                flex
+                w-full
                 min-h-0
+                flex-col
+                overflow-hidden
 
+                pointer-events-auto
+
+                bg-white
+                text-ink-900
+
+                border
+                border-ink-200
+
+                shadow-large
+
+                outline-none
+
+                max-h-[calc(100dvh-0.75rem)]
+                sm:max-h-[calc(100dvh-3rem)]
+
+                ${config.panel}
                 ${className}
               `}
               initial={animation.initial}
@@ -695,42 +716,40 @@ const Modal = ({
                 enableDrag
                   ? {
                       top: 0,
-                      bottom: 0.35,
+                      bottom: 0.32,
                     }
                   : undefined
               }
               onDragEnd={handleDragEnd}
             >
               {/* =================================================
-                  MOBILE HANDLE
+                  MOBILE SHEET HANDLE
               ================================================= */}
 
               {position === "bottom" &&
                 showHandle && (
                   <div
                     className="
-                      flex shrink-0
+                      flex
+                      shrink-0
                       justify-center
-                      px-4 pb-1 pt-3
+                      pt-2.5
+                      pb-1
                       sm:hidden
                       touch-none
                     "
-                    onPointerDown={
-                      (event) => {
-                        if (enableDrag) {
-                          dragControls.start(
-                            event
-                          );
-                        }
+                    onPointerDown={(event) => {
+                      if (enableDrag) {
+                        dragControls.start(event);
                       }
-                    }
+                    }}
                   >
                     <div
                       className="
-                        h-1.5 w-10
+                        h-1
+                        w-9
                         rounded-full
-                        bg-slate-300
-                        transition-colors
+                        bg-ink-300
                       "
                       aria-hidden="true"
                     />
@@ -743,25 +762,54 @@ const Modal = ({
 
               {(title ||
                 subtitle ||
+                description ||
                 showCloseButton) && (
-                <div
+                <header
                   className="
-                    flex shrink-0 items-start gap-4
-                    border-b border-slate-100
-                    bg-white
-                    px-5 py-4
-                    sm:px-6 sm:py-5
+                    relative
+                    flex
+                    shrink-0
+                    items-start
+                    gap-4
+                    px-5
+                    pb-4
+                    pt-4
+                    sm:px-6
+                    sm:pb-5
+                    sm:pt-5
                   "
                 >
-                  <div className="min-w-0 flex-1">
+                  {/* Subtle theme accent */}
+                  <div
+                    className="
+                      absolute
+                      left-5
+                      top-0
+                      h-[2px]
+                      w-8
+                      rounded-full
+                      bg-primary-500
+                      sm:left-6
+                    "
+                    aria-hidden="true"
+                  />
+
+                  <div
+                    className="
+                      min-w-0
+                      flex-1
+                      pt-0.5
+                    "
+                  >
                     {subtitle && (
                       <p
                         className="
-                          mb-1 font-mono
-                          text-[10px] font-medium
+                          mb-1
+                          text-[10px]
+                          font-bold
                           uppercase
-                          tracking-[0.14em]
-                          text-slate-400
+                          tracking-[0.16em]
+                          text-primary-600
                         "
                       >
                         {subtitle}
@@ -772,12 +820,11 @@ const Modal = ({
                       <h2
                         id={titleId}
                         className="
-                          truncate
-                          text-[18px]
-                          font-semibold
+                          text-lg
+                          font-extrabold
                           leading-6
                           tracking-tight
-                          text-slate-950
+                          text-ink-950
                           sm:text-xl
                         "
                       >
@@ -790,10 +837,10 @@ const Modal = ({
                         id={descriptionId}
                         className="
                           mt-1.5
-                          max-w-xl
+                          max-w-2xl
                           text-sm
                           leading-5
-                          text-slate-500
+                          text-ink-500
                         "
                       >
                         {description}
@@ -810,79 +857,101 @@ const Modal = ({
                         prefersReducedMotion
                           ? undefined
                           : {
-                              scale: 1.05,
+                              scale: 1.04,
                             }
                       }
                       whileTap={
                         prefersReducedMotion
                           ? undefined
                           : {
-                              scale: 0.92,
+                              scale: 0.94,
                             }
                       }
                       className="
-                        flex h-9 w-9
+                        flex
+                        h-9
+                        w-9
                         shrink-0
                         items-center
                         justify-center
-                        rounded-xl
-                        bg-slate-100
-                        text-slate-500
+
+                        rounded-full
+
+                        bg-ink-100
+                        text-ink-500
+
                         transition-colors
-                        hover:bg-slate-200
-                        hover:text-slate-900
+
+                        hover:bg-ink-200
+                        hover:text-ink-900
+
                         focus:outline-none
                         focus:ring-2
-                        focus:ring-slate-400/30
+                        focus:ring-primary-200
                       "
                     >
                       <X
-                        size={18}
-                        strokeWidth={2}
+                        size={17}
+                        strokeWidth={2.2}
                       />
                     </motion.button>
                   )}
-                </div>
+                </header>
               )}
 
               {/* =================================================
                   CONTENT
               ================================================= */}
 
-              <div
+              <main
                 className="
-                  min-h-0 flex-1
+                  min-h-0
+                  flex-1
                   overflow-y-auto
                   overscroll-contain
-                  px-5 py-5
-                  sm:px-6 sm:py-6
+
+                  px-5
+                  py-4
+
+                  sm:px-6
+                  sm:py-5
+
                   touch-pan-y
+
                   [scrollbar-width:none]
                   [-ms-overflow-style:none]
                   [&::-webkit-scrollbar]:hidden
-                  pb-[max(1.25rem,env(safe-area-inset-bottom))]
+
+                  pb-[max(1rem,env(safe-area-inset-bottom))]
                 "
               >
                 {children}
-              </div>
+              </main>
 
               {/* =================================================
                   FOOTER
               ================================================= */}
 
               {footer && (
-                <div
+                <footer
                   className="
                     shrink-0
-                    border-t border-slate-100
+
+                    border-t
+                    border-ink-100
+
                     bg-white
-                    px-5 py-4
+
+                    px-5
+                    py-4
+
                     sm:px-6
+
                     pb-[max(1rem,env(safe-area-inset-bottom))]
                   "
                 >
                   {footer}
-                </div>
+                </footer>
               )}
             </motion.div>
           </div>

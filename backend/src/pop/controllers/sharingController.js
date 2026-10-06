@@ -1,5 +1,5 @@
 import { supabase } from '../../db/index.js';
-import { createNotification } from './notificationController.js';
+import { createNotification } from '../../shared/controllers/notificationController.js';
 
 // ============================================================
 // HELPERS

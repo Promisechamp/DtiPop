@@ -1,7 +1,7 @@
 // backend/controllers/applicationController.js
 
 import { supabase } from '../../db/index.js';
-import { createNotification } from './notificationController.js';
+import { createDTINotification } from '../../shared/controllers/notificationController.js';
 
 // ============================================
 // CREATE APPLICATION
@@ -132,7 +132,7 @@ export const createApplication = async (req, res) => {
     }
 
     // ✅ Send notification to donor
-    await createNotification(
+    await createDTINotification(
       item.donor_id,
       'application_received',
       'New Application Received',
@@ -630,7 +630,7 @@ export const updateApplicationStatus = async (req, res) => {
       // 3. Notify each auto‑closed applicant
       if (otherPending) {
         for (const other of otherPending) {
-          await createNotification(
+          await createDTINotification(
             other.applicant_id,
             'application_rejected',
             'Item Awarded to Someone Else',
@@ -655,7 +655,7 @@ export const updateApplicationStatus = async (req, res) => {
         .eq('id', application.item_id);
 
       // 5. Notify the winner
-      await createNotification(
+      await createDTINotification(
         application.applicant_id,
         'application_accepted',
         '🎉 Application Accepted!',
@@ -668,7 +668,7 @@ export const updateApplicationStatus = async (req, res) => {
       );
 
       // 6. Notify the donor
-      await createNotification(
+      await createDTINotification(
         userId,
         'winner_announced',
         '🏆 Winner Selected!',
@@ -686,7 +686,7 @@ export const updateApplicationStatus = async (req, res) => {
     // ====================
     if (status === 'rejected') {
       // Notify the rejected applicant
-      await createNotification(
+      await createDTINotification(
         application.applicant_id,
         'application_rejected',
         'Application Update',
@@ -874,7 +874,7 @@ export const reacceptApplication = async (req, res) => {
     // 3. Notify each auto-closed applicant
     if (otherPending) {
       for (const other of otherPending) {
-        await createNotification(
+        await createDTINotification(
           other.applicant_id,
           'application_not_selected',
           'Item Awarded to Someone Else',
@@ -900,7 +900,7 @@ export const reacceptApplication = async (req, res) => {
 
     // ---- Notifications ----
     // Notify the newly accepted applicant
-    await createNotification(
+    await createDTINotification(
       application.applicant_id,
       'application_accepted',
       '🎉 You\'ve Been Selected!',
@@ -913,7 +913,7 @@ export const reacceptApplication = async (req, res) => {
     );
 
     // Notify the donor
-    await createNotification(
+    await createDTINotification(
       userId,
       'winner_announced',
       '🏆 Winner Re‑selected!',
@@ -1043,7 +1043,7 @@ export const cancelApplication = async (req, res) => {
     }
 
     // ✅ Send notification to donor
-    await createNotification(
+    await createDTINotification(
       application.item.donor_id,
       'application_rejected',
       'Application Cancelled',
@@ -1208,7 +1208,7 @@ export const redeclareInterest = async (req, res) => {
       .single();
 
     // ✅ Send notification to donor
-    await createNotification(
+    await createDTINotification(
       application.item.donor_id,
       'reinterest',
       'Re-Interest Declared',
@@ -1675,7 +1675,7 @@ export const adminReviewApplication = async (req, res) => {
       // 3. Notify them
       if (others) {
         for (const other of others) {
-          await createNotification(
+          await createDTINotification(
             other.applicant_id,
             'application_rejected',
             'Item Awarded to Someone Else',
@@ -1696,7 +1696,7 @@ export const adminReviewApplication = async (req, res) => {
         .eq('id', existing.item_id);
 
       // 5. Notify winner & donor
-      await createNotification(
+      await createDTINotification(
         existing.applicant_id,
         'application_accepted',
         '🎉 Application Accepted!',
@@ -1704,7 +1704,7 @@ export const adminReviewApplication = async (req, res) => {
         { item_id: existing.item_id, application_id: applicationId, donor_id: existing.item.donor_id }
       );
 
-      await createNotification(
+      await createDTINotification(
         existing.item.donor_id,
         'winner_announced',
         '🏆 Winner Selected by Admin',

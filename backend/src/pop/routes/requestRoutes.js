@@ -2,88 +2,53 @@ import express from 'express';
 import { authenticate } from '../../middleware/auth.js';
 
 import {
+  getProviderProfile,
   createRequest,
   getRequests,
+  getRequestsForMe,
   getRequest,
   updateRequest,
   deleteRequest,
   fulfillRequest,
-
-  // Provider profile / matching
-  getProviderProfile,
-  getRequestProviders,
+  cancelRequest,
+  getMyRequests,
+  getHouseholdRequests,
+  getOpenHouseholdRequests,
   findRequestProviders,
+  getRequestProviders,
   connectRequestProvider,
-
-  // Provider relationship lifecycle
   respondToRequestProvider,
   startRequestProvider,
   completeRequestProvider,
-
-  // Household / user requests
-  getHouseholdRequests,
-  getMyRequests,
-  getOpenHouseholdRequests,
 } from '../controllers/requestController.js';
 
 const router = express.Router();
 
 router.use(authenticate);
 
-// ─────────────────────────────────────────────
-// Requests
-// ─────────────────────────────────────────────
+router.get('/providers/:providerId/profile', getProviderProfile);
 
-router.post('/', createRequest);
-
-router.get('/', getRequests);
-router.get('/my', getMyRequests);
-
+router.get('/mine', getMyRequests);
+router.get('/for-me', getRequestsForMe);
 router.get('/household/:householdId', getHouseholdRequests);
 router.get('/household/:householdId/open', getOpenHouseholdRequests);
 
-// ─────────────────────────────────────────────
-// Provider profile / matching
-// Keep these BEFORE /:id for clarity and safety.
-// ─────────────────────────────────────────────
-
-// Provider profile lookup (no request context needed)
-router.get('/providers/:providerId/profile', getProviderProfile);
-router.get('/:id/providers', getRequestProviders);
-router.get('/:id/matching-providers', findRequestProviders);
-
-router.post('/:id/providers', connectRequestProvider);
-
-// ─────────────────────────────────────────────
-// Provider relationship lifecycle
-// pending → accepted/declined → in_progress → completed
-// ─────────────────────────────────────────────
-
-router.patch(
-  '/provider-relationships/:id/respond',
-  respondToRequestProvider
-);
-
-router.patch(
-  '/provider-relationships/:id/start',
-  startRequestProvider
-);
-
-router.patch(
-  '/provider-relationships/:id/complete',
-  completeRequestProvider
-);
-
-// ─────────────────────────────────────────────
-// Single request
-// Keep this AFTER the more specific /:id/... routes.
-// ─────────────────────────────────────────────
+router.get('/', getRequests);
+router.post('/', createRequest);
 
 router.get('/:id', getRequest);
-
-router.put('/:id', updateRequest);
+router.patch('/:id', updateRequest);
 router.delete('/:id', deleteRequest);
 
-router.post('/:id/fulfill', fulfillRequest);
+router.patch('/:id/fulfill', fulfillRequest);
+router.patch('/:id/cancel', cancelRequest);
+
+router.get('/:id/providers/find', findRequestProviders);
+router.get('/:id/providers', getRequestProviders);
+router.post('/:id/providers', connectRequestProvider);
+
+router.patch('/request-providers/:id/respond', respondToRequestProvider);
+router.patch('/request-providers/:id/start', startRequestProvider);
+router.patch('/request-providers/:id/complete', completeRequestProvider);
 
 export default router;

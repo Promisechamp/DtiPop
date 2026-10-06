@@ -1,6 +1,6 @@
 // backend/controllers/supportController.js
 import { supabase } from '../../db/index.js';
-import { createNotification } from './notificationController.js';
+import { createDTINotification } from '../../shared/controllers/notificationController.js';
 
 // ============================================
 // HELPER: Format item images
@@ -132,7 +132,7 @@ export const createSupportTicket = async (req, res) => {
                          reporter_type === 'winner' ? 'Winner' : 'User';
 
     for (const admin of admins) {
-      await createNotification(
+      await createDTINotification(
         admin.id,
         'new_support_ticket',
         'New Support Ticket',
@@ -149,7 +149,7 @@ export const createSupportTicket = async (req, res) => {
     }
 
     // ✅ Send confirmation notification to the reporter
-    await createNotification(
+    await createDTINotification(
       userId,
       'support_ticket_created',
       'Support Ticket Created',
@@ -685,7 +685,7 @@ export const replyToTicket = async (req, res) => {
       // ADMIN -> USER
       // ------------------------------------------
 
-      await createNotification(
+      await createDTINotification(
         ticket.reporter_id,
         'support_reply',
         'Support Team Replied',
@@ -709,7 +709,7 @@ export const replyToTicket = async (req, res) => {
         'A user';
 
       for (const admin of admins) {
-        await createNotification(
+        await createDTINotification(
           admin.id,
           'support_user_reply',
           'User Replied to Ticket',
@@ -925,7 +925,7 @@ export const updateTicketStatus = async (req, res) => {
         closed: 'Closed'
       };
       
-      await createNotification(
+      await createDTINotification(
         currentTicket.reporter_id,
         'support_status_update',
         `Ticket Status: ${statusLabels[status]}`,
@@ -998,7 +998,7 @@ export const deleteTicket = async (req, res) => {
 
     // ✅ Notify reporter that ticket was deleted
     if (ticket?.reporter_id) {
-      await createNotification(
+      await createDTINotification(
         ticket.reporter_id,
         'support_ticket_deleted',
         'Support Ticket Deleted',

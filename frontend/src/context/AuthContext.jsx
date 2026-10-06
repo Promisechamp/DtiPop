@@ -13,26 +13,16 @@ import { authAPI, usersAPI} from '@/services/api/dtiApi';
 
 const AuthContext = createContext(null);
 
-// ============================================================
-// CONFIG
-// ============================================================
-
-const AUTH_DEBUG = true;
-
-// ============================================================
-// PERFORMANCE LOGGER
-// ============================================================
-
 const logAuthPerformance = (label, startTime) => {
-  if (!AUTH_DEBUG) return;
+  try {
+    const duration = performance.now() - startTime;
 
-  const elapsed = performance.now() - startTime;
-
-  console.log(
-    `%c[AUTH] ${label}: ${elapsed.toFixed(0)}ms`,
-    'color: #6366f1; font-weight: 600;'
-  );
+    
+  } catch (error) {
+    // Performance logging should never affect authentication.
+  }
 };
+
 
 // ============================================================
 // SETTINGS
@@ -122,11 +112,7 @@ const getCachedUser = () => {
 
     return JSON.parse(cachedUser);
   } catch (error) {
-    console.warn(
-      '[AUTH] Failed to read cached user:',
-      error
-    );
-
+    
     return null;
   }
 };
@@ -143,10 +129,7 @@ const cacheUser = (userData) => {
       JSON.stringify(userData)
     );
   } catch (error) {
-    console.error(
-      '[AUTH] Failed to cache user:',
-      error
-    );
+    
   }
 };
 
@@ -307,11 +290,7 @@ export const AuthProvider = ({ children }) => {
           startTime
         );
 
-        console.error(
-          '[AUTH] Error fetching settings:',
-          err
-        );
-
+        
         return {};
       }
     },
@@ -673,10 +652,7 @@ export const AuthProvider = ({ children }) => {
           performance.now();
 
         try {
-          console.log(
-            '%c[AUTH] Fetching authenticated profile...',
-            'color: #6366f1; font-weight: 600;'
-          );
+          
 
           const response =
             await authAPI.getMe();
@@ -784,23 +760,7 @@ export const AuthProvider = ({ children }) => {
           finalUser.is_admin =
             Boolean(resolvedAdmin);
 
-          // ----------------------------------------------------
-          // Debug information
-          // ----------------------------------------------------
 
-          if (AUTH_DEBUG) {
-            console.log(
-              '%c[AUTH] Profile resolved:',
-              'color: #16a34a; font-weight: 600;',
-              {
-                id: finalUser.id,
-                email: finalUser.email,
-                role: finalUser.role,
-                is_admin:
-                  finalUser.is_admin,
-              }
-            );
-          }
 
           // ----------------------------------------------------
           // Store
@@ -1323,10 +1283,7 @@ const updateLocation = useCallback(
         performance.now();
 
       try {
-        console.log(
-          '%c[AUTH] Initialization started',
-          'color: #6366f1; font-weight: bold;'
-        );
+        
 
         // ------------------------------------------------------
         // Get Supabase session
@@ -1497,10 +1454,7 @@ const updateLocation = useCallback(
         ) {
           setLoading(false);
 
-          console.log(
-            '%c[AUTH] Authentication ready',
-            'color: #16a34a; font-weight: bold;'
-          );
+          
         }
 
         clearTimeout(
@@ -1518,10 +1472,12 @@ const updateLocation = useCallback(
     timeoutId = setTimeout(() => {
       if (
         mountedRef.current
-      ) {
-        console.warn(
-          '[AUTH] Safety timeout: forcing loading=false'
-        );
+      ) 
+						
+						{
+        //console.warn(
+         // '[AUTH] Safety timeout: forcing loading=false'
+       // );
 
         setLoading(false);
       }
@@ -1547,10 +1503,7 @@ const updateLocation = useCallback(
             return;
           }
 
-          console.log(
-            `%c[AUTH] Event: ${event}`,
-            'color: #8b5cf6;'
-          );
+          
 
           // ----------------------------------------------------
           // SIGNED IN

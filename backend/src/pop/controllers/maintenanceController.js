@@ -1,5 +1,5 @@
 import { supabase } from '../../db/index.js';
-import { createNotification } from './notificationController.js';
+import { createPOPNotification } from '../../shared/controllers/notificationController.js';
 import { parseFrequencyToDays } from '../../utils/dateHelpers.js';
 
 // ============================================================
@@ -467,7 +467,7 @@ export const createMaintenance = async (req, res) => {
     // NOTIFICATION
     // --------------------------------------------------------
 
-    await createNotification(
+    await createPOPNotification(
       userId,
       'maintenance_created',
       'Maintenance scheduled',
@@ -1193,7 +1193,7 @@ export const updateMaintenance = async (
     // NOTIFICATION
     // --------------------------------------------------------
 
-    await createNotification(
+    await createPOPNotification(
       userId,
       'maintenance_updated',
       'Maintenance updated',
@@ -1301,7 +1301,7 @@ export const deleteMaintenance = async (
     // NOTIFICATION
     // --------------------------------------------------------
 
-    await createNotification(
+    await createPOPNotification(
       userId,
       'maintenance_deleted',
       'Maintenance deleted',
@@ -1444,7 +1444,7 @@ export const completeMaintenance = async (
     // NOTIFICATION
     // --------------------------------------------------------
 
-    await createNotification(
+    await createPOPNotification(
       userId,
       'maintenance_completed',
       'Maintenance completed',

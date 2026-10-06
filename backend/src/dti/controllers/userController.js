@@ -2,7 +2,7 @@
 import { supabase, supabaseAdmin } from '../../db/index.js';
 import { cleanupImages, deleteImage, extractPublicId } from '../../utils/cloudinary.js';
 import { autoUnbanUsers } from '../../utils/autoUnban.js';
-import { createNotification } from './notificationController.js';
+import { createDTINotification } from '../../shared/controllers/notificationController.js';
 import { randomUUID } from 'crypto';
 
 /**
@@ -741,7 +741,7 @@ export const createService = async (req, res) => {
     }
 
     try {
-      await createNotification(userId, {
+      await createDTINotification(userId, {
         type: 'service_created',
         title: 'Service created',
         message: `Your service "${newService.title}" is now live.`,
@@ -1064,7 +1064,7 @@ export const updateService = async (req, res) => {
     }
 
     try {
-      await createNotification(userId, {
+      await createDTINotification(userId, {
         type: 'service_updated',
         title: 'Service updated',
         message: `Your service "${updatedService.title}" was updated.`,
@@ -1153,7 +1153,7 @@ export const deleteService = async (req, res) => {
     }
 
     try {
-      await createNotification(userId, {
+      await createDTINotification(userId, {
         type: 'service_deleted',
         title: 'Service deleted',
         message: 'Your service was deleted.',
@@ -1254,7 +1254,7 @@ export const toggleServiceActive = async (req, res) => {
     }
 
     try {
-      await createNotification(userId, {
+      await createDTINotification(userId, {
         type: 'service_updated',
         title: `Service ${newStatus ? 'activated' : 'deactivated'}`,
         message: `Your service "${updatedService.title}" is now ${
