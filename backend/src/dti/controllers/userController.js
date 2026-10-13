@@ -70,7 +70,6 @@ export const getProfile = async (req, res) => {
             full_name: '',
             bio: '',
             location: '',
-            country: '',
             phone: '',
             avatar_url: '',
             email_verified: false,
@@ -146,7 +145,6 @@ export const getProfile = async (req, res) => {
       full_name: profileData.full_name || '',
       bio: profileData.bio || '',
       location: profileData.location || '',
-      country: profileData.country || '',
       phone: profileData.phone || '',
       avatar_url: profileData.avatar_url || '',
       email_verified: profileData.email_verified || false,
@@ -261,7 +259,6 @@ export const updateProfile = async (req, res) => {
       'full_name',
       'avatar_url',
       'location',
-      'country',
       'phone',
       'bio',
     ];
@@ -375,9 +372,14 @@ export const updateProfile = async (req, res) => {
   }
 };
 
+
+
+
+
+
 export const updateMyLocation = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id;
 
     if (!userId) {
       return res.status(401).json({
@@ -414,51 +416,53 @@ export const updateMyLocation = async (req, res) => {
       });
     }
 
-    const location = {
-      country: country.trim(),
-      country_code: country_code?.trim() || null,
+    // Validate coordinates before building the payload
+    const lat = typeof latitude === 'number' ? latitude : null;
+    const lng = typeof longitude === 'number' ? longitude : null;
 
-      state: state.trim(),
-      state_code: state_code?.trim() || null,
-
-      city: city.trim(),
-
-      postal_code: postal_code?.trim() || null,
-
-      latitude: typeof latitude === 'number' ? latitude : null,
-
-      longitude: typeof longitude === 'number' ? longitude : null,
-
-      source,
-
-      updated_at: new Date().toISOString(),
-    };
-
-    if (
-      location.latitude !== null &&
-      (location.latitude < -90 || location.latitude > 90)
-    ) {
+    if (lat !== null && (lat < -90 || lat > 90)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid latitude',
       });
     }
 
-    if (
-      location.longitude !== null &&
-      (location.longitude < -180 || location.longitude > 180)
-    ) {
+    if (lng !== null && (lng < -180 || lng > 180)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid longitude',
       });
     }
 
+    const now = new Date().toISOString();
+
+    // All location details live inside the jsonb column as metadata
+    const location = {
+        country: country.trim(),
+        country_code: country_code?.trim() || null,
+
+        state: state.trim(),
+        state_code: state_code?.trim() || null,
+
+        city: city.trim(),
+
+        postal_code: postal_code?.trim() || null,
+
+        coordinates: {
+          latitude: lat,
+          longitude: lng,
+        },
+
+        source,
+
+        updated_at: now,
+    };
+
     const { data: profile, error: updateError } = await supabase
       .from('profiles')
       .update({
         location,
-        updated_at: new Date().toISOString(),
+        updated_at: now,
       })
       .eq('id', userId)
       .select('*')
@@ -476,7 +480,7 @@ export const updateMyLocation = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'Location updated successfully',
-      location: profile.location,
+      location: profile.location?.metadata ?? profile.location,
     });
   } catch (error) {
     console.error('❌ Update location error:', error);
@@ -487,6 +491,9 @@ export const updateMyLocation = async (req, res) => {
     });
   }
 };
+
+
+
 
 /**
  * Get user stats
@@ -1752,7 +1759,6 @@ export const adminUpdateUser = async (req, res) => {
       ban_status,
       full_name,
       location,
-      country,
       phone,
     } = req.body;
 
@@ -1776,7 +1782,6 @@ export const adminUpdateUser = async (req, res) => {
     if (ban_status !== undefined) updates.ban_status = ban_status;
     if (full_name !== undefined) updates.full_name = full_name;
     if (location !== undefined) updates.location = location;
-    if (country !== undefined) updates.country = country;
     if (phone !== undefined) updates.phone = phone;
     updates.updated_at = new Date().toISOString();
 

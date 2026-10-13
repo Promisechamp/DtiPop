@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { applicationsAPI, chatAPI, itemsAPI } from '@/services/api/dtiApi';
 
-import ChatDrawer from '../components/chat/ChatDrawer';
+import ChatModal from '@/pages/chat/ChatModal';
 import Modal from '@/reusables/Modal';
 import SupportModal from '../components/common/SupportModal';
 import { PageNavigation, PageNavigationSkeleton } from '@/reusables/PageNavigation';
@@ -1608,14 +1608,31 @@ const MyApplicationsPage = () => {
         />
 
         {/* CHAT */}
-        <ChatDrawer
-          isOpen={isChatOpen}
-          onClose={() => {
-            setIsChatOpen(false);
-            setChatConversation(null);
-          }}
-          initialConversation={chatConversation}
-        />
+        <ChatModal
+  isOpen={isChatOpen}
+  onClose={() => {
+    setIsChatOpen(false);
+    setChatConversation(null);
+  }}
+  conversationId={
+    chatConversation?.id ||
+    chatConversation?.conversation_id ||
+    chatConversation?.conversationId ||
+    null
+  }
+  currentUserId={user?.id}
+  currentUserName={user?.full_name || user?.fullName}
+  otherParticipant={
+    chatConversation?.otherParticipant ||
+    chatConversation?.other_participant ||
+    chatConversation?.other_user ||
+    chatConversation?.otherUser ||
+    null
+  }
+/>
+
+
+
       </div>
     </div>
   );

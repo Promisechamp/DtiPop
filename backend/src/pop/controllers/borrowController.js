@@ -895,317 +895,309 @@ export const createBorrowRequest = async (
 // GET BORROW REQUESTS
 // ============================================================
 export const getBorrowRequests = async (req, res, forcedFilters = {}) => {
-  try {
-    const userId = getUserId(req);
+try {
+const userId = getUserId(req);
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required',
-      });
-    }
+if (!userId) {
+  return res.status(401).json({
+    success: false,
+    message: 'Authentication required',
+  });
+}
 
-    const {
-      householdId,
-      status,
-      assetId,
-      requesterId,
-      ownerId,
-      page = 1,
-      limit = 50,
-    } = {
-      ...req.query,
-      ...forcedFilters,
-    };
-
-    const pageNumber = Math.max(Number(page) || 1, 1);
-    const limitNumber = Math.min(Math.max(Number(limit) || 50, 1), 100);
-    const offset = (pageNumber - 1) * limitNumber;
-
-    // ------------------------------------------------------------
-    // Household access
-    // ------------------------------------------------------------
-
-    const { data: memberships, error: membershipError } = await supabase
-      .from('pop_household_members')
-      .select('household_id')
-      .eq('user_id', userId)
-      .eq('status', 'active');
-
-    if (membershipError) {
-      console.error('getBorrowRequests membership error:', membershipError);
-
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to verify household access',
-      });
-    }
-
-    const accessibleHouseholdIds = (memberships || [])
-      .map((member) => member.household_id)
-      .filter(Boolean);
-
-    // ------------------------------------------------------------
-    // Validate explicit household filter
-    // ------------------------------------------------------------
-
-    if (householdId) {
-      if (!accessibleHouseholdIds.includes(householdId)) {
-        return res.status(403).json({
-          success: false,
-          message: 'You do not have access to this household',
-        });
-      }
-    }
-
-    // ------------------------------------------------------------
-    // Build query
-    // ------------------------------------------------------------
-
-    let query = supabase
-      .from('pop_borrow_requests')
-      .select(`
-        *,
-        requester:requester_id (
-          id,
-          full_name,
-          avatar_url
-        ),
-        owner:owner_id (
-          id,
-          full_name,
-          avatar_url
-        ),
-        pop_assets (
-          id,
-          name,
-          asset_type,
-          location,
-          status,
-          user_id,
-          household_id
-        ),
-        household:household_id (
-          id,
-          name
-        ),
-        pop_requests (
-          id,
-          title,
-          description,
-          request_type,
-          status,
-          urgency
-        )
-      `, { count: 'exact' });
-
-    // ------------------------------------------------------------
-    // Visibility
-    //
-    // 1. User's own requests are always visible.
-    // 2. User's own lending requests are always visible.
-    // 3. Other requests are visible only inside accessible
-    //    households.
-    //
-    // This is the important fix for public borrows:
-    // requester_id = current user does NOT require a household.
-    // ------------------------------------------------------------
-
-    const isRequesterQuery = requesterId === userId;
-    const isOwnerQuery = ownerId === userId;
-
-    if (!isRequesterQuery && !isOwnerQuery) {
-      const visibilityParts = [
-        `requester_id.eq.${userId}`,
-        `owner_id.eq.${userId}`,
-      ];
-
-      if (accessibleHouseholdIds.length) {
-        visibilityParts.push(
-          `household_id.in.(${accessibleHouseholdIds.join(',')})`
-        );
-      }
-
-      query = query.or(visibilityParts.join(','));
-    }
-
-    // ------------------------------------------------------------
-    // Filters
-    // ------------------------------------------------------------
-
-    if (householdId) {
-      query = query.eq('household_id', householdId);
-    }
-
-    if (status) {
-      query = query.eq('status', status);
-    }
-
-    if (assetId) {
-      query = query.eq('asset_id', assetId);
-    }
-
-    if (requesterId) {
-      query = query.eq('requester_id', requesterId);
-    }
-
-    if (ownerId) {
-      query = query.eq('owner_id', ownerId);
-    }
-
-    // ------------------------------------------------------------
-    // Pagination
-    // ------------------------------------------------------------
-
-    query = query
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limitNumber - 1);
-
-    const { data, error, count } = await query;
-
-    if (error) {
-      console.error('getBorrowRequests error:', error);
-
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to fetch borrow requests',
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      data: data || [],
-      pagination: {
-        page: pageNumber,
-        limit: limitNumber,
-        total: count || 0,
-        totalPages: Math.ceil((count || 0) / limitNumber),
-      },
-    });
-  } catch (error) {
-    console.error('getBorrowRequests server error:', error);
-
-    return res.status(500).json({
-      success: false,
-      message: 'Server error while fetching borrow requests',
-    });
-  }
+const {
+  householdId,
+  status,
+  assetId,
+  requesterId,
+  ownerId,
+  page = 1,
+  limit = 50,
+} = {
+  ...req.query,
+  ...forcedFilters,
 };
+
+const pageNumber = Math.max(Number(page) || 1, 1);
+const limitNumber = Math.min(Math.max(Number(limit) || 50, 1), 100);
+const offset = (pageNumber - 1) * limitNumber;
+
+// ------------------------------------------------------------
+// Household access
+// ------------------------------------------------------------
+
+const { data: memberships, error: membershipError } = await supabase
+  .from('pop_household_members')
+  .select('household_id')
+  .eq('user_id', userId)
+  .eq('status', 'active');
+
+if (membershipError) {
+  console.error('getBorrowRequests membership error:', membershipError);
+
+  return res.status(500).json({
+    success: false,
+    message: 'Failed to verify household access',
+  });
+}
+
+const accessibleHouseholdIds = (memberships || [])
+  .map((member) => member.household_id)
+  .filter(Boolean);
+
+// ------------------------------------------------------------
+// Validate explicit household filter
+// ------------------------------------------------------------
+
+if (
+  householdId &&
+  !accessibleHouseholdIds.includes(householdId)
+) {
+  return res.status(403).json({
+    success: false,
+    message: 'You do not have access to this household',
+  });
+}
+
+// ------------------------------------------------------------
+// Build query
+//
+// Every embedded relationship below corresponds to a confirmed
+// foreign key in the current database schema.
+//
+// pop_requests is intentionally excluded because
+// pop_borrow_requests.request_id has no confirmed foreign key.
+// ------------------------------------------------------------
+
+let query = supabase
+  .from('pop_borrow_requests')
+  .select(`
+    *,
+    requester:profiles!pop_borrow_requests_requester_id_fkey (
+      id,
+      full_name,
+      avatar_url
+    ),
+    owner:profiles!pop_borrow_requests_owner_id_fkey (
+      id,
+      full_name,
+      avatar_url
+    ),
+    pop_assets!pop_borrow_requests_asset_id_fkey (
+      id,
+      name,
+      asset_type,
+      location,
+      status,
+      user_id,
+      household_id
+    ),
+    household:pop_households!pop_borrow_requests_household_id_fkey (
+      id,
+      name
+    )
+  `, { count: 'exact' });
+
+// ------------------------------------------------------------
+// Visibility
+// ------------------------------------------------------------
+
+const isRequesterQuery = requesterId === userId;
+const isOwnerQuery = ownerId === userId;
+
+if (!isRequesterQuery && !isOwnerQuery) {
+  const visibilityParts = [
+    `requester_id.eq.${userId}`,
+    `owner_id.eq.${userId}`,
+  ];
+
+  if (accessibleHouseholdIds.length) {
+    visibilityParts.push(
+      `household_id.in.(${accessibleHouseholdIds.join(',')})`
+    );
+  }
+
+  query = query.or(visibilityParts.join(','));
+}
+
+// ------------------------------------------------------------
+// Filters
+// ------------------------------------------------------------
+
+if (householdId) {
+  query = query.eq('household_id', householdId);
+}
+
+if (status) {
+  query = query.eq('status', status);
+}
+
+if (assetId) {
+  query = query.eq('asset_id', assetId);
+}
+
+if (requesterId) {
+  query = query.eq('requester_id', requesterId);
+}
+
+if (ownerId) {
+  query = query.eq('owner_id', ownerId);
+}
+
+// ------------------------------------------------------------
+// Pagination
+// ------------------------------------------------------------
+
+query = query
+  .order('created_at', { ascending: false })
+  .range(offset, offset + limitNumber - 1);
+
+const { data, error, count } = await query;
+
+if (error) {
+  console.error('getBorrowRequests error:', error);
+
+  return res.status(500).json({
+    success: false,
+    message: 'Failed to fetch borrow requests',
+  });
+}
+
+return res.status(200).json({
+  success: true,
+  data: data || [],
+  pagination: {
+    page: pageNumber,
+    limit: limitNumber,
+    total: count || 0,
+    totalPages: Math.ceil((count || 0) / limitNumber),
+  },
+});
+
+} catch (error) {
+console.error('getBorrowRequests server error:', error);
+
+return res.status(500).json({
+  success: false,
+  message: 'Server error while fetching borrow requests',
+});
+
+}
+};
+
+
+
+
+
+
+
 
 // ============================================================
 // GET SINGLE BORROW REQUEST
 // ============================================================
 
-export const getBorrowRequest = async (
-  req,
-  res
-) => {
-  try {
-    const userId = getUserId(req);
+export const getBorrowRequest = async (req, res) => {
+try {
+const userId = getUserId(req);
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'User ID is required.',
-      });
-    }
+if (!userId) {
+  return res.status(401).json({
+    success: false,
+    message: 'User ID is required.',
+  });
+}
 
-    const { id } = req.params;
+const { id } = req.params;
 
-    const {
-      data,
-      error,
-    } = await supabase
-      .from('pop_borrow_requests')
-      .select(`
-        *,
-        requester:profiles!pop_borrow_requests_requester_id_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url
-        ),
-        owner:profiles!pop_borrow_requests_owner_id_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url
-        ),
-        pop_assets (
-          id,
-          name,
-          asset_type,
-          location,
-          condition,
-          status
-        ),
-        pop_households (
-          id,
-          name,
-          household_type
-        ),
-        pop_requests (
-          id,
-          title,
-          description,
-          request_type,
-          status
-        ),
-        pop_community_reviews (
-          id,
-          reviewer_id,
-          reviewed_user_id,
-          review_type,
-          rating,
-          review_text,
-          created_at
-        )
-      `)
-      .eq('id', id)
-      .single();
+const { data, error } = await supabase
+  .from('pop_borrow_requests')
+  .select(`
+    *,
+    requester:profiles!pop_borrow_requests_requester_id_fkey (
+      id,
+      full_name,
+      email,
+      avatar_url
+    ),
+    owner:profiles!pop_borrow_requests_owner_id_fkey (
+      id,
+      full_name,
+      email,
+      avatar_url
+    ),
+    pop_assets!pop_borrow_requests_asset_id_fkey (
+      id,
+      name,
+      asset_type,
+      location,
+      condition,
+      status
+    ),
+    pop_households!pop_borrow_requests_household_id_fkey (
+      id,
+      name,
+      household_type
+    ),
+    pop_community_reviews (
+      id,
+      reviewer_id,
+      reviewed_user_id,
+      review_type,
+      rating,
+      review_text,
+      created_at
+    )
+  `)
+  .eq('id', id)
+  .single();
 
-    if (error || !data) {
-      return res.status(404).json({
-        success: false,
-        message:
-          'Borrow request not found.',
-      });
-    }
-
-    const access =
-      await validateBorrowAccess(
-        id,
-        userId
-      );
-
-    if (!access.valid) {
-      return res.status(403).json({
-        success: false,
-        message: access.error,
-      });
-    }
-
-    return res.json({
-      success: true,
-      data,
-    });
-  } catch (error) {
-    console.error(
-      'getBorrowRequest:',
-      error
-    );
-
-    return res.status(500).json({
-      success: false,
-      message:
-        'Failed to fetch borrow request.',
-      error:
-        process.env.NODE_ENV === 'development'
-          ? error.message
-          : undefined,
-    });
+if (error || !data) {
+  if (error) {
+    console.error('getBorrowRequest query error:', error);
   }
+
+  return res.status(404).json({
+    success: false,
+    message: 'Borrow request not found.',
+  });
+}
+
+const access = await validateBorrowAccess(id, userId);
+
+if (!access.valid) {
+  return res.status(403).json({
+    success: false,
+    message: access.error,
+  });
+}
+
+return res.status(200).json({
+  success: true,
+  data,
+});
+
+} catch (error) {
+console.error('getBorrowRequest server error:', error);
+
+return res.status(500).json({
+  success: false,
+  message: 'Failed to fetch borrow request.',
+  error:
+    process.env.NODE_ENV === 'development'
+      ? error.message
+      : undefined,
+});
+
+}
 };
+
+
+
+
+
+
+
+
 
 // ============================================================
 // SELECT BORROWER

@@ -4,7 +4,9 @@ import React, {
   useId,
   useMemo,
   useRef,
+  useState,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   AnimatePresence,
   motion,
@@ -28,146 +30,55 @@ const SIZES = {
 const POSITIONS = {
   bottom: {
     container:
-      "fixed inset-x-0 bottom-0 flex items-end justify-center sm:p-6",
-    panel:
-      "rounded-t-[28px] rounded-b-none sm:rounded-[28px]",
-    initial: {
-      y: "100%",
-      opacity: 0,
-    },
-    animate: {
-      y: 0,
-      opacity: 1,
-    },
-    exit: {
-      y: "100%",
-      opacity: 0,
-    },
-    enterTransition: {
-      type: "spring",
-      stiffness: 420,
-      damping: 34,
-      mass: 0.8,
-    },
-    exitTransition: {
-      duration: 0.24,
-      ease: [0.32, 0.72, 0, 1],
-    },
+      "fixed inset-x-0 bottom-4 flex items-end justify-center sm:p-6",
+    panel: "rounded-[28px]",
+    initial: { y: "100%", opacity: 0 },
+    animate: { y: 0, opacity: 1 },
+    exit: { y: "100%", opacity: 0 },
+    enterTransition: { type: "spring", stiffness: 420, damping: 34, mass: 0.8 },
+    exitTransition: { duration: 0.24, ease: [0.32, 0.72, 0, 1] },
   },
 
   top: {
-    container:
-      "fixed inset-x-0 top-0 flex items-start justify-center sm:p-6",
-    panel:
-      "rounded-b-[28px] rounded-t-none sm:rounded-[28px]",
-    initial: {
-      y: "-100%",
-      opacity: 0,
-    },
-    animate: {
-      y: 0,
-      opacity: 1,
-    },
-    exit: {
-      y: "-100%",
-      opacity: 0,
-    },
-    enterTransition: {
-      type: "spring",
-      stiffness: 420,
-      damping: 34,
-      mass: 0.8,
-    },
-    exitTransition: {
-      duration: 0.24,
-      ease: [0.32, 0.72, 0, 1],
-    },
+    container: "fixed inset-x-0 top-5 flex items-start justify-center sm:p-6",
+    panel: "rounded-b-[28px] rounded-t-none sm:rounded-[28px]",
+    initial: { y: "-100%", opacity: 0 },
+    animate: { y: 0, opacity: 1 },
+    exit: { y: "-100%", opacity: 0 },
+    enterTransition: { type: "spring", stiffness: 420, damping: 34, mass: 0.8 },
+    exitTransition: { duration: 0.24, ease: [0.32, 0.72, 0, 1] },
   },
 
   left: {
     container:
       "fixed inset-y-0 left-0 flex items-center justify-start p-3 sm:p-6",
-    panel:
-      "h-full max-h-[min(100dvh,760px)] rounded-[28px]",
-    initial: {
-      x: "-100%",
-      opacity: 0,
-    },
-    animate: {
-      x: 0,
-      opacity: 1,
-    },
-    exit: {
-      x: "-100%",
-      opacity: 0,
-    },
-    enterTransition: {
-      type: "spring",
-      stiffness: 400,
-      damping: 34,
-      mass: 0.85,
-    },
-    exitTransition: {
-      duration: 0.25,
-      ease: [0.32, 0.72, 0, 1],
-    },
+    panel: "h-full max-h-[min(100dvh,760px)] rounded-[28px]",
+    initial: { x: "-100%", opacity: 0 },
+    animate: { x: 0, opacity: 1 },
+    exit: { x: "-100%", opacity: 0 },
+    enterTransition: { type: "spring", stiffness: 400, damping: 34, mass: 0.85 },
+    exitTransition: { duration: 0.25, ease: [0.32, 0.72, 0, 1] },
   },
 
   right: {
     container:
       "fixed inset-y-0 right-0 flex items-center justify-end p-3 sm:p-6",
-    panel:
-      "h-full max-h-[min(100dvh,760px)] rounded-[28px]",
-    initial: {
-      x: "100%",
-      opacity: 0,
-    },
-    animate: {
-      x: 0,
-      opacity: 1,
-    },
-    exit: {
-      x: "100%",
-      opacity: 0,
-    },
-    enterTransition: {
-      type: "spring",
-      stiffness: 400,
-      damping: 34,
-      mass: 0.85,
-    },
-    exitTransition: {
-      duration: 0.25,
-      ease: [0.32, 0.72, 0, 1],
-    },
+    panel: "h-full max-h-[min(100dvh,760px)] rounded-[28px]",
+    initial: { x: "100%", opacity: 0 },
+    animate: { x: 0, opacity: 1 },
+    exit: { x: "100%", opacity: 0 },
+    enterTransition: { type: "spring", stiffness: 400, damping: 34, mass: 0.85 },
+    exitTransition: { duration: 0.25, ease: [0.32, 0.72, 0, 1] },
   },
 
   center: {
-    container:
-      "fixed inset-0 flex items-center justify-center p-3 sm:p-6",
+    container: "fixed inset-0 flex items-center justify-center p-3 sm:p-6",
     panel: "rounded-[28px]",
-    initial: {
-      scale: 0.96,
-      opacity: 0,
-    },
-    animate: {
-      scale: 1,
-      opacity: 1,
-    },
-    exit: {
-      scale: 0.97,
-      opacity: 0,
-    },
-    enterTransition: {
-      type: "spring",
-      stiffness: 420,
-      damping: 32,
-      mass: 0.8,
-    },
-    exitTransition: {
-      duration: 0.2,
-      ease: [0.32, 0.72, 0, 1],
-    },
+    initial: { scale: 0.96, opacity: 0 },
+    animate: { scale: 1, opacity: 1 },
+    exit: { scale: 0.97, opacity: 0 },
+    enterTransition: { type: "spring", stiffness: 420, damping: 32, mass: 0.8 },
+    exitTransition: { duration: 0.2, ease: [0.32, 0.72, 0, 1] },
   },
 };
 
@@ -217,6 +128,9 @@ const Modal = ({
 
   className = "",
   zIndex = 50,
+
+  // 👇 NEW: portal to document.body by default
+  portal = true,
 }) => {
   const prefersReducedMotion = useReducedMotion();
 
@@ -236,11 +150,15 @@ const Modal = ({
   const descriptionId = useId();
   const dialogId = useId();
 
-  const config =
-    POSITIONS[position] || POSITIONS.bottom;
+  // 👇 NEW: SSR-safe mount guard
+  const [mounted, setMounted] = useState(false);
 
-  const modalSize =
-    SIZES[size] || SIZES.md;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const config = POSITIONS[position] || POSITIONS.bottom;
+  const modalSize = SIZES[size] || SIZES.md;
 
   /* -------------------------------------------------------
      Keep callbacks current without causing effect churn
@@ -251,8 +169,7 @@ const Modal = ({
   }, [onClose]);
 
   useEffect(() => {
-    initialFocusRefRef.current =
-      initialFocusRef;
+    initialFocusRefRef.current = initialFocusRef;
   }, [initialFocusRef]);
 
   const handleClose = useCallback(() => {
@@ -283,37 +200,24 @@ const Modal = ({
 
     scrollPositionRef.current = scrollY;
 
-    previousActiveElement.current =
-      document.activeElement;
+    previousActiveElement.current = document.activeElement;
 
-    const previousBodyOverflow =
-      body.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+    const previousBodyPaddingRight = body.style.paddingRight;
+    const previousHtmlOverscrollBehavior = html.style.overscrollBehavior;
 
-    const previousBodyPaddingRight =
-      body.style.paddingRight;
-
-    const previousHtmlOverscrollBehavior =
-      html.style.overscrollBehavior;
-
-    const scrollbarWidth =
-      window.innerWidth -
-      html.clientWidth;
+    const scrollbarWidth = window.innerWidth - html.clientWidth;
 
     body.style.overflow = "hidden";
 
     if (scrollbarWidth > 0) {
-      body.style.paddingRight =
-        `${scrollbarWidth}px`;
+      body.style.paddingRight = `${scrollbarWidth}px`;
     }
 
-    html.style.overscrollBehavior =
-      "none";
+    html.style.overscrollBehavior = "none";
 
     const handleKeyDown = (event) => {
-      if (
-        event.key === "Escape" &&
-        closeOnEscape
-      ) {
+      if (event.key === "Escape" && closeOnEscape) {
         event.preventDefault();
         event.stopPropagation();
 
@@ -321,148 +225,90 @@ const Modal = ({
         return;
       }
 
-      if (
-        event.key !== "Tab" ||
-        !panelRef.current
-      ) {
+      if (event.key !== "Tab" || !panelRef.current) {
         return;
       }
 
       const focusable = Array.from(
-        panelRef.current.querySelectorAll(
-          FOCUSABLE_SELECTOR
-        )
+        panelRef.current.querySelectorAll(FOCUSABLE_SELECTOR)
       ).filter(
         (element) =>
-          element instanceof HTMLElement &&
-          element.offsetParent !== null
+          element instanceof HTMLElement && element.offsetParent !== null
       );
 
       if (!focusable.length) {
         event.preventDefault();
 
-        panelRef.current.focus({
-          preventScroll: true,
-        });
+        panelRef.current.focus({ preventScroll: true });
 
         return;
       }
 
       const first = focusable[0];
-      const last =
-        focusable[focusable.length - 1];
+      const last = focusable[focusable.length - 1];
 
       if (event.shiftKey) {
         if (
           document.activeElement === first ||
-          !panelRef.current.contains(
-            document.activeElement
-          )
+          !panelRef.current.contains(document.activeElement)
         ) {
           event.preventDefault();
 
-          last.focus({
-            preventScroll: true,
-          });
+          last.focus({ preventScroll: true });
         }
-      } else if (
-        document.activeElement === last
-      ) {
+      } else if (document.activeElement === last) {
         event.preventDefault();
 
-        first.focus({
-          preventScroll: true,
-        });
+        first.focus({ preventScroll: true });
       }
     };
 
-    document.addEventListener(
-      "keydown",
-      handleKeyDown
-    );
+    document.addEventListener("keydown", handleKeyDown);
 
-    const focusTimer =
-      window.setTimeout(() => {
-        const panel = panelRef.current;
+    const focusTimer = window.setTimeout(() => {
+      const panel = panelRef.current;
 
-        if (!panel) return;
+      if (!panel) return;
 
-        const requestedFocus =
-          initialFocusRefRef.current?.current;
+      const requestedFocus = initialFocusRefRef.current?.current;
 
-        if (
-          requestedFocus &&
-          typeof requestedFocus.focus ===
-            "function"
-        ) {
-          requestedFocus.focus({
-            preventScroll: true,
-          });
+      if (requestedFocus && typeof requestedFocus.focus === "function") {
+        requestedFocus.focus({ preventScroll: true });
 
-          return;
-        }
+        return;
+      }
 
-        const active =
-          document.activeElement;
+      const active = document.activeElement;
 
-        const activeIsInside =
-          active &&
-          panel.contains(active);
+      const activeIsInside = active && panel.contains(active);
 
-        const activeIsFormControl =
-          active instanceof HTMLElement &&
-          active.matches(
-            "input, textarea, select, [contenteditable='true']"
-          );
+      const activeIsFormControl =
+        active instanceof HTMLElement &&
+        active.matches("input, textarea, select, [contenteditable='true']");
 
-        if (
-          !activeIsInside &&
-          !activeIsFormControl
-        ) {
-          panel.focus({
-            preventScroll: true,
-          });
-        }
-      }, 50);
+      if (!activeIsInside && !activeIsFormControl) {
+        panel.focus({ preventScroll: true });
+      }
+    }, 50);
 
     return () => {
       window.clearTimeout(focusTimer);
 
-      body.style.overflow =
-        previousBodyOverflow;
+      body.style.overflow = previousBodyOverflow;
+      body.style.paddingRight = previousBodyPaddingRight;
+      html.style.overscrollBehavior = previousHtmlOverscrollBehavior;
 
-      body.style.paddingRight =
-        previousBodyPaddingRight;
-
-      html.style.overscrollBehavior =
-        previousHtmlOverscrollBehavior;
-
-      const savedScrollY =
-        scrollPositionRef.current;
+      const savedScrollY = scrollPositionRef.current;
 
       requestAnimationFrame(() => {
-        if (
-          Math.abs(
-            window.scrollY - savedScrollY
-          ) > 1
-        ) {
-          window.scrollTo({
-            top: savedScrollY,
-            left: 0,
-          });
+        if (Math.abs(window.scrollY - savedScrollY) > 1) {
+          window.scrollTo({ top: savedScrollY, left: 0 });
         }
       });
 
-      document.removeEventListener(
-        "keydown",
-        handleKeyDown
-      );
+      document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [
-    isOpen,
-    closeOnEscape,
-    handleClose,
-  ]);
+  }, [isOpen, closeOnEscape, handleClose]);
 
   /* =======================================================
      RESTORE FOCUS
@@ -475,8 +321,7 @@ const Modal = ({
 
     isClosingRef.current = true;
 
-    const previous =
-      previousActiveElement.current;
+    const previous = previousActiveElement.current;
 
     if (
       previous &&
@@ -485,9 +330,7 @@ const Modal = ({
     ) {
       requestAnimationFrame(() => {
         try {
-          previous.focus({
-            preventScroll: true,
-          });
+          previous.focus({ preventScroll: true });
         } catch {
           previous.focus();
         }
@@ -504,21 +347,11 @@ const Modal = ({
   const animation = useMemo(() => {
     if (prefersReducedMotion) {
       return {
-        initial: {
-          opacity: 0,
-        },
-        animate: {
-          opacity: 1,
-        },
-        exit: {
-          opacity: 0,
-        },
-        enterTransition: {
-          duration: 0.12,
-        },
-        exitTransition: {
-          duration: 0.1,
-        },
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        exit: { opacity: 0 },
+        enterTransition: { duration: 0.12 },
+        exitTransition: { duration: 0.1 },
       };
     }
 
@@ -526,24 +359,17 @@ const Modal = ({
       initial: config.initial,
       animate: config.animate,
       exit: config.exit,
-      enterTransition:
-        config.enterTransition,
-      exitTransition:
-        config.exitTransition,
+      enterTransition: config.enterTransition,
+      exitTransition: config.exitTransition,
     };
-  }, [
-    config,
-    prefersReducedMotion,
-  ]);
+  }, [config, prefersReducedMotion]);
 
   /* =======================================================
      DRAG
   ======================================================= */
 
   const enableDrag =
-    position === "bottom" &&
-    closeOnDrag &&
-    !prefersReducedMotion;
+    position === "bottom" && closeOnDrag && !prefersReducedMotion;
 
   const handleDragEnd = useCallback(
     (_, info) => {
@@ -552,39 +378,26 @@ const Modal = ({
       const distance = info.offset.y;
       const velocity = info.velocity.y;
 
-      if (
-        distance > 110 ||
-        velocity > 650
-      ) {
+      if (distance > 110 || velocity > 650) {
         handleClose();
       }
     },
-    [
-      enableDrag,
-      handleClose,
-    ]
+    [enableDrag, handleClose]
   );
 
   /* =======================================================
      ACCESSIBILITY
   ======================================================= */
 
-  const ariaLabelledBy =
-    title ? titleId : undefined;
-
-  const ariaDescribedBy =
-    description
-      ? descriptionId
-      : undefined;
-
-  const dialogLabel =
-    title ? undefined : "Dialog";
+  const ariaLabelledBy = title ? titleId : undefined;
+  const ariaDescribedBy = description ? descriptionId : undefined;
+  const dialogLabel = title ? undefined : "Dialog";
 
   /* =======================================================
      RENDER
   ======================================================= */
 
-  return (
+  const content = (
     <AnimatePresence
       initial={false}
       mode="wait"
@@ -594,13 +407,9 @@ const Modal = ({
         <motion.div
           key="modal-root"
           className="fixed inset-0"
-          style={{
-            zIndex,
-          }}
+          style={{ zIndex }}
         >
-          {/* =================================================
-              BACKDROP
-          ================================================= */}
+          {/* BACKDROP */}
 
           <motion.div
             className="
@@ -608,27 +417,15 @@ const Modal = ({
               bg-ink-950/55
               backdrop-blur-[2px]
             "
-            initial={{
-              opacity: 0,
-            }}
-            animate={{
-              opacity: 1,
-            }}
-            exit={{
-              opacity: 0,
-            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             transition={BACKDROP_TRANSITION}
-            onClick={
-              closeOnOutsideClick
-                ? handleClose
-                : undefined
-            }
+            onClick={closeOnOutsideClick ? handleClose : undefined}
             aria-hidden="true"
           />
 
-          {/* =================================================
-              POSITION CONTAINER
-          ================================================= */}
+          {/* POSITION CONTAINER */}
 
           <div
             className={`
@@ -639,21 +436,15 @@ const Modal = ({
               pointer-events-none
             `}
           >
-            {/* =================================================
-                PANEL
-            ================================================= */}
+            {/* PANEL */}
 
             <motion.div
               ref={panelRef}
               id={dialogId}
               role="dialog"
               aria-modal="true"
-              aria-labelledby={
-                ariaLabelledBy
-              }
-              aria-describedby={
-                ariaDescribedBy
-              }
+              aria-labelledby={ariaLabelledBy}
+              aria-describedby={ariaDescribedBy}
               aria-label={dialogLabel}
               tabIndex={-1}
               className={`
@@ -664,6 +455,7 @@ const Modal = ({
                 w-full
                 min-h-0
                 flex-col
+																mx-4
                 overflow-hidden
 
                 pointer-events-auto
@@ -672,13 +464,13 @@ const Modal = ({
                 text-ink-900
 
                 border
-                border-ink-200
+                border-ink-300
 
-                shadow-large
+                shadow-[0_0_5px_#0003]
 
                 outline-none
 
-                max-h-[calc(100dvh-0.75rem)]
+                max-h-[calc(100dvh-2.75rem)]
                 sm:max-h-[calc(100dvh-3rem)]
 
                 ${config.panel}
@@ -688,82 +480,52 @@ const Modal = ({
               animate={animation.animate}
               exit={animation.exit}
               transition={
-                isOpen
-                  ? animation.enterTransition
-                  : animation.exitTransition
+                isOpen ? animation.enterTransition : animation.exitTransition
               }
-              onClick={(event) =>
-                event.stopPropagation()
-              }
-              drag={
-                enableDrag
-                  ? "y"
-                  : false
-              }
-              dragControls={
-                dragControls
-              }
+              onClick={(event) => event.stopPropagation()}
+              drag={enableDrag ? "y" : false}
+              dragControls={dragControls}
               dragListener={false}
-              dragConstraints={
-                enableDrag
-                  ? {
-                      top: 0,
-                      bottom: 0,
-                    }
-                  : undefined
-              }
+              dragConstraints={enableDrag ? { top: 0, bottom: 0 } : undefined}
               dragElastic={
-                enableDrag
-                  ? {
-                      top: 0,
-                      bottom: 0.32,
-                    }
-                  : undefined
+                enableDrag ? { top: 0, bottom: 0.32 } : undefined
               }
               onDragEnd={handleDragEnd}
             >
-              {/* =================================================
-                  MOBILE SHEET HANDLE
-              ================================================= */}
+              {/* MOBILE SHEET HANDLE */}
 
-              {position === "bottom" &&
-                showHandle && (
+              {position === "bottom" && showHandle && (
+                <div
+                  className="
+                    flex
+                    shrink-0
+                    justify-center
+                    pt-2.5
+                    pb-1
+                    sm:hidden
+                    touch-none
+                  "
+                  onPointerDown={(event) => {
+                    if (enableDrag) {
+                      dragControls.start(event);
+                    }
+                  }}
+                >
                   <div
                     className="
-                      flex
-                      shrink-0
-                      justify-center
-                      pt-2.5
-                      pb-1
-                      sm:hidden
-                      touch-none
+                      h-1
+                      w-9
+                      rounded-full
+                      bg-ink-300
                     "
-                    onPointerDown={(event) => {
-                      if (enableDrag) {
-                        dragControls.start(event);
-                      }
-                    }}
-                  >
-                    <div
-                      className="
-                        h-1
-                        w-9
-                        rounded-full
-                        bg-ink-300
-                      "
-                      aria-hidden="true"
-                    />
-                  </div>
-                )}
+                    aria-hidden="true"
+                  />
+                </div>
+              )}
 
-              {/* =================================================
-                  HEADER
-              ================================================= */}
+              {/* HEADER */}
 
-              {(title ||
-                subtitle ||
-                description ||
-                showCloseButton) && (
+              {(title || subtitle || description || showCloseButton) && (
                 <header
                   className="
                     relative
@@ -779,7 +541,6 @@ const Modal = ({
                     sm:pt-5
                   "
                 >
-                  {/* Subtle theme accent */}
                   <div
                     className="
                       absolute
@@ -794,13 +555,7 @@ const Modal = ({
                     aria-hidden="true"
                   />
 
-                  <div
-                    className="
-                      min-w-0
-                      flex-1
-                      pt-0.5
-                    "
-                  >
+                  <div className="min-w-0 flex-1 pt-0.5">
                     {subtitle && (
                       <p
                         className="
@@ -854,18 +609,10 @@ const Modal = ({
                       aria-label="Close dialog"
                       onClick={handleClose}
                       whileHover={
-                        prefersReducedMotion
-                          ? undefined
-                          : {
-                              scale: 1.04,
-                            }
+                        prefersReducedMotion ? undefined : { scale: 1.04 }
                       }
                       whileTap={
-                        prefersReducedMotion
-                          ? undefined
-                          : {
-                              scale: 0.94,
-                            }
+                        prefersReducedMotion ? undefined : { scale: 0.94 }
                       }
                       className="
                         flex
@@ -875,7 +622,7 @@ const Modal = ({
                         items-center
                         justify-center
 
-                        rounded-full
+                        rounded-md
 
                         bg-ink-100
                         text-ink-500
@@ -890,18 +637,13 @@ const Modal = ({
                         focus:ring-primary-200
                       "
                     >
-                      <X
-                        size={17}
-                        strokeWidth={2.2}
-                      />
+                      <X size={17} strokeWidth={2.2} />
                     </motion.button>
                   )}
                 </header>
               )}
 
-              {/* =================================================
-                  CONTENT
-              ================================================= */}
+              {/* CONTENT */}
 
               <main
                 className="
@@ -909,7 +651,7 @@ const Modal = ({
                   flex-1
                   overflow-y-auto
                   overscroll-contain
-
+                  bg-white
                   px-5
                   py-4
 
@@ -928,9 +670,7 @@ const Modal = ({
                 {children}
               </main>
 
-              {/* =================================================
-                  FOOTER
-              ================================================= */}
+              {/* FOOTER */}
 
               {footer && (
                 <footer
@@ -940,7 +680,7 @@ const Modal = ({
                     border-t
                     border-ink-100
 
-                    bg-white
+                    bg-ink-50
 
                     px-5
                     py-4
@@ -959,6 +699,20 @@ const Modal = ({
       )}
     </AnimatePresence>
   );
+
+  /* -------------------------------------------------------
+     PORTAL
+  ------------------------------------------------------- */
+
+  if (!portal) {
+    return content;
+  }
+
+  if (!mounted || typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(content, document.body);
 };
 
 export default Modal;

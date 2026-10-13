@@ -63,7 +63,43 @@ const getInitials = (name) =>
     .toUpperCase() || '?';
 
 /* ============================================================
-   CHAT SETTINGS
+   CONTEXT HELPERS (item  |  request  |  direct)
+   ------------------------------------------------------------
+   Same semantics as in ChatSettings.jsx, kept local here so the
+   inline settings panel inside the modal speaks the same
+   vocabulary as the standalone settings page.
+============================================================ */
+
+const getContextType = (conversation) =>
+  conversation?.contextType ||
+  conversation?.context_type ||
+  null;
+
+const getRequestTitle = (conversation) =>
+  conversation?.request?.title ||
+  conversation?.request?.name ||
+  null;
+
+const getItemTitle = (conversation) =>
+  conversation?.item?.title ||
+  conversation?.item?.name ||
+  null;
+
+const getContextTitle = (conversation) =>
+  getItemTitle(conversation) ||
+  getRequestTitle(conversation) ||
+  null;
+
+const getContextLabel = (conversation) => {
+  const type = getContextType(conversation);
+
+  if (type === 'item') return 'Item';
+  if (type === 'request') return 'Request';
+  return 'Conversation';
+};
+
+/* ============================================================
+   CHAT SETTINGS (inline panel)
 ============================================================ */
 
 function ChatSettings({
@@ -86,10 +122,18 @@ function ChatSettings({
   const conversationId =
     getConversationId(conversation);
 
-  const requestTitle =
-    conversation?.request?.title ||
-    conversation?.request?.name ||
-    'Conversation';
+  /* ----------------------------------------------------------
+     Context-aware title + label.
+     ----------------------------------------------------------
+     DTI chats show the item title, POP chats show the request
+     title, and direct chats fall through to "Conversation".
+  ---------------------------------------------------------- */
+
+  const contextTitle =
+    getContextTitle(conversation) || 'Conversation';
+
+  const contextLabel =
+    getContextLabel(conversation);
 
   const isClosed =
     getConversationClosed(conversation);
@@ -298,7 +342,7 @@ function ChatSettings({
                       text-ink-400
                     "
                   >
-                    {requestTitle}
+                    {contextTitle}
                   </p>
                 </div>
 
@@ -589,9 +633,10 @@ function ChatSettings({
                       }
                     />
 
+                    {/* CHANGED: label is now "Item" or "Request" */}
                     <InfoRow
-                      label="Request"
-                      value={requestTitle}
+                      label={contextLabel}
+                      value={contextTitle}
                     />
                   </div>
                 </div>
@@ -721,31 +766,42 @@ export default function ChatModal({
   onClose,
   requestId,
   relationshipId,
-  conversationId:
-    directConversationId,
+  conversationId: directConversationId,
   currentUserId,
   currentUserName,
   otherParticipant,
+
+  /* DTI-only */
+  onOpenDetails,
+  onViewItem,
+  onReinterest,
+
+  /* Shared */
+  onReport,
+  canCloseConversation = true,
 }) {
+	
+	
+	
   /* ==========================================================
      CONVERSATION
   ========================================================== */
 
   const {
-    conversation: loadedConversation,
-    conversationId,
-    isClosed: chatIsClosed,
-    isDeleted,
-    loading,
-    error,
-  } = useChat({
-    requestId,
-    relationshipId,
-    conversationId:
-      directConversationId,
-    currentUserId,
-    enabled: isOpen,
-  });
+  conversation: loadedConversation,
+  conversationId,
+  isClosed: chatIsClosed,
+  isDeleted,
+  loading,
+  error,
+} = useChat({
+  requestId,
+  relationshipId,
+  conversationId: directConversationId,
+  currentUserId,
+  otherParticipant,
+  enabled: isOpen,
+});
 
   /* ==========================================================
      LOCAL CONVERSATION STATE
@@ -814,12 +870,6 @@ export default function ChatModal({
     editMessage,
     deleteMessage,
 
-    /*
-     * IMPORTANT:
-     *
-     * This comes from useMessages and must be passed to
-     * MessageList so MessageBubble can show the deleting state.
-     */
     isMessageDeleting,
 
     typingUsers,
@@ -830,18 +880,8 @@ export default function ChatModal({
   } = useMessages({
     conversationId,
     currentUserId,
-
-    /*
-     * IMPORTANT:
-     *
-     * Pass the complete conversation so useMessages can
-     * determine requester/provider and resolve the recipient
-     * even when the conversation contains zero messages.
-     */
     conversation,
-
     isDeleted,
-
     enabled:
       isOpen &&
       !!conversationId &&
@@ -1040,6 +1080,7 @@ export default function ChatModal({
       showHandle={false}
       closeOnOutsideClick
       closeOnEscape
+						zIndex={999}
       className="
         h-[min(760px,calc(100dvh-2rem))]
         min-h-0
@@ -1065,22 +1106,35 @@ export default function ChatModal({
            HEADER
         ================================================== */}
 
-        <ChatHeader
-          conversation={conversation}
-          other={other}
-          requestId={requestId}
-          typingUsers={typingUsers}
-          onlineUserIds={onlineUserIds}
-          realtimeStatus={realtimeStatus}
-          onClose={handleClose}
-          onOpenSettings={() =>
-            setSettingsOpen(true)
-          }
-          onCloseModal={handleClose}
-          onConversationUpdated={
-            handleConversationUpdated
-          }
-        />
+        
+								
+								
+								<ChatHeader
+  conversation={conversation}
+  other={other}
+  requestId={requestId}
+  typingUsers={typingUsers}
+  onlineUserIds={onlineUserIds}
+  realtimeStatus={realtimeStatus}
+  onClose={handleClose}
+  onOpenSettings={() =>
+    setSettingsOpen(true)
+  }
+  onCloseModal={handleClose}
+  onConversationUpdated={
+    handleConversationUpdated
+  }
+  /* DTI-only */
+  onOpenDetails={onOpenDetails}
+  onViewItem={onViewItem}
+  onReinterest={onReinterest}
+  /* Shared */
+  onReport={onReport}
+  canCloseConversation={canCloseConversation}
+/>
+
+
+
 
         {/* ==================================================
            BODY
@@ -1380,8 +1434,6 @@ export default function ChatModal({
                   flex-col
                 "
               >
-                {/* MESSAGE LIST */}
-
                 <MessageList
                   messages={messages}
                   loading={messagesLoading}
@@ -1395,15 +1447,9 @@ export default function ChatModal({
                   typingUsers={
                     typingUsers
                   }
-
-                  /*
-                   * IMPORTANT:
-                   * Pass deletion state through to MessageList.
-                   */
                   isDeletingMessage={
                     isMessageDeleting
                   }
-
                   onReply={(message) => {
                     setEditing(null);
                     setReplyTo(message);
@@ -1416,8 +1462,6 @@ export default function ChatModal({
                     handleDelete
                   }
                 />
-
-                {/* MESSAGE ERROR */}
 
                 {messagesError && (
                   <div
@@ -1442,8 +1486,6 @@ export default function ChatModal({
                     </p>
                   </div>
                 )}
-
-                {/* SEND ERROR */}
 
                 {sendError && (
                   <div
@@ -1492,8 +1534,6 @@ export default function ChatModal({
                     </button>
                   </div>
                 )}
-
-                {/* MESSAGE COMPOSER */}
 
                 <MessageComposer
                   conversationId={

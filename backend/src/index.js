@@ -18,7 +18,6 @@ import applicationRoutes from "./dti/routes/applicationsRoutes.js";
 import winnerRoutes from "./dti/routes/winnersRoutes.js";
 import shippingRoutes from "./dti/routes/shippingRoutes.js";
 import userRoutes from "./dti/routes/usersRoutes.js";
-import chatRoutes from "./dti/routes/chatRoutes.js";
 import supportRoutes from "./dti/routes/supportRoutes.js";
 import favoritesRoutes from "./dti/routes/favoritesRoutes.js";
 import analyticsRoutes from "./dti/routes/analyticsRoutes.js";
@@ -28,6 +27,7 @@ import itemDiscussionRoutes from "./dti/routes/itemDiscussionRoutes.js";
 
 // SHARED ROUTES
 import notificationRoutes from "./shared/routes/notificationRoutes.js";
+import chatRoutes from "./shared/routes/chatRoutes.js";
 
 // POP ROUTES
 import claimRoutes from "./pop/routes/claimRoutes.js";
@@ -135,6 +135,8 @@ app.get("/api/test", (req, res) => {
 // SHARED ROUTING
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/pop/notifications", notificationRoutes);
+app.use('/api/chat', chatRoutes);
+
 
 
 // DTI ROUTING

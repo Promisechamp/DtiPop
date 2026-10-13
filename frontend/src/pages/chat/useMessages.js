@@ -6,7 +6,7 @@ import {
 	useState,
 } from "react";
 
-import { requestsChatAPI } from "@/services/api/popApi";
+import { chatAPI } from "@/services/api/sharedApi";
 import { useWebSocketContext } from "@/reusables/Websocket";
 
 /* ============================================================
@@ -853,7 +853,7 @@ export default function useMessages({
 				}
 
 				const response =
-					await requestsChatAPI.getConversation(
+					await chatAPI.getConversation(
 						conversationId,
 						params,
 					);
@@ -1786,19 +1786,10 @@ export default function useMessages({
 			 * matched safely.
 			 */
 			const clientId =
-				(!isStringPayload &&
-					(payload?.client_id ||
-						payload?.clientId)) ||
-				(
-					typeof crypto !==
-						"undefined" &&
-					typeof crypto.randomUUID ===
-						"function"
-				)
-					? crypto.randomUUID()
-					: `${Date.now()}-${Math.random()
-							.toString(36)
-							.slice(2)}`;
+  (!isStringPayload && (payload?.client_id || payload?.clientId)) ||
+  (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
 			/*
 			 * ======================================================
@@ -2014,7 +2005,7 @@ export default function useMessages({
 			}
 
 			const response =
-				await requestsChatAPI.editMessage(
+				await chatAPI.editMessage(
 					conversationId,
 					messageId,
 					{
@@ -2082,7 +2073,7 @@ export default function useMessages({
 
 			try {
 				const response =
-					await requestsChatAPI.deleteMessage(
+					await chatAPI.deleteMessage(
 						conversationId,
 						messageId,
 						normalizedScope,
@@ -2255,7 +2246,7 @@ export default function useMessages({
 			}
 
 			try {
-				return await requestsChatAPI.markRead(
+				return await chatAPI.markRead(
 					conversationId,
 				);
 			} catch (err) {
@@ -2286,7 +2277,7 @@ export default function useMessages({
 				return;
 			}
 
-			return requestsChatAPI.markRead(
+			return chatAPI.markRead(
 				conversationId,
 				messageId,
 			);

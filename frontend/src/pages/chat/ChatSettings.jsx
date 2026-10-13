@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import { requestsChatAPI } from "@/services/api/popApi";
+import { chatAPI } from "@/services/api/sharedApi";
 
 /* ============================================================
    HELPERS
@@ -61,16 +61,134 @@ const getIsProvider = (profile) => {
   );
 };
 
+/* ============================================================
+   CONTEXT HELPERS (item  |  request  |  direct)
+============================================================ */
+
+const getContextType = (conversation) =>
+  conversation?.contextType ||
+  conversation?.context_type ||
+  null;
+
 const getRequestTitle = (conversation) =>
   conversation?.request?.title ||
   conversation?.request?.name ||
-  "Conversation";
-
-const getRequestId = (conversation, requestId) =>
-  requestId ||
-  conversation?.request?.id ||
-  conversation?.request_id ||
   null;
+
+const getItemTitle = (conversation) =>
+  conversation?.item?.title ||
+  conversation?.item?.name ||
+  null;
+
+/*
+ * Unified title resolver.
+ *
+ * - item chat    → item.title
+ * - request chat → request.title
+ * - direct       → null
+ */
+const getContextTitle = (conversation) =>
+  getItemTitle(conversation) ||
+  getRequestTitle(conversation) ||
+  null;
+
+/*
+ * Label for the context row:
+ *   "Item"     for DTI chats
+ *   "Request"  for POP chats
+ *   "Conversation" as a fallback
+ */
+const getContextLabel = (conversation) => {
+  const type = getContextType(conversation);
+
+  if (type === "item") return "Item";
+  if (type === "request") return "Request";
+  return "Conversation";
+};
+
+const getContextId = (conversation, requestId) => {
+  const type = getContextType(conversation);
+
+  if (type === "item") {
+    return (
+      conversation?.item?.id ||
+      conversation?.item_id ||
+      conversation?.context_id ||
+      null
+    );
+  }
+
+  return (
+    requestId ||
+    conversation?.request?.id ||
+    conversation?.request_id ||
+    conversation?.context_id ||
+    null
+  );
+};
+
+/*
+ * Where the context row links to:
+ *   /items/:id    for DTI
+ *   /requests/:id for POP
+ */
+const getContextHref = (conversation, requestId) => {
+  const type = getContextType(conversation);
+  const id = getContextId(conversation, requestId);
+
+  if (!id) return null;
+
+  if (type === "item") return `/items/${id}`;
+  if (type === "request") return `/requests/${id}`;
+
+  return null;
+};
+
+/*
+ * Role label for the OTHER participant.
+ *
+ * DTI (context_type = "item"):
+ *   - if I'm the donor (requester_id), the other person is the applicant
+ *   - if I'm the applicant (provider_id), the other person is the donor
+ *
+ * POP (context_type = "request") / direct:
+ *   - fall back to the service-provider heuristic already in use
+ */
+const getOtherRoleLabel = (conversation, profile, currentUserId) => {
+  const type = getContextType(conversation);
+
+  if (type === "item") {
+    const requesterId =
+      conversation?.requester_id ||
+      conversation?.requesterId;
+
+    const providerId =
+      conversation?.provider_id ||
+      conversation?.providerId;
+
+    if (
+      requesterId &&
+      currentUserId &&
+      String(requesterId) === String(currentUserId)
+    ) {
+      return "Applicant";
+    }
+
+    if (
+      providerId &&
+      currentUserId &&
+      String(providerId) === String(currentUserId)
+    ) {
+      return "Donor";
+    }
+
+    return "Community member";
+  }
+
+  return getIsProvider(profile)
+    ? "Service provider"
+    : "Community member";
+};
 
 /* ============================================================
    SECTION
@@ -244,10 +362,9 @@ function Toggle({
    PROFILE CARD
 ============================================================ */
 
-function ProfileCard({ profile }) {
+function ProfileCard({ profile, roleLabel }) {
   const name = getName(profile);
   const avatarUrl = getAvatarUrl(profile);
-  const isProvider = getIsProvider(profile);
 
   return (
     <div
@@ -306,7 +423,7 @@ function ProfileCard({ profile }) {
               {name}
             </h3>
 
-            {isProvider && (
+            {roleLabel === "Service provider" && (
               <CheckCircle2
                 size={14}
                 className="shrink-0 text-primary-600"
@@ -316,9 +433,7 @@ function ProfileCard({ profile }) {
           </div>
 
           <p className="mt-0.5 text-[11px] font-semibold text-ink-500">
-            {isProvider
-              ? "Service provider"
-              : "Community member"}
+            {roleLabel}
           </p>
         </div>
       </div>
@@ -357,15 +472,6 @@ export default function ChatSettings({
   const [readReceipts, setReadReceipts] =
     React.useState(true);
 
-  /*
-   * Server-backed protection state.
-   *
-   * The API returns:
-   *   conversation.isProtected
-   *
-   * We also support protected_by as a fallback in case the
-   * conversation object has not yet been decorated.
-   */
   const initialProtected =
     typeof conversation?.isProtected === "boolean"
       ? conversation.isProtected
@@ -382,10 +488,6 @@ export default function ChatSettings({
   const [protectLoading, setProtectLoading] =
     React.useState(false);
 
-  /*
-   * Keep the local toggle synchronized if the parent refreshes
-   * or replaces the conversation object.
-   */
   React.useEffect(() => {
     if (typeof conversation?.isProtected === "boolean") {
       setProtectChat(conversation.isProtected);
@@ -415,9 +517,23 @@ export default function ChatSettings({
     conversation?.provider_id ||
     null;
 
-  const resolvedRequestId = getRequestId(
+  /* ------------------------------------------------------------
+     CONTEXT (item OR request)
+  ------------------------------------------------------------ */
+
+  const contextTitle = getContextTitle(conversation);
+  const contextLabel = getContextLabel(conversation);
+  const contextHref = getContextHref(conversation, requestId);
+  const contextId = getContextId(conversation, requestId);
+
+  /* ------------------------------------------------------------
+     ROLE OF THE OTHER PARTICIPANT
+  ------------------------------------------------------------ */
+
+  const roleLabel = getOtherRoleLabel(
     conversation,
-    requestId
+    other,
+    currentUserId
   );
 
   const profileHref = providerId
@@ -425,10 +541,6 @@ export default function ChatSettings({
     : null;
 
   const returnTo = `${location.pathname}${location.search}${location.hash}`;
-
-  const requestHref = resolvedRequestId
-    ? `/requests/${resolvedRequestId}`
-    : null;
 
   /* ============================================================
      PROTECT CHAT
@@ -441,13 +553,12 @@ export default function ChatSettings({
 
     const previousValue = protectChat;
 
-    // Optimistic UI
     setProtectChat(nextValue);
     setProtectLoading(true);
 
     try {
       const response =
-        await requestsChatAPI.protectConversation(
+        await chatAPI.protectConversation(
           conversation.id,
           nextValue
         );
@@ -459,9 +570,6 @@ export default function ChatSettings({
         body?.data?.conversation ||
         null;
 
-      /*
-       * Prefer the server's actual value when available.
-       */
       const serverValue =
         typeof body?.protected === "boolean"
           ? body.protected
@@ -472,10 +580,6 @@ export default function ChatSettings({
 
       setProtectChat(serverValue);
 
-      /*
-       * Let ChatModal/useChat update its conversation state
-       * if the parent supports it.
-       */
       if (updatedConversation) {
         onConversationUpdated?.(updatedConversation);
       }
@@ -491,7 +595,6 @@ export default function ChatSettings({
         error
       );
 
-      // Roll back optimistic state.
       setProtectChat(previousValue);
 
       const message =
@@ -579,8 +682,8 @@ export default function ChatSettings({
               text-ink-400
             "
           >
-            {getName(other)} ·{" "}
-            {getRequestTitle(conversation)}
+            {getName(other)}
+            {contextTitle ? ` · ${contextTitle}` : ""}
           </p>
         </div>
 
@@ -627,14 +730,17 @@ export default function ChatSettings({
         ==================================================== */}
 
         <Section>
-          <ProfileCard profile={other} />
+          <ProfileCard
+            profile={other}
+            roleLabel={roleLabel}
+          />
 
           {profileHref && (
             <Link
               to={profileHref}
               state={{
                 returnTo,
-                requestId: resolvedRequestId,
+                requestId: contextId,
                 providerId,
                 from: "chat",
               }}
@@ -679,9 +785,9 @@ export default function ChatSettings({
           description="Details about this conversation."
         >
           <div className="space-y-1">
-            {requestHref ? (
+            {contextHref && contextTitle ? (
               <Link
-                to={requestHref}
+                to={contextHref}
                 className="
                   group
                   flex
@@ -714,11 +820,11 @@ export default function ChatSettings({
 
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-bold text-ink-900">
-                    Request
+                    {contextLabel}
                   </p>
 
                   <p className="truncate text-[11px] font-medium text-ink-500">
-                    {getRequestTitle(conversation)}
+                    {contextTitle}
                   </p>
                 </div>
 
@@ -736,7 +842,9 @@ export default function ChatSettings({
               <SettingsRow
                 icon={MessageCircle}
                 title="Conversation"
-                description={getRequestTitle(conversation)}
+                description={
+                  contextTitle || "Private chat"
+                }
               />
             )}
 
@@ -852,10 +960,6 @@ export default function ChatSettings({
           description="Manage what participants can see and how this chat can be removed."
         >
           <div className="space-y-1">
-            {/* ==================================================
-                PROTECT CHAT
-            ================================================== */}
-
             <div className="flex items-center gap-3 rounded-2xl p-2">
               <div
                 className={`
@@ -901,10 +1005,6 @@ export default function ChatSettings({
                 label="Protect chat from deletion"
               />
             </div>
-
-            {/* ==================================================
-                READ RECEIPTS
-            ================================================== */}
 
             <div className="flex items-center gap-3 rounded-2xl p-2">
               <div

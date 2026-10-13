@@ -182,8 +182,20 @@ const getConversationRole = (conversation, userId) => {
 // REQUEST CHAT SETTING
 // ============================================================
 
-const getAcceptChat = (request) =>
-  request?.details?.accept_chat === true;
+const getAcceptChat = (request) => {
+  const value = request?.settings?.accept_chat;
+
+  if (value === undefined || value === null) {
+    return true;
+  }
+
+  if (typeof value === 'string') {
+    return value.trim().toLowerCase() === 'true';
+  }
+
+  return value === true;
+};
+
 
 // ============================================================
 // LOADERS
@@ -194,7 +206,7 @@ const loadConversationById = async (conversationId) => {
     .from('conversations')
     .select(CONVERSATION_SELECT)
     .eq('id', conversationId)
-    .eq('context_type', CONTEXT_TYPE)
+    .in('context_type', [CONTEXT_TYPE, 'direct'])
     .maybeSingle();
 
   return {
@@ -203,6 +215,9 @@ const loadConversationById = async (conversationId) => {
   };
 };
 
+
+
+
 const loadProviderRelationship = async (relationshipId) => {
   const { data, error } = await supabaseAdmin
     .from('pop_request_providers')
@@ -210,8 +225,7 @@ const loadProviderRelationship = async (relationshipId) => {
       id,
       request_id,
       provider_id,
-      service_id,
-      scope,
+      scopes,
       status,
       selected_at,
       accepted_at,
@@ -227,11 +241,9 @@ const loadProviderRelationship = async (relationshipId) => {
         id,
         user_id,
         title,
-        description,
         request_type,
         status,
         visibility,
-        provider_access,
         details
       )
     `)
@@ -260,11 +272,9 @@ const buildRequestMap = async (rows) => {
     .select(`
       id,
       title,
-      description,
       request_type,
       status,
       visibility,
-      provider_access,
       details,
       user_id
     `)
@@ -1103,6 +1113,451 @@ export const getOrCreateRequestProviderConversation =
 		
 		
 		
+		export const getOrCreateDirectConversation = async (
+  req,
+  res
+) => {
+  try {
+    const userId = getUserId(req);
+
+    const recipientId =
+      req.body?.recipient_id ??
+      req.body?.recipientId;
+
+    const requestId =
+      req.body?.request_id ??
+      req.body?.requestId ??
+      null;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required.',
+      });
+    }
+
+    if (!recipientId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Recipient is required.',
+      });
+    }
+
+    if (String(userId) === String(recipientId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot start a conversation with yourself.',
+      });
+    }
+
+    // ------------------------------------------------------------
+    // VERIFY RECIPIENT
+    // ------------------------------------------------------------
+
+    const {
+      data: recipient,
+      error: recipientError,
+    } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name')
+      .eq('id', recipientId)
+      .maybeSingle();
+
+    if (recipientError) {
+      return res.status(500).json({
+        success: false,
+        message: recipientError.message,
+      });
+    }
+
+    if (!recipient) {
+      return res.status(404).json({
+        success: false,
+        message: 'Recipient not found.',
+      });
+    }
+
+    // ------------------------------------------------------------
+    // OPTIONAL REQUEST-CONTEXT AUTHORIZATION
+    // ------------------------------------------------------------
+
+    let request = null;
+    let requesterId = null;
+
+    if (requestId) {
+      const {
+        data: requestRow,
+        error: requestError,
+      } = await supabaseAdmin
+        .from('pop_requests')
+        .select(`
+          id,
+          title,
+          user_id,
+          settings
+        `)
+        .eq('id', requestId)
+        .maybeSingle();
+
+      if (requestError) {
+        return res.status(500).json({
+          success: false,
+          message: requestError.message,
+        });
+      }
+
+      if (!requestRow) {
+        return res.status(404).json({
+          success: false,
+          message: 'Request not found.',
+        });
+      }
+
+      request = requestRow;
+      requesterId = request.user_id;
+
+      if (!requesterId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Request owner could not be determined.',
+        });
+      }
+
+      const currentUserIsRequester =
+        String(userId) === String(requesterId);
+
+      const recipientIsRequester =
+        String(recipientId) === String(requesterId);
+
+      /*
+       * Request-context direct chat must be between the request
+       * owner and the other participant.
+       */
+      if (
+        !currentUserIsRequester &&
+        !recipientIsRequester
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            'Only the request owner and their chat partner can start this request-context conversation.',
+        });
+      }
+
+      /*
+       * If the requester initiates, they may contact the selected
+       * provider without a provider relationship.
+       *
+       * If the provider initiates, respect the requester's existing
+       * chat preference.
+       */
+						
+							
+
+
+      if (
+        !currentUserIsRequester &&
+        !getAcceptChat(request)
+      ) {
+        return res.status(403).json({
+          success: false,
+          code: 'CHAT_NOT_ALLOWED',
+          message:
+            'The requester is not currently accepting provider chats.',
+        });
+      }
+    }
+
+    /*
+     * For a request-context chat, the participants must be the
+     * request owner and the other party.
+     *
+     * For a request-independent chat, use a stable ordering so the
+     * participant columns do not depend on who initiates.
+     */
+    let conversationRequesterId;
+    let conversationProviderId;
+
+    if (requesterId) {
+      conversationRequesterId = requesterId;
+
+      conversationProviderId =
+        String(userId) === String(requesterId)
+          ? recipientId
+          : userId;
+    } else {
+      const participants = [
+        String(userId),
+        String(recipientId),
+      ].sort();
+
+      conversationRequesterId = participants[0];
+      conversationProviderId = participants[1];
+    }
+
+    // ------------------------------------------------------------
+    // FIND EXISTING DIRECT CONVERSATION
+    // ------------------------------------------------------------
+
+    const findExistingConversation = async () => {
+      return supabaseAdmin
+        .from('conversations')
+        .select(CONVERSATION_SELECT)
+        .eq('context_type', 'direct')
+        .or(
+          [
+            `and(requester_id.eq.${conversationRequesterId},provider_id.eq.${conversationProviderId})`,
+            `and(requester_id.eq.${conversationProviderId},provider_id.eq.${conversationRequesterId})`,
+          ].join(',')
+        )
+        .maybeSingle();
+    };
+
+    const {
+      data: existing,
+      error: existingError,
+    } = await findExistingConversation();
+
+    if (existingError) {
+      return res.status(500).json({
+        success: false,
+        message: existingError.message,
+      });
+    }
+
+    // ------------------------------------------------------------
+    // RESTORE EXISTING CONVERSATION FOR THIS USER
+    // ------------------------------------------------------------
+
+    const restoreForCurrentUser = async (conversation) => {
+      const deletedBy = Array.isArray(conversation.deleted_by)
+        ? conversation.deleted_by
+        : [];
+
+      const wasDeletedForMe = deletedBy.some(
+        (id) => String(id) === String(userId)
+      );
+
+      if (!wasDeletedForMe) {
+        return {
+          conversation,
+          error: null,
+        };
+      }
+
+      const cleanedDeletedBy = deletedBy.filter(
+        (id) => String(id) !== String(userId)
+      );
+
+      /*
+       * Do not change history_cleared_before.
+       * Restoring inbox visibility must not restore previously
+       * cleared message history.
+       */
+      return supabaseAdmin
+        .from('conversations')
+        .update({
+          deleted_by: cleanedDeletedBy,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', conversation.id)
+        .select(CONVERSATION_SELECT)
+        .single()
+        .then(({ data, error }) => ({
+          conversation: data,
+          error,
+        }));
+    };
+
+    if (existing) {
+      const {
+        conversation,
+        error: restoreError,
+      } = await restoreForCurrentUser(existing);
+
+      if (restoreError) {
+        return res.status(500).json({
+          success: false,
+          message: restoreError.message,
+        });
+      }
+
+      const [unreadMap, requestMap] = await Promise.all([
+        buildUnreadMap([conversation.id], userId),
+        buildRequestMap([conversation]),
+      ]);
+
+      return res.json({
+        success: true,
+        created: false,
+        conversation: decorateConversation(
+          conversation,
+          userId,
+          requestMap,
+          unreadMap
+        ),
+      });
+    }
+
+    // ------------------------------------------------------------
+    // CREATE DIRECT CONVERSATION
+    // ------------------------------------------------------------
+
+    const now = new Date().toISOString();
+
+    const {
+      data: created,
+      error: createError,
+    } = await supabaseAdmin
+      .from('conversations')
+      .insert({
+        context_type: 'direct',
+        context_id: null,
+
+        request_id: null,
+        provider_relationship_id: null,
+        item_id: null,
+
+        requester_id: conversationRequesterId,
+        provider_id: conversationProviderId,
+
+        last_message: null,
+        last_message_at: null,
+        last_message_sender_id: null,
+
+        is_deleted: false,
+        is_closed: false,
+
+        history_cleared_before: {},
+        deleted_by: [],
+
+        created_at: now,
+        updated_at: now,
+      })
+      .select(CONVERSATION_SELECT)
+      .single();
+
+    // ------------------------------------------------------------
+    // HANDLE SIMULTANEOUS INITIATION
+    // ------------------------------------------------------------
+
+    if (createError?.code === '23505') {
+      const {
+        data: retry,
+        error: retryError,
+      } = await findExistingConversation();
+
+      if (retryError || !retry) {
+        return res.status(500).json({
+          success: false,
+          message:
+            retryError?.message ||
+            'The existing direct conversation could not be loaded.',
+        });
+      }
+
+      const {
+        conversation,
+        error: restoreError,
+      } = await restoreForCurrentUser(retry);
+
+      if (restoreError) {
+        return res.status(500).json({
+          success: false,
+          message: restoreError.message,
+        });
+      }
+
+      const [unreadMap, requestMap] = await Promise.all([
+        buildUnreadMap([conversation.id], userId),
+        buildRequestMap([conversation]),
+      ]);
+
+      return res.json({
+        success: true,
+        created: false,
+        conversation: decorateConversation(
+          conversation,
+          userId,
+          requestMap,
+          unreadMap
+        ),
+      });
+    }
+
+    if (createError) {
+      console.error(
+        'getOrCreateDirectConversation create error:',
+        createError
+      );
+
+      return res.status(500).json({
+        success: false,
+        message: createError.message,
+      });
+    }
+
+    // ------------------------------------------------------------
+    // NOTIFY THE OTHER PARTICIPANT
+    // ------------------------------------------------------------
+
+    try {
+      await notify(recipientId, {
+        type: 'conversation_started',
+        conversationId: created.id,
+        title: 'New conversation',
+        message: `${recipient.full_name || 'Someone'} started a direct conversation with you.`,
+      });
+    } catch (notificationError) {
+      /*
+       * A notification failure should not make a successfully
+       * created conversation appear to have failed.
+       */
+      console.error(
+        'Direct conversation notification error:',
+        notificationError
+      );
+    }
+
+    const [unreadMap, requestMap] = await Promise.all([
+      buildUnreadMap([created.id], userId),
+      buildRequestMap([created]),
+    ]);
+
+    return res.status(201).json({
+      success: true,
+      created: true,
+      conversation: decorateConversation(
+        created,
+        userId,
+        requestMap,
+        unreadMap
+      ),
+    });
+  } catch (error) {
+    console.error(
+      'getOrCreateDirectConversation error:',
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create direct conversation.',
+      error: error.message,
+    });
+  }
+};
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
 
 // ============================================================
 // LIST MY CONVERSATIONS
@@ -1162,14 +1617,16 @@ export const getMyConversations =
           `{${userId}}`
         );
 
-      // By default this controller is request-chat only
-      if (!includeItemChats) {
-        query = query.eq(
-          'context_type',
-          CONTEXT_TYPE
-        );
-      }
-
+      // Include request and direct chats by default.
+      // Item chats remain opt-in.
+							if (!includeItemChats) {
+									query = query.in('context_type', [
+											CONTEXT_TYPE,
+											'direct',
+									]);
+							}
+							
+							
       if (status === 'open') {
         query = query.eq(
           'is_closed',
@@ -1297,6 +1754,11 @@ export const getMyConversations =
       });
     }
   };
+		
+		
+		
+		
+		
 
 // ============================================================
 // GET ONE CONVERSATION + MESSAGES

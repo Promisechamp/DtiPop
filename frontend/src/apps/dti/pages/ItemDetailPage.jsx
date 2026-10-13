@@ -2115,7 +2115,7 @@ console.log(fetchedItem)
                   font-medium
                   truncate
                 ">
-                  {item.donor?.location ||
+                  {item.donor?.location?.country ||
                     'Location unspecified'}
                 </span>
               </div>
@@ -3034,7 +3034,7 @@ console.log(fetchedItem)
 
                                   {application
                                     .applicant
-                                    ?.location ||
+                                    ?.location?.country ||
                                     'Location unspecified'}
                                 </p>
                               </div>
@@ -3184,6 +3184,7 @@ console.log(fetchedItem)
         }
         title="Request This Gift" 
         size="lg"
+								position="bottom"
       >
         <ApplicationForm
           itemId={id}

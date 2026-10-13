@@ -826,3 +826,48 @@ img,
   0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
   30%           { transform: translateY(-3px); opacity: 1; }
 }
+
+
+
+
+
+/* ────────────────────────────────────────────────
+🚫 GLOBAL HIDDEN SCROLLBARS
+Hides scrollbar indicators while preserving scrolling
+Works across light, dark, and black themes
+──────────────────────────────────────────────── */
+
+/* Firefox and legacy Edge */
+
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  }
+
+/* Chrome, Safari, Edge, Opera, and WebKit browsers */
+*::-webkit-scrollbar,
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-corner,
+*::-webkit-scrollbar-button {
+display: none !important;
+width: 0 !important;
+height: 0 !important;
+background: transparent !important;
+}
+
+/* Document-level scrolling */
+html,
+body,
+#root {
+scrollbar-width: none !important;
+-ms-overflow-style: none !important;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+#root::-webkit-scrollbar {
+display: none !important;
+width: 0 !important;
+height: 0 !important;
+}

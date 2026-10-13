@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { requestsChatAPI } from '@/services/api/popApi';
+import { chatAPI } from '@/services/api/sharedApi';
 import { supabase } from '@/services/api/supabase';
 
 const PAGE_SIZE = 30;
@@ -36,7 +36,7 @@ export default function useConversations({
     setError('');
 
     try {
-      const res = await requestsChatAPI.getConversations({
+      const res = await chatAPI.getConversations({
         page: 1,
         limit: PAGE_SIZE,
         filter: filter || undefined,
@@ -163,7 +163,7 @@ export default function useConversations({
       const next = !current?.isPinned;
       patchConversation(id, { isPinned: next });
       try {
-        await requestsChatAPI.pinConversation(id, next);
+        await chatAPI.pinConversation(id, next);
       } catch (e) {
         patchConversation(id, { isPinned: !next });
         throw e;
@@ -178,7 +178,7 @@ export default function useConversations({
       const next = !current?.isMuted;
       patchConversation(id, { isMuted: next });
       try {
-        await requestsChatAPI.muteConversation(id, next);
+        await chatAPI.muteConversation(id, next);
       } catch (e) {
         patchConversation(id, { isMuted: !next });
         throw e;
@@ -193,7 +193,7 @@ export default function useConversations({
       const next = !current?.isArchived;
       patchConversation(id, { isArchived: next });
       try {
-        await requestsChatAPI.archiveConversation(id, next);
+        await chatAPI.archiveConversation(id, next);
       } catch (e) {
         patchConversation(id, { isArchived: !next });
         throw e;
@@ -207,7 +207,7 @@ export default function useConversations({
       const backup = conversations;
       setConversations((prev) => prev.filter((c) => String(c.id) !== String(id)));
       try {
-        await requestsChatAPI.deleteConversation(id);
+        await chatAPI.deleteConversation(id);
       } catch (e) {
         setConversations(backup);
         throw e;

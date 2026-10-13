@@ -288,25 +288,31 @@ export const tasksAPI = {
 // ============================================================
 export const requestsAPI = {
   create: (data) =>
-    popApi.post("/pop/requests", data),
+    popApi.post('/pop/requests', data),
 
   getAll: (params = {}) =>
-    popApi.get("/pop/requests", { params }),
+    popApi.get('/pop/requests', { params }),
 
   getById: (id) =>
     popApi.get(`/pop/requests/${id}`),
 
   getForMe: (params = {}) =>
-    popApi.get("/pop/requests/for-me", { params }),
+    popApi.get('/pop/requests/for-me', { params }),
 
   getMyRequests: (params = {}) =>
-    popApi.get("/pop/requests/mine", { params }),
+    popApi.get('/pop/requests/mine', { params }),
 
   getByHousehold: (householdId, params = {}) =>
-    popApi.get(`/pop/requests/household/${householdId}`, { params }),
+    popApi.get(
+      `/pop/requests/household/${householdId}`,
+      { params }
+    ),
 
   getOpenByHousehold: (householdId, params = {}) =>
-    popApi.get(`/pop/requests/household/${householdId}/open`, { params }),
+    popApi.get(
+      `/pop/requests/household/${householdId}/open`,
+      { params }
+    ),
 
   update: (id, data) =>
     popApi.patch(`/pop/requests/${id}`, data),
@@ -324,27 +330,64 @@ export const requestsAPI = {
     popApi.get(`/pop/requests/${requestId}/providers`),
 
   findProviders: (requestId, params = {}) =>
-    popApi.get(`/pop/requests/${requestId}/providers/find`, { params }),
+    popApi.get(
+      `/pop/requests/${requestId}/providers/find`,
+      { params }
+    ),
 
   connectProvider: (requestId, data) =>
-    popApi.post(`/pop/requests/${requestId}/providers`, data),
+    popApi.post(
+      `/pop/requests/${requestId}/providers`,
+      data
+    ),
 
   getProviderProfile: (providerId) =>
-    popApi.get(`/pop/requests/providers/${providerId}/profile`),
+    popApi.get(
+      `/pop/requests/providers/${providerId}/profile`
+    ),
 
-  respondToProviderRequest: (relationshipId, action, scope = null) =>
-    popApi.patch(`/pop/request-providers/${relationshipId}/respond`, {
-      action,
-      ...(scope !== null ? { scope } : {}),
-    }),
+  respondToProviderRequest: (
+    relationshipId,
+    action,
+    scopes
+  ) =>
+    popApi.patch(
+      `/pop/requests/request-providers/${relationshipId}/respond`,
+      scopes !== undefined
+        ? { action, scopes }
+        : { action }
+    ),
 
   startProviderRequest: (relationshipId) =>
-    popApi.patch(`/pop/request-providers/${relationshipId}/start`),
+    popApi.patch(
+      `/pop/requests/request-providers/${relationshipId}/start`
+    ),
 
-  completeProviderRequest: (relationshipId, data = {}) =>
-    popApi.patch(`/pop/request-providers/${relationshipId}/complete`, data),
+  completeProviderRequest: (
+    relationshipId,
+    data = {}
+  ) =>
+    popApi.patch(
+      `/pop/requests/request-providers/${relationshipId}/complete`,
+      data
+    ),
+
+  grantAssetHistoryAccess: (relationshipId) =>
+    popApi.post(
+      `/pop/requests/request-providers/${relationshipId}/asset-history/grant`
+    ),
+
+  revokeAssetHistoryAccess: (relationshipId) =>
+    popApi.post(
+      `/pop/requests/request-providers/${relationshipId}/asset-history/revoke`
+    ),
+
+  checkAssetHistoryAccess: (relationshipId) =>
+    popApi.get(
+      `/pop/requests/request-providers/${relationshipId}/asset-history/access`
+    ),
 };
-
+  
 
 
 // ============================================================
@@ -412,12 +455,18 @@ export const communityReviewAPI = {
 // ============================================================
 // REQUESTS CHAT
 // ============================================================
-
-export const requestsChatAPI = {
+// requestsChatAPI
+export const ChatAPI = {
   getOrCreateConversation: (requestId, relationshipId) =>
     popApi.post(
       `/pop/chat/requests/${requestId}/providers/${relationshipId}/conversation`
     ),
+				
+				getOrCreateDirectConversation: (payload) =>
+  popApi.post(
+    '/pop/chat/conversations/direct',
+    payload
+  ),
 
   getConversations: (params = {}) =>
     popApi.get('/pop/chat/conversations', {

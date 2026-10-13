@@ -24,10 +24,8 @@ import ChatSettings from './ChatSettings';
 import useMessages from './useMessages';
 import useConversations from './useConversations';
 
-import {
-  requestsAPI,
-  requestsChatAPI,
-} from '@/services/api/popApi';
+import { requestsAPI } from '@/services/api/popApi';
+import { chatAPI } from '@/services/api/sharedApi';
 
 /* ============================================================
    URL HELPERS
@@ -116,12 +114,6 @@ const getConversationId = (conversation) =>
   conversation?.conversationId ||
   null;
 
-/*
- * The backend now returns this information in the conversation.
- *
- * Support both snake_case and camelCase because conversations
- * can come from different API/realtime sources.
- */
 const isConversationDeleted = (
   conversation
 ) => {
@@ -140,11 +132,6 @@ const isConversationDeleted = (
     conversation.deletedBy ??
     conversation.deleted_by;
 
-  /*
-   * This helper only detects an explicit server-side deleted
-   * state. The current-user-specific check is performed below
-   * where currentUserId is available.
-   */
   return Array.isArray(deletedBy)
     ? deletedBy.length > 0
     : false;
@@ -190,6 +177,7 @@ const isConversationDeletedForUser = (
 export default function ChatPage({
   currentUserId,
   onNewChat,
+  onOpenDetails,
 }) {
   const [selectedId, setSelectedId] =
     useState(() =>
@@ -247,13 +235,6 @@ export default function ChatPage({
 
   /* ==========================================================
      STABLE REFS
-     ----------------------------------------------------------
-     These refs let `loadConversationFromUrl` read the latest
-     conversations list and markLocalRead without listing them
-     as dependencies. Otherwise a new array reference from
-     useConversations on every render would give the callback a
-     new identity, which would re-trigger the URL-resolve effect
-     and cause an infinite update loop.
   ========================================================== */
 
   const conversationsRef =
@@ -272,10 +253,6 @@ export default function ChatPage({
       markLocalRead;
   }, [markLocalRead]);
 
-  /*
-   * Prevents re-handling the same URL conversation id more than
-   * once, even if some other effect re-fires.
-   */
   const lastHandledUrlIdRef =
     useRef(null);
 
@@ -293,9 +270,6 @@ export default function ChatPage({
           return;
         }
 
-        /*
-         * First check the normal conversation list.
-         */
         const existing =
           conversationsRef.current.find(
             (conversation) =>
@@ -312,9 +286,6 @@ export default function ChatPage({
           setUrlConversationError('');
           setUrlConversationLoading(false);
 
-          /*
-           * Never mark a deleted conversation as read.
-           */
           if (
             !isConversationDeletedForUser(
               existing,
@@ -334,7 +305,7 @@ export default function ChatPage({
 
         try {
           const response =
-            await requestsChatAPI.getConversation(
+            await chatAPI.getConversation(
               conversationId
             );
 
@@ -367,21 +338,10 @@ export default function ChatPage({
             );
           }
 
-          /*
-           * IMPORTANT:
-           *
-           * Keep the deletion metadata from the backend.
-           *
-           * Do not strip it or normalize it away because
-           * ConversationPanel and useMessages need it.
-           */
           setUrlConversation(
             loadedConversation
           );
 
-          /*
-           * Deleted conversations must never be marked read.
-           */
           if (
             !isConversationDeletedForUser(
               loadedConversation,
@@ -410,10 +370,6 @@ export default function ChatPage({
           setUrlConversationLoading(false);
         }
       },
-      /*
-       * Only depend on stable values. `conversations` and
-       * `markLocalRead` are read via refs above.
-       */
       [currentUserId]
     );
 
@@ -434,9 +390,6 @@ export default function ChatPage({
       return;
     }
 
-    /*
-     * Avoid re-running for the same URL id.
-     */
     if (
       lastHandledUrlIdRef.current ===
       String(conversationId)
@@ -502,8 +455,6 @@ export default function ChatPage({
 
   /* ==========================================================
      REALTIME CONVERSATION UPDATE
-     ----------------------------------------------------------
-     This is important for delete-for-me state.
   ========================================================== */
 
   useEffect(() => {
@@ -544,16 +495,10 @@ export default function ChatPage({
           return;
         }
 
-        /*
-         * Preserve the server's deletion state immediately.
-         */
         setUrlConversation(
           updatedConversation
         );
 
-        /*
-         * If deleted, clear the local list entry as well.
-         */
         if (
           isConversationDeletedForUser(
             updatedConversation,
@@ -563,10 +508,6 @@ export default function ChatPage({
           setUrlConversationError('');
         }
 
-        /*
-         * Refresh the sidebar because the conversation
-         * metadata may have changed.
-         */
         reloadConversations();
       };
 
@@ -846,9 +787,6 @@ export default function ChatPage({
 
         lastHandledUrlIdRef.current = id;
 
-        /*
-         * Don't mark deleted conversations as read.
-         */
         if (
           !isConversationDeletedForUser(
             conversation,
@@ -868,24 +806,12 @@ export default function ChatPage({
 
   /* ==========================================================
      CONVERSATION UPDATED
-     ----------------------------------------------------------
-     Called by ChatHeader when the conversation is closed,
-     reopened, or otherwise updated.
-
-     This keeps the currently open ChatPage in sync immediately
-     without requiring a page refresh.
   ========================================================== */
 
   const handleConversationUpdated =
     useCallback(
       (updatedConversation) => {
         if (!updatedConversation) {
-          /*
-           * Backward-compatible fallback.
-           *
-           * If the child does not provide the updated object,
-           * refresh the conversation list.
-           */
           reloadConversations();
           return;
         }
@@ -900,17 +826,10 @@ export default function ChatPage({
           return;
         }
 
-        /*
-         * Update the direct URL conversation immediately.
-         */
         setUrlConversation(
           updatedConversation
         );
 
-        /*
-         * Keep the currently selected conversation
-         * pointing at the fresh object.
-         */
         if (
           String(selectedId || '') ===
           String(updatedId)
@@ -920,9 +839,6 @@ export default function ChatPage({
           );
         }
 
-        /*
-         * Refresh the sidebar as well.
-         */
         reloadConversations();
       },
       [
@@ -1425,6 +1341,7 @@ export default function ChatPage({
                 selectedConversation.id
               )
             }
+            onOpenDetails={onOpenDetails}
           />
         ) : isOpeningUrlConversation ? (
           <LoadingChat
@@ -1472,6 +1389,7 @@ function ConversationPanel({
   onTogglePin,
   onToggleMute,
   onToggleArchive,
+  onOpenDetails,
 }) {
   const conversationId =
     getConversationId(
@@ -1507,12 +1425,6 @@ function ConversationPanel({
   const [reopening, setReopening] =
     useState(false);
 
-  /*
-   * ============================================================
-   * DELETED STATE
-   * ============================================================
-   */
-
   const isDeleted =
     isConversationDeletedForUser(
       conversation,
@@ -1529,18 +1441,6 @@ function ConversationPanel({
     setSettingsOpen(false);
     setSendError('');
   }, [conversationId]);
-
-  /*
-   * ============================================================
-   * MESSAGES
-   * ============================================================
-   *
-   * This is the key correction.
-   *
-   * useMessages must know that this conversation is deleted so
-   * it immediately clears its local message state and refuses to
-   * fetch the old messages.
-   */
 
   const {
     messages,
@@ -1716,34 +1616,20 @@ function ConversationPanel({
 
         try {
           const response =
-            await requestsChatAPI.closeConversation(
+            await chatAPI.closeConversation(
               conversationId,
               reason
             );
 
-          /*
-           * Extract the fresh conversation returned
-           * by the backend.
-           */
           const updatedConversation =
             extractConversation(response);
 
-          /*
-           * Update ChatPage immediately.
-           *
-           * This makes:
-           * conversation.is_closed === true
-           * available to the composer immediately.
-           */
           if (updatedConversation) {
             onConversationUpdated?.(
               updatedConversation
             );
           }
 
-          /*
-           * Also refresh the sidebar.
-           */
           await onRefreshConversations?.();
         } catch (err) {
           setSendError(
@@ -1784,33 +1670,19 @@ function ConversationPanel({
 
         try {
           const response =
-            await requestsChatAPI.reopenConversation(
+            await chatAPI.reopenConversation(
               conversationId
             );
 
-          /*
-           * Extract the fresh conversation returned
-           * by the backend.
-           */
           const updatedConversation =
             extractConversation(response);
 
-          /*
-           * Update ChatPage immediately.
-           *
-           * This makes:
-           * conversation.is_closed === false
-           * available to the composer immediately.
-           */
           if (updatedConversation) {
             onConversationUpdated?.(
               updatedConversation
             );
           }
 
-          /*
-           * Also refresh the sidebar.
-           */
           await onRefreshConversations?.();
         } catch (err) {
           setSendError(
@@ -1858,7 +1730,7 @@ function ConversationPanel({
 
         try {
           const res =
-            await requestsChatAPI.getConversation(
+            await chatAPI.getConversation(
               conversationId,
               {
                 q: searchQuery.trim(),
@@ -1894,9 +1766,6 @@ function ConversationPanel({
   ========================================================== */
 
   useEffect(() => {
-    /*
-     * Deleted conversations must never be marked read.
-     */
     if (
       !conversationId ||
       isDeleted
@@ -1967,7 +1836,7 @@ function ConversationPanel({
 
   /* ==========================================================
      DELETED CONVERSATION
-     ========================================================== */
+  ========================================================== */
 
   if (isDeleted) {
     return (
@@ -2016,8 +1885,6 @@ function ConversationPanel({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* HEADER */}
-
       <ChatHeader
         conversation={conversation}
         other={other}
@@ -2049,9 +1916,8 @@ function ConversationPanel({
         }
         onSearch={handleSearch}
         onOpenSettings={handleOpenSettings}
+        onOpenDetails={onOpenDetails}
       />
-
-      {/* SEARCH */}
 
       {searchOpen && (
         <div
@@ -2141,8 +2007,6 @@ function ConversationPanel({
         </div>
       )}
 
-      {/* MESSAGES */}
-
       <div
         className="
           flex
@@ -2182,8 +2046,6 @@ function ConversationPanel({
         />
       </div>
 
-      {/* ERROR */}
-
       {(error || sendError) && (
         <div
           className="
@@ -2207,8 +2069,6 @@ function ConversationPanel({
           </p>
         </div>
       )}
-
-      {/* COMPOSER */}
 
       <MessageComposer
         conversationId={
@@ -2275,8 +2135,6 @@ function DeletedConversationState({
         bg-ink-50
       "
     >
-      {/* HEADER */}
-
       <div
         className="
           flex
@@ -2357,8 +2215,6 @@ function DeletedConversationState({
           </p>
         </div>
       </div>
-
-      {/* BODY */}
 
       <div
         className="

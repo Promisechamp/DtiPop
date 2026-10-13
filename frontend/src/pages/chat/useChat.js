@@ -1,10 +1,13 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 
-import { requestsChatAPI } from '@/services/api/popApi';
+import {
+  chatAPI,
+} from '@/services/api/sharedApi';
 
 /* ============================================================
    HELPERS
@@ -29,10 +32,39 @@ const getConversationId = (conversation) =>
 
 
 /*
+ * Extract a recipient's profile/user ID.
+ */
+const getParticipantId = (participant) => {
+  if (
+    participant === null ||
+    participant === undefined
+  ) {
+    return null;
+  }
+
+  if (
+    typeof participant === 'string' ||
+    typeof participant === 'number'
+  ) {
+    return participant;
+  }
+
+  return (
+    participant.user_id ??
+    participant.userId ??
+    participant.id ??
+    participant.profile_id ??
+    participant.profileId ??
+    participant.requester_id ??
+    participant.requesterId ??
+    null
+  );
+};
+
+
+/*
  * Check whether this conversation has been deleted
  * from the current user's side.
- *
- * Supports both backend snake_case and frontend camelCase.
  */
 const isDeletedForUser = (
   conversation,
@@ -42,53 +74,49 @@ const isDeletedForUser = (
     return false;
   }
 
-  /*
-   * Some backend responses may explicitly provide
-   * isDeleted / is_deleted.
-   */
   const explicitDeleted =
     conversation.isDeleted === true ||
     conversation.is_deleted === true;
 
-  /*
-   * Read the deleted_by array.
-   */
   const deletedBy =
     conversation.deletedBy ??
     conversation.deleted_by ??
     [];
 
-  /*
-   * If deleted_by is an array, the conversation
-   * is deleted for this user only when their ID
-   * exists inside that array.
-   */
-  if (Array.isArray(deletedBy)) {
-    if (!currentUserId) {
-      return explicitDeleted;
-    }
-
-    const deletedForCurrentUser =
-      deletedBy.some(
-        (id) =>
-          String(id) ===
-          String(currentUserId)
-      );
-
-    return (
-      deletedForCurrentUser ||
-      (
-        explicitDeleted &&
-        deletedBy.length === 0
-      )
-    );
+  if (!Array.isArray(deletedBy)) {
+    return explicitDeleted;
   }
 
-  /*
-   * If the backend explicitly says deleted and
-   * did not provide an array, respect that value.
-   */
-  return explicitDeleted;
+  if (!currentUserId) {
+    return explicitDeleted;
+  }
+
+  const deletedForCurrentUser =
+    deletedBy.some((entry) => {
+      const deletedUserId =
+        typeof entry === 'object' && entry !== null
+          ? (
+              entry.user_id ??
+              entry.userId ??
+              entry.id
+            )
+          : entry;
+
+      return (
+        deletedUserId !== null &&
+        deletedUserId !== undefined &&
+        String(deletedUserId) ===
+          String(currentUserId)
+      );
+    });
+
+  return (
+    deletedForCurrentUser ||
+    (
+      explicitDeleted &&
+      deletedBy.length === 0
+    )
+  );
 };
 
 
@@ -109,7 +137,33 @@ const normalizeConversation = (
     id:
       conversation.id ||
       conversation.conversation_id ||
-      conversation.conversationId,
+      conversation.conversationId ||
+      null,
+
+    contextType:
+      conversation.contextType ??
+      conversation.context_type ??
+      null,
+
+    contextId:
+      conversation.contextId ??
+      conversation.context_id ??
+      null,
+
+    requestId:
+      conversation.requestId ??
+      conversation.request_id ??
+      null,
+
+    providerRelationshipId:
+      conversation.providerRelationshipId ??
+      conversation.provider_relationship_id ??
+      null,
+
+    otherParticipant:
+      conversation.otherParticipant ??
+      conversation.other_participant ??
+      null,
 
     isClosed:
       conversation.isClosed ??
@@ -174,6 +228,19 @@ const normalizeConversation = (
 };
 
 
+/*
+ * Extract a useful API error message.
+ */
+const getErrorMessage = (
+  err,
+  fallback
+) =>
+  err?.response?.data?.message ||
+  err?.response?.data?.error ||
+  err?.message ||
+  fallback;
+
+
 /* ============================================================
    HOOK
 ============================================================ */
@@ -183,6 +250,7 @@ export default function useChat({
   relationshipId,
   conversationId: directConversationId = null,
   currentUserId = null,
+  otherParticipant = null,
   enabled = true,
 }) {
   const [
@@ -201,13 +269,28 @@ export default function useChat({
   ] = useState('');
 
   /*
-   * Direct conversationId has priority.
+   * Identifies the latest conversation initialization request.
    *
-   * NotificationBell -> AppShell -> ChatModal
-   * can use this to open a conversation directly.
-   *
-   * Existing requestId + relationshipId behavior
-   * remains unchanged.
+   * Older requests must not overwrite newer conversation state.
+   */
+  const loadSequence = useRef(0);
+
+  /*
+   * Prevents state updates after unmount.
+   */
+  const mountedRef = useRef(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+      loadSequence.current += 1;
+    };
+  }, []);
+
+  /*
+   * A supplied conversation ID takes priority.
    */
   const conversationId =
     directConversationId ||
@@ -215,15 +298,32 @@ export default function useChat({
 
 
   // ==========================================================
-  // LOAD
+  // LOAD CONVERSATION
   // ==========================================================
 
   const load = useCallback(
     async () => {
+      /*
+       * Invalidate any previous load before starting a new one.
+       */
+      const sequence =
+        ++loadSequence.current;
+
+      const isCurrentRequest = () =>
+        mountedRef.current &&
+        sequence === loadSequence.current;
+
+      if (!enabled) {
+        if (isCurrentRequest()) {
+          setLoading(false);
+        }
+
+        return;
+      }
 
       /*
        * --------------------------------------------------------
-       * DIRECT CONVERSATION
+       * PATH 1: OPEN A CONVERSATION BY ID
        * --------------------------------------------------------
        */
 
@@ -234,15 +334,17 @@ export default function useChat({
 
         try {
           const response =
-            await requestsChatAPI.getConversation(
+            await chatAPI.getConversation(
               directConversationId
             );
 
+          if (!isCurrentRequest()) {
+            return;
+          }
+
           const loadedConversation =
             normalizeConversation(
-              extractConversation(
-                response
-              )
+              extractConversation(response)
             );
 
           if (!loadedConversation) {
@@ -251,28 +353,14 @@ export default function useChat({
             );
           }
 
-          /*
-           * Do not allow an old notification or
-           * direct conversation ID to reopen a chat
-           * that this user deleted.
-           */
-          if (
-            isDeletedForUser(
-              loadedConversation,
-              currentUserId
-            )
-          ) {
-            setConversation(
-              loadedConversation
-            );
-
-            return;
-          }
-
           setConversation(
             loadedConversation
           );
         } catch (err) {
+          if (!isCurrentRequest()) {
+            return;
+          }
+
           console.error(
             'useChat direct conversation load error:',
             err
@@ -281,13 +369,15 @@ export default function useChat({
           setConversation(null);
 
           setError(
-            err?.response?.data?.message ||
-              err?.response?.data?.error ||
-              err?.message ||
+            getErrorMessage(
+              err,
               'Could not open this conversation.'
+            )
           );
         } finally {
-          setLoading(false);
+          if (isCurrentRequest()) {
+            setLoading(false);
+          }
         }
 
         return;
@@ -296,7 +386,120 @@ export default function useChat({
 
       /*
        * --------------------------------------------------------
-       * EXISTING REQUEST / PROVIDER FLOW
+       * PATH 2: DIRECT CHAT WITH A USER
+       *
+       * Does not require a provider relationship.
+       * --------------------------------------------------------
+       */
+
+      if (
+        otherParticipant &&
+        !relationshipId
+      ) {
+        const recipientId =
+          getParticipantId(
+            otherParticipant
+          );
+
+        if (
+          recipientId === null ||
+          recipientId === undefined ||
+          String(recipientId).trim() === ''
+        ) {
+          if (isCurrentRequest()) {
+            setConversation(null);
+            setError(
+              'Cannot start this chat because the recipient user ID is missing.'
+            );
+            setLoading(false);
+          }
+
+          return;
+        }
+
+        /*
+         * Prevent self-chat.
+         */
+        if (
+          currentUserId !== null &&
+          currentUserId !== undefined &&
+          String(recipientId) ===
+            String(currentUserId)
+        ) {
+          if (isCurrentRequest()) {
+            setConversation(null);
+            setError(
+              'You cannot start a conversation with yourself.'
+            );
+            setLoading(false);
+          }
+
+          return;
+        }
+
+        setLoading(true);
+        setError('');
+        setConversation(null);
+
+        try {
+          const response =
+            await chatAPI
+              .getOrCreateDirectConversation({
+                recipient_id: recipientId,
+                request_id: requestId || null,
+              });
+
+          if (!isCurrentRequest()) {
+            return;
+          }
+
+          const loadedConversation =
+            normalizeConversation(
+              extractConversation(response)
+            );
+
+          if (!loadedConversation) {
+            throw new Error(
+              'The direct conversation could not be opened.'
+            );
+          }
+
+          setConversation(
+            loadedConversation
+          );
+        } catch (err) {
+          if (!isCurrentRequest()) {
+            return;
+          }
+
+          console.error(
+            'useChat direct user conversation error:',
+            err
+          );
+
+          setConversation(null);
+
+          setError(
+            getErrorMessage(
+              err,
+              'Could not open the conversation.'
+            )
+          );
+        } finally {
+          if (isCurrentRequest()) {
+            setLoading(false);
+          }
+        }
+
+        return;
+      }
+
+
+      /*
+       * --------------------------------------------------------
+       * PATH 3: EXISTING REQUEST / PROVIDER CHAT
+       *
+       * Preserves the existing relationship-based flow.
        * --------------------------------------------------------
        */
 
@@ -304,8 +507,12 @@ export default function useChat({
         !requestId ||
         !relationshipId
       ) {
-        setConversation(null);
-        setError('');
+        if (isCurrentRequest()) {
+          setConversation(null);
+          setError('');
+          setLoading(false);
+        }
+
         return;
       }
 
@@ -315,16 +522,18 @@ export default function useChat({
 
       try {
         const response =
-          await requestsChatAPI.getOrCreateConversation(
+          await chatAPI.getOrCreateRequestConversation(
             requestId,
             relationshipId
           );
 
+        if (!isCurrentRequest()) {
+          return;
+        }
+
         const loadedConversation =
           normalizeConversation(
-            extractConversation(
-              response
-            )
+            extractConversation(response)
           );
 
         if (!loadedConversation) {
@@ -333,15 +542,14 @@ export default function useChat({
           );
         }
 
-        /*
-         * Normally getOrCreate should return the
-         * active conversation. Still preserve the
-         * deleted state if the backend sends it.
-         */
         setConversation(
           loadedConversation
         );
       } catch (err) {
+        if (!isCurrentRequest()) {
+          return;
+        }
+
         console.error(
           'useChat request conversation load error:',
           err
@@ -350,20 +558,24 @@ export default function useChat({
         setConversation(null);
 
         setError(
-          err?.response?.data?.message ||
-            err?.response?.data?.error ||
-            err?.message ||
+          getErrorMessage(
+            err,
             'Could not open this conversation.'
+          )
         );
       } finally {
-        setLoading(false);
+        if (isCurrentRequest()) {
+          setLoading(false);
+        }
       }
     },
     [
+      enabled,
       directConversationId,
       requestId,
       relationshipId,
       currentUserId,
+      otherParticipant,
     ]
   );
 
@@ -374,35 +586,69 @@ export default function useChat({
 
   useEffect(() => {
     if (!enabled) {
-      return;
-    }
+      /*
+       * Invalidate in-flight requests when disabled.
+       */
+      loadSequence.current += 1;
 
-    if (
-      !directConversationId &&
-      (
-        !requestId ||
-        !relationshipId
-      )
-    ) {
+      setLoading(false);
       setConversation(null);
       setError('');
+
       return;
     }
 
-    load();
+    /*
+     * A supplied conversation ID always takes priority.
+     */
+    if (directConversationId) {
+      load();
+      return;
+    }
+
+    /*
+     * Direct-user chat does not require a relationship ID.
+     */
+    if (
+      otherParticipant &&
+      !relationshipId
+    ) {
+      load();
+      return;
+    }
+
+    /*
+     * Existing provider chat requires both request and
+     * relationship IDs.
+     */
+    if (
+      relationshipId &&
+      requestId
+    ) {
+      load();
+      return;
+    }
+
+    /*
+     * No valid chat target was supplied.
+     */
+    loadSequence.current += 1;
+
+    setConversation(null);
+    setError('');
+    setLoading(false);
   }, [
     enabled,
     directConversationId,
     requestId,
     relationshipId,
+    otherParticipant,
     load,
   ]);
 
 
   // ==========================================================
-  // SOCKET.IO: CONVERSATION METADATA
-  //
-  // This replaces the old Supabase realtime listener.
+  // CONVERSATION METADATA UPDATES
   // ==========================================================
 
   useEffect(() => {
@@ -413,121 +659,109 @@ export default function useChat({
       return undefined;
     }
 
-    const handleConversationUpdate =
-      (event) => {
-        const payload =
-          event?.detail;
+    const handleConversationUpdate = (
+      event
+    ) => {
+      const payload =
+        event?.detail;
 
-        if (!payload) {
-          return;
-        }
+      if (!payload) {
+        return;
+      }
 
-        const updatedConversation =
-          payload?.conversation ||
-          payload?.data?.conversation ||
-          payload?.data ||
-          null;
+      const updatedConversation =
+        payload?.conversation ||
+        payload?.data?.conversation ||
+        payload?.data ||
+        null;
 
-        const updatedConversationId =
-          payload?.conversationId ||
-          getConversationId(
-            updatedConversation
-          );
-
-        if (
-          !updatedConversationId ||
-          String(
-            updatedConversationId
-          ) !== String(conversationId)
-        ) {
-          return;
-        }
-
-        if (
-          !updatedConversation
-        ) {
-          return;
-        }
-
-        const normalized =
-          normalizeConversation(
-            updatedConversation
-          );
-
-        setConversation(
-          (previous) => {
-            if (!previous) {
-              return normalized;
-            }
-
-            return {
-              ...previous,
-              ...normalized,
-
-              /*
-               * Keep compatibility with components
-               * that use camelCase conversation fields.
-               */
-
-              lastMessage:
-                normalized.lastMessage ??
-                previous.lastMessage,
-
-              lastMessageAt:
-                normalized.lastMessageAt ??
-                previous.lastMessageAt,
-
-              lastMessageSenderId:
-                normalized.lastMessageSenderId ??
-                previous.lastMessageSenderId,
-
-              isClosed:
-                normalized.isClosed ??
-                previous.isClosed,
-
-              closedAt:
-                normalized.closedAt ??
-                previous.closedAt,
-
-              closedBy:
-                normalized.closedBy ??
-                previous.closedBy,
-
-              closedReason:
-                normalized.closedReason ??
-                previous.closedReason,
-
-              updatedAt:
-                normalized.updatedAt ??
-                previous.updatedAt,
-
-              /*
-               * Protect chat.
-               */
-              isProtected:
-                typeof normalized.isProtected ===
-                'boolean'
-                  ? normalized.isProtected
-                  : previous.isProtected,
-
-              protectedBy:
-                normalized.protectedBy ??
-                previous.protectedBy,
-
-              /*
-               * Deleted state.
-               */
-              isDeleted:
-                normalized.isDeleted ??
-                previous.isDeleted,
-
-              deletedBy:
-                normalized.deletedBy ??
-                previous.deletedBy,
-            };
-          }
+      const updatedConversationId =
+        payload?.conversationId ||
+        payload?.conversation_id ||
+        getConversationId(
+          updatedConversation
         );
-      };
+
+      if (
+        !updatedConversationId ||
+        String(updatedConversationId) !==
+          String(conversationId)
+      ) {
+        return;
+      }
+
+      if (!updatedConversation) {
+        return;
+      }
+
+      const normalized =
+        normalizeConversation(
+          updatedConversation
+        );
+
+      setConversation(
+        (previous) => {
+          if (!previous) {
+            return normalized;
+          }
+
+          return {
+            ...previous,
+            ...normalized,
+
+            lastMessage:
+              normalized.lastMessage ??
+              previous.lastMessage,
+
+            lastMessageAt:
+              normalized.lastMessageAt ??
+              previous.lastMessageAt,
+
+            lastMessageSenderId:
+              normalized.lastMessageSenderId ??
+              previous.lastMessageSenderId,
+
+            isClosed:
+              normalized.isClosed ??
+              previous.isClosed,
+
+            closedAt:
+              normalized.closedAt ??
+              previous.closedAt,
+
+            closedBy:
+              normalized.closedBy ??
+              previous.closedBy,
+
+            closedReason:
+              normalized.closedReason ??
+              previous.closedReason,
+
+            updatedAt:
+              normalized.updatedAt ??
+              previous.updatedAt,
+
+            isProtected:
+              typeof normalized.isProtected ===
+              'boolean'
+                ? normalized.isProtected
+                : previous.isProtected,
+
+            protectedBy:
+              normalized.protectedBy ??
+              previous.protectedBy,
+
+            isDeleted:
+              normalized.isDeleted ??
+              previous.isDeleted,
+
+            deletedBy:
+              normalized.deletedBy ??
+              previous.deletedBy,
+          };
+        }
+      );
+    };
 
     window.addEventListener(
       'chat:conversation:update',
@@ -550,105 +784,98 @@ export default function useChat({
   // MARK READ
   // ==========================================================
 
-  const markRead =
-    useCallback(
-      async (
-        upToMessageId = null
-      ) => {
-        if (
-          !conversation?.id ||
-          isDeletedForUser(
-            conversation,
-            currentUserId
-          )
-        ) {
-          return;
-        }
+  const markRead = useCallback(
+    async (
+      upToMessageId = null
+    ) => {
+      if (
+        !conversation?.id ||
+        isDeletedForUser(
+          conversation,
+          currentUserId
+        )
+      ) {
+        return;
+      }
 
-        try {
-          await requestsChatAPI.markRead(
-            conversation.id,
-            upToMessageId
-          );
-        } catch (err) {
-          console.error(
-            'markRead failed:',
-            err
-          );
-        }
-      },
-      [
-        conversation?.id,
-        conversation,
-        currentUserId,
-      ]
-    );
+      try {
+        await chatAPI.markRead(
+          conversation.id,
+          upToMessageId
+        );
+      } catch (err) {
+        console.error(
+          'markRead failed:',
+          err
+        );
+      }
+    },
+    [
+      conversation,
+      currentUserId,
+    ]
+  );
 
 
   // ==========================================================
   // CLOSE
   // ==========================================================
 
-  const close =
-    useCallback(
-      async (
-        reason = null
-      ) => {
-        if (
-          !conversation?.id ||
-          isDeletedForUser(
-            conversation,
-            currentUserId
-          )
-        ) {
-          return null;
-        }
+  const close = useCallback(
+    async (
+      reason = null
+    ) => {
+      if (
+        !conversation?.id ||
+        isDeletedForUser(
+          conversation,
+          currentUserId
+        )
+      ) {
+        return null;
+      }
 
-        const response =
-          await requestsChatAPI.closeConversation(
-            conversation.id,
-            reason
-          );
-
-        const updated =
-          normalizeConversation(
-            extractConversation(
-              response
-            )
-          );
-
-        setConversation(
-          updated
+      const response =
+        await chatAPI.closeConversation(
+          conversation.id,
+          reason
         );
 
-        return updated;
-      },
-      [
-        conversation?.id,
-        conversation,
-        currentUserId,
-      ]
-    );
+      const updated =
+        normalizeConversation(
+          extractConversation(response)
+        );
+
+      if (updated) {
+        setConversation(updated);
+      }
+
+      return updated;
+    },
+    [
+      conversation,
+      currentUserId,
+    ]
+  );
 
 
   // ==========================================================
   // REFRESH
   // ==========================================================
 
-  const refresh =
-    useCallback(
-      () => {
-        if (!enabled) {
-          return Promise.resolve();
-        }
+  const refresh = useCallback(
+    () => {
+      if (!enabled) {
+        return Promise.resolve();
+      }
 
-        return load();
-      },
-      [
-        enabled,
-        load,
-      ]
-    );
+      return load();
+    },
+    [
+      enabled,
+      load,
+    ]
+  );
 
 
   // ==========================================================
@@ -658,12 +885,9 @@ export default function useChat({
   const isClosed =
     !!conversation &&
     (
-      conversation.isClosed ||
-      conversation.is_closed ||
-      conversation.status ===
-        'closed' ||
-      conversation.status ===
-        'cancelled'
+      conversation.isClosed === true ||
+      conversation.status === 'closed' ||
+      conversation.status === 'cancelled'
     );
 
 
@@ -697,4 +921,3 @@ export default function useChat({
     refresh,
   };
 }
-

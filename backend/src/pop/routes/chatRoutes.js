@@ -3,6 +3,7 @@ import { authenticate } from '../../middleware/auth.js';
 
 import {
   getOrCreateRequestProviderConversation,
+		getOrCreateDirectConversation,
   getMyConversations,
   getConversation,
   deleteConversationForMe,
@@ -24,6 +25,7 @@ const router = express.Router();
 router.use(authenticate);
 
 router.post('/requests/:requestId/providers/:relationshipId/conversation', getOrCreateRequestProviderConversation);
+router.post( '/conversations/direct', getOrCreateDirectConversation );
 
 router.get('/conversations', getMyConversations);
 router.get('/conversations/:id', getConversation);

@@ -6,6 +6,7 @@ import React, {
   createContext,
   useContext,
 } from "react";
+
 import {
   BrowserRouter as Router,
   Routes,
@@ -15,6 +16,7 @@ import {
   Link,
   useLocation,
 } from "react-router-dom";
+
 import { Toaster } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
@@ -26,9 +28,8 @@ import MaintenancePage from "@/components/MaintenancePage";
 
 import { adminAPI } from "@/services/api/dtiApi";
 
-import Navbar from "./components/common/Navbar";
-import Footer from "./components/common/Footer";
-import AdminLayout from "./admin/AdminLayout";
+import UsersAppShell from "./components/appShell/UsersAppShell";
+import AdminAppShell from "./components/appShell/AdminAppShell";
 
 import HomePage from "./pages/HomePage";
 import BrowseItemsPage from "./pages/BrowseItemsPage";
@@ -82,6 +83,10 @@ import DevTool from "@/devTools/TestTools";
 import TermsOfServicePage from "@/pages/TermsOfService";
 import PrivacyPolicyPage from "@/pages/PrivacyPolicy";
 
+/* =========================================================
+   Maintenance context
+========================================================= */
+
 const MaintenanceContext = createContext(null);
 
 export const useMaintenance = () => {
@@ -109,9 +114,7 @@ const MaintenanceProvider = ({ children }) => {
       setError(null);
 
       const response = await adminAPI.getMaintenanceStatus();
-      const enabled = Boolean(
-        response?.data?.maintenance_mode
-      );
+      const enabled = Boolean(response?.data?.maintenance_mode);
 
       setMaintenanceMode(enabled);
 
@@ -125,14 +128,9 @@ const MaintenanceProvider = ({ children }) => {
 
       return enabled;
     } catch (err) {
-      console.error(
-        "[MAINTENANCE] Error checking maintenance:",
-        err
-      );
-
+      console.error("[MAINTENANCE] Error checking maintenance:", err);
       setMaintenanceMode(false);
       setError(err);
-
       return false;
     } finally {
       setChecking(false);
@@ -150,12 +148,7 @@ const MaintenanceProvider = ({ children }) => {
       error,
       refreshMaintenance: checkMaintenance,
     }),
-    [
-      maintenanceMode,
-      checking,
-      error,
-      checkMaintenance,
-    ]
+    [maintenanceMode, checking, error, checkMaintenance]
   );
 
   return (
@@ -165,43 +158,32 @@ const MaintenanceProvider = ({ children }) => {
   );
 };
 
-const LoadingScreen = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-ink-50/40">
-      <div className="flex flex-col items-center gap-3">
-        <div className="w-10 h-10 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
-        <p className="text-sm font-medium text-ink-500">
-          Loading...
-        </p>
-      </div>
+/* =========================================================
+   Loading screen
+========================================================= */
+
+const LoadingScreen = () => (
+  <div className="min-h-screen flex items-center justify-center bg-ink-50/40">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-10 h-10 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+      <p className="text-sm font-medium text-ink-500">Loading...</p>
     </div>
-  );
-};
+  </div>
+);
+
+/* =========================================================
+   Maintenance guard
+========================================================= */
 
 const MaintenanceGuard = ({ children }) => {
-  const {
-    isAuthenticated,
-    loading,
-    isAdmin,
-    user,
-  } = useAuth();
-
-  const {
-    maintenanceMode,
-    checking,
-  } = useMaintenance();
-
+  const { loading, isAdmin, user } = useAuth();
+  const { maintenanceMode, checking } = useMaintenance();
   const location = useLocation();
 
-  if (loading || checking) {
-    return null;
-  }
+  if (loading || checking) return null;
 
-  const isAdminRoute =
-    location.pathname.startsWith("/admin");
-
-  const isMaintenancePage =
-    location.pathname === "/maintenance";
+  const isAdminRoute = location.pathname.startsWith("/admin");
+  const isMaintenancePage = location.pathname === "/maintenance";
 
   const authRoutes = [
     "/login",
@@ -213,21 +195,14 @@ const MaintenanceGuard = ({ children }) => {
     "/auth/callback",
   ];
 
-  const isAuthRoute = authRoutes.includes(
-    location.pathname
-  );
-
-  const isBannedPage =
-    location.pathname === "/banned";
+  const isAuthRoute = authRoutes.includes(location.pathname);
+  const isBannedPage = location.pathname === "/banned";
 
   if (
     user?.ban_status === "banned" ||
     user?.ban_status === "deleted"
   ) {
-    if (!isBannedPage) {
-      return <Navigate to="/banned" replace />;
-    }
-
+    if (!isBannedPage) return <Navigate to="/banned" replace />;
     return children;
   }
 
@@ -249,39 +224,26 @@ const MaintenanceGuard = ({ children }) => {
     return <Navigate to="/maintenance" replace />;
   }
 
-  if (
-    !maintenanceMode &&
-    isMaintenancePage
-  ) {
+  if (!maintenanceMode && isMaintenancePage) {
     return <Navigate to="/" replace />;
   }
 
-  if (
-    isAdmin &&
-    isMaintenancePage
-  ) {
+  if (isAdmin && isMaintenancePage) {
     return <Navigate to="/admin" replace />;
   }
 
   return children;
 };
 
-const ProtectedRoute = ({
-  children,
-  adminOnly = false,
-}) => {
-  const {
-    isAuthenticated,
-    loading,
-    isAdmin,
-    user,
-  } = useAuth();
+/* =========================================================
+   Auth guards
+========================================================= */
 
+const ProtectedRoute = ({ children }) => {
+  const { isAuthenticated, loading, user } = useAuth();
   const location = useLocation();
 
-  if (loading) {
-    return null;
-  }
+  if (loading) return null;
 
   if (
     user?.ban_status === "banned" ||
@@ -300,26 +262,14 @@ const ProtectedRoute = ({
     );
   }
 
-  if (adminOnly && !isAdmin) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
   return children;
 };
 
 const AdminRoute = ({ children }) => {
-  const {
-    isAuthenticated,
-    loading,
-    isAdmin,
-    user,
-  } = useAuth();
-
+  const { isAuthenticated, loading, isAdmin, user } = useAuth();
   const location = useLocation();
 
-  if (loading) {
-    return null;
-  }
+  if (loading) return null;
 
   if (
     user?.ban_status === "banned" ||
@@ -349,9 +299,7 @@ const BannedGuard = ({ children }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
-  if (loading) {
-    return null;
-  }
+  if (loading) return null;
 
   if (
     user?.ban_status === "banned" ||
@@ -365,6 +313,10 @@ const BannedGuard = ({ children }) => {
   return children;
 };
 
+/* =========================================================
+   Scroll helper
+========================================================= */
+
 const ScrollToTop = () => {
   const { pathname } = useLocation();
 
@@ -375,147 +327,15 @@ const ScrollToTop = () => {
   return null;
 };
 
-const LayoutPublic = () => {
-  const {
-    loading,
-    user,
-    isAuthenticated,
-    isAdmin,
-  } = useAuth();
+/* =========================================================
+   Minimal layouts
+========================================================= */
 
-  const [showFooter, setShowFooter] =
-    useState(false);
-
-  const [pageLoaded, setPageLoaded] =
-    useState(false);
-
-  useEffect(() => {
-    if (!loading) {
-      setPageLoaded(true);
-    }
-  }, [loading]);
-
-  useEffect(() => {
-    if (!pageLoaded) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setShowFooter(true);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [pageLoaded]);
-
-  if (
-    user?.ban_status === "banned" ||
-    user?.ban_status === "deleted"
-  ) {
-    return <Navigate to="/banned" replace />;
-  }
-
-  if (loading) {
-    return null;
-  }
-
-  if (isAuthenticated && isAdmin) {
-    return (
-      <AdminLayout>
-        <Outlet />
-      </AdminLayout>
-    );
-  }
-
-  return (
-    <div className="min-h-screen flex flex-col bg-ink-50/40">
-      <Navbar />
-
-      <main className="flex-1 max-w-7xl w-full mx-auto px-0 sm:px-6 lg:px-8 py-8 pt-[68px]">
-        <Outlet />
-      </main>
-
-      {showFooter && <Footer />}
-    </div>
-  );
-};
-
-const LayoutAuthenticated = () => {
-  const {
-    loading,
-    user,
-    isAuthenticated,
-    isAdmin,
-  } = useAuth();
-
-  if (
-    user?.ban_status === "banned" ||
-    user?.ban_status === "deleted"
-  ) {
-    return <Navigate to="/banned" replace />;
-  }
-
-  if (loading) {
-    return null;
-  }
-
-  if (isAuthenticated && isAdmin) {
-    return (
-      <AdminLayout>
-        <Outlet />
-      </AdminLayout>
-    );
-  }
-
-  return (
-    <div className="min-h-screen flex flex-col bg-ink-50/40">
-      <Navbar />
-
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-[68px]">
-        <Outlet />
-      </main>
-    </div>
-  );
-};
-
-const LayoutWithNavbar = () => {
-  const {
-    loading,
-    user,
-    isAuthenticated,
-    isAdmin,
-  } = useAuth();
-
-  if (
-    user?.ban_status === "banned" ||
-    user?.ban_status === "deleted"
-  ) {
-    return <Navigate to="/banned" replace />;
-  }
-
-  if (loading) {
-    return null;
-  }
-
-  if (isAuthenticated && isAdmin) {
-    return (
-      <AdminLayout>
-        <Outlet />
-      </AdminLayout>
-    );
-  }
-
-  return (
-    <div className="min-h-screen flex flex-col bg-ink-50/40">
-      <Navbar />
-
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-[68px]">
-        <Outlet />
-      </main>
-    </div>
-  );
-};
-
-const LayoutWithoutNavbar = () => {
+/**
+ * LayoutAuth — for login / register / reset flows.
+ * No sidebar, no top nav.
+ */
+const LayoutAuth = () => {
   const { loading, user } = useAuth();
 
   if (
@@ -525,9 +345,7 @@ const LayoutWithoutNavbar = () => {
     return <Navigate to="/banned" replace />;
   }
 
-  if (loading) {
-    return null;
-  }
+  if (loading) return null;
 
   return (
     <div className="min-h-screen flex flex-col bg-ink-50/40">
@@ -538,12 +356,13 @@ const LayoutWithoutNavbar = () => {
   );
 };
 
+/**
+ * LayoutBanned — for banned / deleted user notice.
+ */
 const LayoutBanned = () => {
   const { loading } = useAuth();
 
-  if (loading) {
-    return null;
-  }
+  if (loading) return null;
 
   return (
     <div className="min-h-screen flex flex-col bg-ink-50/40">
@@ -553,6 +372,10 @@ const LayoutBanned = () => {
     </div>
   );
 };
+
+/* =========================================================
+   404
+========================================================= */
 
 const NotFoundPage = () => {
   const { isAuthenticated, user } = useAuth();
@@ -580,28 +403,29 @@ const NotFoundPage = () => {
         </p>
 
         <Link
-          to={
-            isAuthenticated
-              ? "/dashboard"
-              : "/"
-          }
+          to={isAuthenticated ? "/dashboard" : "/"}
           className="mt-6 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-primary-500 to-brand-600 text-white font-bold text-sm shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5"
         >
           <i className="bi bi-arrow-left" />
-
-          {isAuthenticated
-            ? "Go to Dashboard"
-            : "Go Home"}
+          {isAuthenticated ? "Go to Dashboard" : "Go Home"}
         </Link>
       </div>
     </div>
   );
 };
 
+/* =========================================================
+   Routes
+========================================================= */
+
 const DtiRoutes = () => {
   return (
     <Routes>
-      <Route element={<LayoutPublic />}>
+      {/* =====================================================
+          PUBLIC + AUTHENTICATED USER (AppShell)
+      ===================================================== */}
+      <Route element={<UsersAppShell />}>
+        {/* Public */}
         <Route
           index
           element={
@@ -668,44 +492,15 @@ const DtiRoutes = () => {
           }
         />
 
-        <Route path="login" element={<Login />} />
-        <Route path="register" element={<Register />} />
-        <Route
-          path="forgot-password"
-          element={<ForgotPassword />}
-        />
-        <Route
-          path="reset-password"
-          element={<ResetPassword />}
-        />
-        <Route
-          path="confirm-email"
-          element={<ConfirmEmail />}
-        />
-        <Route
-          path="verify-email"
-          element={<VerifyEmail />}
-        />
-        <Route
-          path="auth/callback"
-          element={<AuthCallback />}
-        />
         <Route path="contact" element={<Contact />} />
         <Route path="faq" element={<FAQ />} />
+
         <Route
           path="maintenance"
           element={<MaintenancePage />}
         />
-      </Route>
 
-      <Route element={<LayoutBanned />}>
-        <Route
-          path="banned"
-          element={<BannedPage />}
-        />
-      </Route>
-
-      <Route element={<LayoutAuthenticated />}>
+        {/* Authenticated user */}
         <Route
           path="dashboard"
           element={
@@ -848,9 +643,7 @@ const DtiRoutes = () => {
             </MaintenanceGuard>
           }
         />
-      </Route>
 
-      <Route element={<LayoutWithNavbar />}>
         <Route
           path="discussions/item/:itemId"
           element={
@@ -863,110 +656,129 @@ const DtiRoutes = () => {
         />
       </Route>
 
-      <Route element={<LayoutWithoutNavbar />}>
+      {/* =====================================================
+          AUTH PAGES (minimal, no shell)
+      ===================================================== */}
+      <Route element={<LayoutAuth />}>
+        <Route path="login" element={<Login />} />
+        <Route path="register" element={<Register />} />
         <Route
-          path="admin"
-          element={
-            <AdminRoute>
-              <AdminLayout />
-            </AdminRoute>
-          }
-        >
-          <Route
-            index
-            element={<AdminDashboard />}
-          />
-          <Route
-            path="users"
-            element={<AdminUsers />}
-          />
-          <Route
-            path="users-profile/:userId"
-            element={<AdminUserProfile />}
-          />
-          <Route
-            path="items"
-            element={<AdminItems />}
-          />
-          <Route
-            path="applications"
-            element={<AdminApplications />}
-          />
-          <Route
-            path="winners"
-            element={<AdminWinners />}
-          />
-          <Route
-            path="support"
-            element={<ReportsModerations />}
-          />
-          <Route
-            path="moderation"
-            element={<ReportsModerations />}
-          />
-          <Route
-            path="discussions/item/:itemId"
-            element={<ItemDiscussionPage />}
-          />
-          <Route
-            path="notifications"
-            element={<Notification />}
-          />
-          <Route
-            path="api-reference"
-            element={<ApiReferencePage />}
-          />
-          <Route
-            path="analytics"
-            element={<Overview />}
-          />
-          <Route
-            path="analytics/funnel"
-            element={<Funnel />}
-          />
-          <Route
-            path="analytics/items-performance"
-            element={<ItemPerformance />}
-          />
-          <Route
-            path="analytics/user-insights"
-            element={<UserInsights />}
-          />
-          <Route
-            path="analytics/fulfilment"
-            element={<Fulfilment />}
-          />
-          <Route
-            path="settings"
-            element={<SettingsPage />}
-          />
-        </Route>
+          path="forgot-password"
+          element={<ForgotPassword />}
+        />
+        <Route
+          path="reset-password"
+          element={<ResetPassword />}
+        />
+        <Route
+          path="confirm-email"
+          element={<ConfirmEmail />}
+        />
+        <Route
+          path="verify-email"
+          element={<VerifyEmail />}
+        />
+        <Route
+          path="auth/callback"
+          element={<AuthCallback />}
+        />
       </Route>
 
+      {/* =====================================================
+          BANNED
+      ===================================================== */}
+      <Route element={<LayoutBanned />}>
+        <Route path="banned" element={<BannedPage />} />
+      </Route>
+
+      {/* =====================================================
+          ADMIN (AdminAppShell — self-contained)
+      ===================================================== */}
+      <Route
+        path="admin"
+        element={
+          <AdminRoute>
+            <AdminAppShell />
+          </AdminRoute>
+        }
+      >
+        <Route index element={<AdminDashboard />} />
+        <Route path="users" element={<AdminUsers />} />
+        <Route
+          path="users-profile/:userId"
+          element={<AdminUserProfile />}
+        />
+        <Route path="items" element={<AdminItems />} />
+        <Route
+          path="applications"
+          element={<AdminApplications />}
+        />
+        <Route path="winners" element={<AdminWinners />} />
+        <Route path="support" element={<ReportsModerations />} />
+        <Route
+          path="moderation"
+          element={<ReportsModerations />}
+        />
+        <Route
+          path="discussions/item/:itemId"
+          element={<ItemDiscussionPage />}
+        />
+        <Route
+          path="notifications"
+          element={<Notification />}
+        />
+        <Route
+          path="api-reference"
+          element={<ApiReferencePage />}
+        />
+        <Route path="analytics" element={<Overview />} />
+        <Route
+          path="analytics/funnel"
+          element={<Funnel />}
+        />
+        <Route
+          path="analytics/items-performance"
+          element={<ItemPerformance />}
+        />
+        <Route
+          path="analytics/user-insights"
+          element={<UserInsights />}
+        />
+        <Route
+          path="analytics/fulfilment"
+          element={<Fulfilment />}
+        />
+        <Route
+          path="settings"
+          element={<SettingsPage />}
+        />
+      </Route>
+
+      {/* =====================================================
+          STANDALONE
+      ===================================================== */}
       <Route
         path="terms"
         element={<TermsOfServicePage />}
       />
-
       <Route
         path="privacy"
         element={<PrivacyPolicyPage />}
       />
 
-      <Route
-        path="*"
-        element={<NotFoundPage />}
-      />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 };
 
+/* =========================================================
+   App content
+========================================================= */
+
 const AppContent = () => {
   const { loading } = useAuth();
 
-  if (loading) {
-    return <LoadingScreen />;
-  }
+  if (loading) return <LoadingScreen />;
 
   return (
     <>
