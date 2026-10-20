@@ -1,74 +1,98 @@
-import React, { useEffect, useState, useCallback, useMemo} from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  Star,
+  Clock,
+  CheckCircle2,
+  MessageCircle,
+  Package,
+  AlertTriangle,
+  RefreshCw,
+  LogIn,
+  Send,
+  Pencil,
+  Loader2,
+} from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { ratingsAPI } from '@/services/api/dtiApi';
-import { PageNavigation, PageNavigationSkeleton } from '@/reusables/PageNavigation';
+
 import Modal from '@/reusables/Modal';
+import { toast } from 'sonner';
 
-// ============================================================
-// Skeleton
-// ============================================================
+/* ============================================================
+   SKELETON
+============================================================ */
+
 const RatingsSkeleton = () => (
-  <div className="min-h-screen bg-ink-50/30 px-2">
-    <PageNavigationSkeleton />
+  <div className="min-h-full bg-transparent">
+    <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
 
-    <div className="space-y-8">
-      {/* HEADER */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="animate-pulse">
-          <div className="mb-2 flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-ink-200" />
-            <div className="h-3 w-40 rounded bg-ink-200" />
+
+      <div className="space-y-7">
+        {/* HEADER */}
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <div className="mb-2 flex items-center gap-2">
+              <div className="h-3.5 w-3.5 animate-pulse rounded bg-ink-200" />
+              <div className="h-3 w-40 animate-pulse rounded bg-ink-200" />
+            </div>
+            <div className="h-8 w-56 animate-pulse rounded bg-ink-200" />
+            <div className="mt-3 h-4 w-64 max-w-full animate-pulse rounded bg-ink-200" />
           </div>
-          <div className="h-9 w-48 rounded bg-ink-200" />
-          <div className="mt-2 h-4 w-72 max-w-full rounded bg-ink-200" />
+          <div className="h-12 w-32 animate-pulse rounded-2xl bg-ink-200" />
         </div>
-        <div className="h-11 w-32 rounded-xl bg-ink-200 animate-pulse" />
-      </div>
 
-      {/* STATS */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {[1, 2, 3, 4].map((item) => (
-          <div key={item} className="rounded-2xl border border-ink-100/80 bg-white p-4 shadow-sm">
-            <div className="animate-pulse">
+        {/* STATS */}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm"
+            >
               <div className="flex items-center justify-between gap-3">
-                <div className="h-3 w-20 rounded bg-ink-200" />
-                <div className="h-9 w-9 rounded-xl bg-ink-200" />
+                <div className="h-3 w-20 animate-pulse rounded-full bg-ink-100" />
+                <div className="h-9 w-9 animate-pulse rounded-xl bg-ink-100" />
               </div>
-              <div className="mt-2 h-8 w-12 rounded bg-ink-200" />
+              <div className="mt-2 h-8 w-12 animate-pulse rounded bg-ink-100" />
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      {/* RATINGS LIST */}
-      <div className="space-y-4">
-        {[1, 2, 3].map((item) => (
-          <div key={item} className="rounded-2xl border border-ink-100/80 bg-white shadow-sm overflow-hidden">
-            <div className="p-4 animate-pulse">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-full bg-ink-200" />
-                <div className="flex-1">
-                  <div className="h-4 w-32 rounded bg-ink-200" />
-                  <div className="h-3 w-24 rounded bg-ink-200 mt-1" />
-                </div>
-                <div className="h-6 w-16 rounded-full bg-ink-200" />
+        {/* LIST */}
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="overflow-hidden rounded-[26px] border border-ink-100 bg-white shadow-sm"
+            >
+              <div className="border-b border-ink-100 bg-ink-50/50 px-4 py-3 sm:px-5">
+                <div className="h-3 w-24 animate-pulse rounded bg-ink-100" />
+                <div className="mt-1.5 h-4 w-48 animate-pulse rounded bg-ink-100" />
               </div>
-              <div className="space-y-2">
-                <div className="h-4 w-40 rounded bg-ink-200" />
-                <div className="h-3 w-56 rounded bg-ink-200" />
+              <div className="space-y-3 p-4 sm:p-5">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 animate-pulse rounded-full bg-ink-100" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3.5 w-32 animate-pulse rounded bg-ink-100" />
+                    <div className="h-2.5 w-24 animate-pulse rounded bg-ink-100" />
+                  </div>
+                  <div className="h-5 w-16 animate-pulse rounded-full bg-ink-100" />
+                </div>
+                <div className="h-3 w-40 animate-pulse rounded bg-ink-100" />
+                <div className="h-3 w-56 animate-pulse rounded bg-ink-100" />
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   </div>
 );
 
-// ============================================================
-// Main Component
-// ============================================================
+/* ============================================================
+   MAIN COMPONENT
+============================================================ */
+
 const RatingPage = () => {
   const { user, isAuthenticated } = useAuth();
 
@@ -80,7 +104,7 @@ const RatingPage = () => {
   const [selectedRating, setSelectedRating] = useState(null);
   const [showRatingModal, setShowRatingModal] = useState(false);
 
-  // ---------- Group ratings by application ----------
+  /* ---------- Group ratings by application ---------- */
   const groupByApplication = (ratings, userId) => {
     const groupsMap = {};
 
@@ -114,43 +138,46 @@ const RatingPage = () => {
     });
   };
 
-  // ---------- Fetch ratings ----------
-  const fetchRatings = useCallback(async (isRefresh = false) => {
-    if (!isAuthenticated) {
-      setLoading(false);
-      return;
-    }
+  /* ---------- Fetch ratings ---------- */
+  const fetchRatings = useCallback(
+    async (isRefresh = false) => {
+      if (!isAuthenticated) {
+        setLoading(false);
+        return;
+      }
 
-    try {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
-      setError(null);
+      try {
+        if (isRefresh) setRefreshing(true);
+        else setLoading(true);
+        setError(null);
 
-      const givenRes = await ratingsAPI.getUserRatings(user.id, 'rater');
-      const receivedRes = await ratingsAPI.getUserRatings(user.id, 'rated');
-      const pendingRes = await ratingsAPI.getPending();
+        const givenRes = await ratingsAPI.getUserRatings(user.id, 'rater');
+        const receivedRes = await ratingsAPI.getUserRatings(user.id, 'rated');
+        const pendingRes = await ratingsAPI.getPending();
 
-      const given = givenRes.data?.ratings ?? [];
-      const received = receivedRes.data?.ratings ?? [];
-      const pending = pendingRes.data?.pending ?? [];
+        const given = givenRes.data?.ratings ?? [];
+        const received = receivedRes.data?.ratings ?? [];
+        const pending = pendingRes.data?.pending ?? [];
 
-      const allMap = new Map();
-      [...given, ...received, ...pending].forEach((r) => {
-        if (!allMap.has(r.id)) allMap.set(r.id, r);
-      });
-      const all = Array.from(allMap.values());
+        const allMap = new Map();
+        [...given, ...received, ...pending].forEach((r) => {
+          if (!allMap.has(r.id)) allMap.set(r.id, r);
+        });
+        const all = Array.from(allMap.values());
 
-      const grouped = groupByApplication(all, user.id);
-      setGroups(grouped);
-    } catch (err) {
-      console.error('Fetch ratings error:', err);
-      setError(err.message || 'Failed to load ratings.');
-      toast.error('Failed to load ratings');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [user, isAuthenticated]);
+        const grouped = groupByApplication(all, user.id);
+        setGroups(grouped);
+      } catch (err) {
+        console.error('Fetch ratings error:', err);
+        setError(err.message || 'Failed to load ratings.');
+        toast.error('Failed to load ratings');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [user, isAuthenticated]
+  );
 
   useEffect(() => {
     fetchRatings();
@@ -171,7 +198,7 @@ const RatingPage = () => {
     fetchRatings(true);
   };
 
-  // Stats
+  /* ---------- Stats ---------- */
   const stats = useMemo(() => {
     const total = groups.length;
     let pending = 0;
@@ -184,7 +211,10 @@ const RatingPage = () => {
       } else if (group.myRating?.status === 'published') {
         published += 1;
       }
-      if (group.theirRating?.status === 'published' && !group.theirRating?.reply_text) {
+      if (
+        group.theirRating?.status === 'published' &&
+        !group.theirRating?.reply_text
+      ) {
         needsReply += 1;
       }
     });
@@ -192,7 +222,7 @@ const RatingPage = () => {
     return { total, pending, published, needsReply };
   }, [groups]);
 
-  // ---------- Helper functions ----------
+  /* ---------- Helpers ---------- */
   const getUserName = (profile) => {
     if (!profile) return 'User';
     return profile.full_name || profile.username || profile.email || 'User';
@@ -206,28 +236,26 @@ const RatingPage = () => {
       .split(' ')
       .filter(Boolean)
       .slice(0, 2)
-      .map(word => word.charAt(0).toUpperCase())
+      .map((word) => word.charAt(0).toUpperCase())
       .join('');
   };
 
   const renderAvatar = (profile, size = 'normal') => {
-    const sizeClass = size === 'small'
-      ? 'w-8 h-8 text-xs'
-      : 'w-10 h-10 text-sm';
+    const sizeClass = size === 'small' ? 'w-8 h-8 text-xs' : 'w-10 h-10 text-sm';
 
     if (getAvatar(profile)) {
       return (
         <img
           src={getAvatar(profile)}
           alt={getUserName(profile)}
-          className={`${sizeClass} rounded-full object-cover border border-ink-100 shadow-sm`}
+          className={`${sizeClass} rounded-full border border-ink-100 object-cover shadow-sm`}
         />
       );
     }
 
     return (
       <div
-        className={`${sizeClass} rounded-full bg-ink-50 text-ink-600 flex items-center justify-center font-bold border border-ink-200`}
+        className={`${sizeClass} flex items-center justify-center rounded-full border border-ink-200 bg-ink-50 font-black text-ink-600`}
       >
         {getInitials(profile)}
       </div>
@@ -237,7 +265,7 @@ const RatingPage = () => {
   const renderStars = (rating, interactive = false, value = 0, setValue) => {
     return (
       <div className="flex items-center gap-0.5">
-        {[1, 2, 3, 4, 5].map(star => {
+        {[1, 2, 3, 4, 5].map((star) => {
           const active = interactive
             ? star <= value
             : star <= Number(rating || 0);
@@ -248,11 +276,18 @@ const RatingPage = () => {
               type={interactive ? 'button' : undefined}
               onClick={interactive ? () => setValue?.(star) : undefined}
               disabled={!interactive}
-              className={`transition ${interactive ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`}
+              className={`transition ${
+                interactive ? 'cursor-pointer hover:scale-110' : 'cursor-default'
+              }`}
+              aria-label={interactive ? `Rate ${star} stars` : undefined}
             >
-              <i
-                className={`bi ${active ? 'bi-star-fill text-amber-400' : 'bi-star text-ink-300'}`}
-                style={{ fontSize: interactive ? '27px' : '16px' }}
+              <Star
+                size={interactive ? 27 : 16}
+                className={
+                  active ? 'text-warning-500' : 'text-ink-300'
+                }
+                fill={active ? 'currentColor' : 'none'}
+                strokeWidth={active ? 1.5 : 2}
               />
             </button>
           );
@@ -261,110 +296,147 @@ const RatingPage = () => {
     );
   };
 
-  // ---------- Render one group card ----------
+  /* ---------- Render one group card ---------- */
   const renderGroupCard = (group) => {
     const { item, otherUser, myRating, theirRating } = group;
 
-    const isMyRatingPending = myRating?.status === 'pending' && !myRating?.rating;
+    const isMyRatingPending =
+      myRating?.status === 'pending' && !myRating?.rating;
     const isTheirRatingPublished = theirRating?.status === 'published';
 
     return (
-      <div key={group.application_id} className="rounded-2xl border border-ink-100/80 bg-white shadow-sm overflow-hidden hover:shadow-md transition">
-        {/* Header */}
-        <div className="px-4 sm:px-5 py-3 bg-ink-50/50 border-b border-ink-100 flex items-center gap-3">
-          <i className="bi bi-box-seam text-ink-500" />
+      <div
+        key={group.application_id}
+        className="overflow-hidden rounded-[26px] border border-ink-100 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-ink-200 hover:shadow-md"
+      >
+        {/* HEADER */}
+        <div className="flex items-center gap-3 border-b border-ink-100 bg-ink-50/50 px-4 py-3 sm:px-5">
+          <Package size={16} className="shrink-0 text-ink-500" />
+
           <div className="min-w-0">
-            <p className="text-[10px] font-bold text-ink-500 uppercase tracking-wide">Donation</p>
-            <p className="font-extrabold text-sm text-ink-800 truncate">
+            <p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-500">
+              Donation
+            </p>
+
+            <p className="truncate text-sm font-black text-ink-950">
               {item?.title || 'Completed donation'}
             </p>
           </div>
         </div>
 
         <div className="p-4 sm:p-5">
-          {/* My rating – ALWAYS shown with the OTHER person's info */}
+          {/* MY RATING */}
           <div className={theirRating ? 'border-b border-ink-100 pb-4' : ''}>
-            <div className="flex items-center gap-3 mb-2">
+            <div className="mb-2 flex items-center gap-3">
               {renderAvatar(otherUser, 'small')}
-              <div>
-                <p className="font-extrabold text-sm text-ink-900">
+
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-ink-950">
                   You → {getUserName(otherUser)}
                 </p>
-                <p className="text-xs text-ink-500">Your review</p>
+
+                <p className="text-xs font-bold text-ink-500">Your review</p>
               </div>
+
               {isMyRatingPending ? (
-                <span className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200/60">
-                  <i className="bi bi-clock" /> Pending
+                <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border border-warning-200 bg-warning-50 px-2.5 py-1 text-[10px] font-extrabold text-warning-700">
+                  <Clock size={11} />
+                  Pending
                 </span>
               ) : myRating?.rating ? (
-                <span className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200/60">
-                  <i className="bi bi-check-circle-fill" /> Published
+                <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border border-success-200 bg-success-50 px-2.5 py-1 text-[10px] font-extrabold text-success-700">
+                  <CheckCircle2 size={11} />
+                  Published
                 </span>
               ) : null}
             </div>
 
             {isMyRatingPending ? (
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-ink-500">You haven't rated yet.</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-ink-500">
+                  You haven't rated yet.
+                </p>
+
                 <button
+                  type="button"
                   onClick={() => openRating(myRating)}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-primary-500 to-brand-600 hover:shadow-md text-white text-sm font-bold transition"
+                  className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-primary-600 px-4 text-xs font-extrabold text-white shadow-sm transition hover:bg-primary-700"
                 >
+                  <Star size={13} fill="currentColor" />
                   Rate {getUserName(otherUser)}
                 </button>
               </div>
             ) : myRating?.rating ? (
               <div>
-                <div className="flex items-center gap-2 mb-1">
+                <div className="mb-1 flex items-center gap-2">
                   {renderStars(myRating.rating)}
                 </div>
+
                 {myRating.review && (
-                  <p className="text-sm text-ink-700">{myRating.review}</p>
+                  <p className="text-sm font-medium text-ink-700">
+                    {myRating.review}
+                  </p>
                 )}
-                <p className="text-xs text-ink-400 mt-1">
+
+                <p className="mt-1 text-xs font-bold text-ink-400">
                   {new Date(myRating.created_at).toLocaleDateString()}
                 </p>
+
                 <button
+                  type="button"
                   onClick={() => openRating(myRating)}
-                  className="mt-2 text-xs font-bold text-primary-600 hover:text-primary-700 transition"
+                  className="mt-2 inline-flex items-center gap-1 text-xs font-extrabold text-primary-600 transition hover:text-primary-700"
                 >
-                  <i className="bi bi-pencil-square mr-1" /> Edit
+                  <Pencil size={11} />
+                  Edit
                 </button>
               </div>
             ) : null}
           </div>
 
-          {/* Their rating – ONLY if published */}
+          {/* THEIR RATING */}
           {isTheirRatingPublished && (
             <div className="pt-4">
-              <div className="flex items-center gap-3 mb-2">
+              <div className="mb-2 flex items-center gap-3">
                 {renderAvatar(theirRating.rater || otherUser, 'small')}
-                <div>
-                  <p className="font-extrabold text-sm text-ink-900">
+
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-ink-950">
                     {getUserName(theirRating.rater || otherUser)} → You
                   </p>
-                  <p className="text-xs text-ink-500">Review received</p>
+
+                  <p className="text-xs font-bold text-ink-500">
+                    Review received
+                  </p>
                 </div>
-                <span className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200/60">
-                  <i className="bi bi-check-circle-fill" /> Published
+
+                <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border border-success-200 bg-success-50 px-2.5 py-1 text-[10px] font-extrabold text-success-700">
+                  <CheckCircle2 size={11} />
+                  Published
                 </span>
               </div>
 
               <div>
-                <div className="flex items-center gap-2 mb-1">
+                <div className="mb-1 flex items-center gap-2">
                   {renderStars(theirRating.rating)}
                 </div>
+
                 {theirRating.review && (
-                  <p className="text-sm text-ink-700">{theirRating.review}</p>
+                  <p className="text-sm font-medium text-ink-700">
+                    {theirRating.review}
+                  </p>
                 )}
-                <p className="text-xs text-ink-400 mt-1">
+
+                <p className="mt-1 text-xs font-bold text-ink-400">
                   {new Date(theirRating.created_at).toLocaleDateString()}
                 </p>
+
                 <button
+                  type="button"
                   onClick={() => openRating(theirRating)}
-                  className="mt-2 text-xs font-bold text-primary-600 hover:text-primary-700 transition"
+                  className="mt-2 inline-flex items-center gap-1 text-xs font-extrabold text-primary-600 transition hover:text-primary-700"
                 >
-                  <i className="bi bi-chat-dots mr-1" />
+                  <MessageCircle size={11} />
                   {theirRating.reply_text ? 'Edit reply' : 'Reply'}
                 </button>
               </div>
@@ -375,85 +447,137 @@ const RatingPage = () => {
     );
   };
 
+  /* ---------- UNAUTHENTICATED ---------- */
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-ink-50/30 px-2">
-        <PageNavigation />
-        <div className="relative overflow-hidden rounded-2xl border border-ink-100/80 bg-white p-12 text-center shadow-sm">
-          <div className="pointer-events-none absolute left-1/2 top-0 h-40 w-64 -translate-x-1/2 rounded-full bg-primary-100/40 blur-3xl" />
-          <div className="relative">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary-100 bg-primary-50 text-primary-500 shadow-sm">
-              <i className="bi bi-star text-2xl" />
+      <div className="min-h-full bg-transparent">
+
+        <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+          <div className="flex min-h-[420px] items-center justify-center rounded-[28px] border border-dashed border-ink-200 bg-white px-6 py-12">
+            <div className="mx-auto max-w-md text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-primary-50 text-primary-600">
+                <Star size={27} />
+              </div>
+
+              <h2 className="mt-5 text-lg font-black text-ink-950">
+                Sign in to view ratings
+              </h2>
+
+              <p className="mt-2 text-sm font-medium leading-6 text-ink-500">
+                See what others say about you and share your experience.
+              </p>
+
+              <div className="mt-6 flex justify-center">
+                <Link
+                  to="/login"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 text-sm font-extrabold text-white transition hover:bg-primary-700"
+                >
+                  <LogIn size={16} />
+                  Sign in
+                </Link>
+              </div>
             </div>
-            <h3 className="text-lg font-extrabold text-ink-800">Sign in to View Ratings</h3>
-            <p className="mx-auto mt-1 max-w-md text-sm text-ink-400">
-              See what others say about you and share your experience.
-            </p>
-            <Link
-              to="/login"
-              className="group mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-brand-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <i className="bi bi-box-arrow-in-right" />
-              Sign In
-            </Link>
           </div>
         </div>
       </div>
     );
   }
 
-  if (loading) return <RatingsSkeleton />;
+  /* ---------- LOADING ---------- */
+  if (loading) {
+    return <RatingsSkeleton />;
+  }
 
+  /* ---------- RENDER ---------- */
   return (
-    <div className="min-h-screen bg-ink-50/30 px-2">
-      <PageNavigation />
+    <div className="min-h-full bg-transparent">
 
-      <div className="space-y-8">
+      <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
         {/* HEADER */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <div className="mb-2 flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-primary-400" />
-              <span className="text-[10px] font-black uppercase tracking-[0.18em] text-primary-600">
-                Your community feedback
-              </span>
-            </div>
-            <h1 className="text-2xl font-extrabold tracking-[-0.03em] text-ink-900 sm:text-3xl">
-              Ratings & Reviews
-            </h1>
-            <p className="mt-1 text-sm text-ink-500">
-              {groups.length} {groups.length === 1 ? 'rating' : 'ratings'} received
-            </p>
-          </div>
+        <div className="mb-7">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+              <div className="mb-2 flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary-600">
+                <Star size={14} />
+                <span>Your community feedback</span>
+              </div>
 
-          <button
-            onClick={() => fetchRatings(true)}
-            disabled={refreshing}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink-100/80 bg-white px-4 py-2.5 text-sm font-bold text-ink-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:bg-primary-50/60 hover:text-primary-700 hover:shadow-md disabled:opacity-50"
-          >
-            <i className={`bi bi-arrow-repeat ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+              <h1 className="text-2xl font-black tracking-tight text-ink-950 sm:text-3xl">
+                Ratings & Reviews
+              </h1>
+
+              <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-ink-500">
+                {groups.length} {groups.length === 1 ? 'rating' : 'ratings'}{' '}
+                received
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => fetchRatings(true)}
+              disabled={refreshing}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl border border-ink-200 bg-white px-5 py-3 text-sm font-extrabold text-ink-700 shadow-sm transition hover:bg-ink-50 disabled:cursor-wait disabled:opacity-60"
+            >
+              <RefreshCw
+                size={16}
+                className={refreshing ? 'animate-spin' : ''}
+              />
+              <span>Refresh</span>
+            </button>
+          </div>
         </div>
 
         {/* STATS */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <StatCard label="Total Ratings" value={stats.total} icon="bi-star" color="text-primary-600" bg="bg-primary-50" />
-          <StatCard label="Pending" value={stats.pending} icon="bi-clock" color="text-amber-600" bg="bg-amber-50" />
-          <StatCard label="Published" value={stats.published} icon="bi-check-circle-fill" color="text-emerald-600" bg="bg-emerald-50" />
-          <StatCard label="Needs Reply" value={stats.needsReply} icon="bi-chat-dots" color="text-blue-600" bg="bg-blue-50" />
+        <div className="mb-7 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <StatCard
+            label="Total Ratings"
+            value={stats.total}
+            icon={Star}
+            tone="primary"
+          />
+
+          <StatCard
+            label="Pending"
+            value={stats.pending}
+            icon={Clock}
+            tone="warning"
+          />
+
+          <StatCard
+            label="Published"
+            value={stats.published}
+            icon={CheckCircle2}
+            tone="success"
+          />
+
+          <StatCard
+            label="Needs Reply"
+            value={stats.needsReply}
+            icon={MessageCircle}
+            tone="ink"
+          />
         </div>
 
         {/* ERROR STATE */}
         {error && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 flex items-start gap-3 shadow-sm">
-            <i className="bi bi-exclamation-triangle text-rose-500 text-lg mt-0.5" />
-            <div>
-              <p className="font-bold text-rose-800">Something went wrong</p>
-              <p className="text-sm text-rose-700 mt-1">{error}</p>
+          <div className="mb-6 flex items-start gap-4 rounded-2xl border border-danger-200 bg-danger-50 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-danger-100 text-danger-600">
+              <AlertTriangle size={18} />
+            </div>
+
+            <div className="min-w-0">
+              <p className="text-sm font-extrabold text-danger-900">
+                Something went wrong
+              </p>
+
+              <p className="mt-1 text-xs font-medium leading-5 text-danger-700">
+                {error}
+              </p>
+
               <button
+                type="button"
                 onClick={() => fetchRatings()}
-                className="mt-3 text-sm font-extrabold text-rose-800 underline hover:no-underline transition"
+                className="mt-3 text-xs font-extrabold text-danger-800 underline transition hover:no-underline"
               >
                 Try again
               </button>
@@ -463,14 +587,17 @@ const RatingPage = () => {
 
         {/* EMPTY STATE */}
         {!error && groups.length === 0 && (
-          <div className="relative overflow-hidden rounded-2xl border border-ink-100/80 bg-white p-12 text-center shadow-sm">
-            <div className="pointer-events-none absolute left-1/2 top-0 h-40 w-64 -translate-x-1/2 rounded-full bg-primary-100/40 blur-3xl" />
-            <div className="relative">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary-100 bg-primary-50 text-primary-500 shadow-sm">
-                <i className="bi bi-star text-2xl" />
+          <div className="flex min-h-[420px] items-center justify-center rounded-[28px] border border-dashed border-ink-200 bg-white px-6 py-12">
+            <div className="mx-auto max-w-md text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-primary-50 text-primary-600">
+                <Star size={27} />
               </div>
-              <h3 className="text-lg font-extrabold text-ink-800">No ratings yet</h3>
-              <p className="mx-auto mt-1 max-w-md text-sm text-ink-400">
+
+              <h2 className="mt-5 text-lg font-black text-ink-950">
+                No ratings yet
+              </h2>
+
+              <p className="mt-2 text-sm font-medium leading-6 text-ink-500">
                 Ratings will appear here after you complete a donation.
               </p>
             </div>
@@ -479,9 +606,7 @@ const RatingPage = () => {
 
         {/* RATINGS LIST */}
         {groups.length > 0 && (
-          <div className="space-y-4">
-            {groups.map(renderGroupCard)}
-          </div>
+          <div className="space-y-4">{groups.map(renderGroupCard)}</div>
         )}
       </div>
 
@@ -501,28 +626,43 @@ const RatingPage = () => {
   );
 };
 
-// ============================================================
-// Stat Card
-// ============================================================
-function StatCard({ label, value, icon, color = 'text-ink-700', bg = 'bg-ink-50' }) {
+/* ============================================================
+   STAT CARD
+============================================================ */
+
+function StatCard({ label, value, icon: Icon, tone = 'ink' }) {
+  const tones = {
+    ink: { color: 'text-ink-900', bg: 'bg-ink-50' },
+    warning: { color: 'text-warning-600', bg: 'bg-warning-50' },
+    success: { color: 'text-success-600', bg: 'bg-success-50' },
+    danger: { color: 'text-danger-600', bg: 'bg-danger-50' },
+    primary: { color: 'text-primary-600', bg: 'bg-primary-50' },
+  };
+  const style = tones[tone] || tones.ink;
+
   return (
-    <div className="group rounded-2xl border border-ink-100/80 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+    <div className="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-bold text-ink-500">{label}</p>
-        <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${bg}`}>
-          <i className={`bi ${icon} ${color} text-sm`} />
-        </div>
+        <p className="truncate text-xs font-bold text-ink-500">{label}</p>
+
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${style.bg}`}
+        >
+          <Icon size={15} className={style.color} />
+        </span>
       </div>
-      <p className={`mt-2 text-2xl font-extrabold tracking-[-0.03em] ${color}`}>
+
+      <p className={`mt-2 text-2xl font-black tracking-tight ${style.color}`}>
         {typeof value === 'number' ? value.toLocaleString() : value}
       </p>
     </div>
   );
 }
 
-// ============================================================
-// RATING MODAL (Unified Design)
-// ============================================================
+/* ============================================================
+   RATING MODAL
+============================================================ */
+
 const RatingModal = ({
   rating,
   user,
@@ -599,7 +739,13 @@ const RatingModal = ({
     <Modal
       isOpen={true}
       onClose={onClose}
-      title={isPending ? 'Leave a review' : isBeingReviewed ? 'Reply to review' : 'Edit your review'}
+      title={
+        isPending
+          ? 'Leave a review'
+          : isBeingReviewed
+          ? 'Reply to review'
+          : 'Edit your review'
+      }
       size="md"
     >
       <div className="space-y-6">
@@ -607,17 +753,22 @@ const RatingModal = ({
           <>
             <div className="flex items-center gap-3">
               {renderAvatar(rating.rated_user)}
-              <div>
-                <p className="font-extrabold text-ink-900">
+
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-ink-950">
                   {getUserName(rating.rated_user)}
                 </p>
-                <p className="text-xs text-ink-500">How was your experience?</p>
+
+                <p className="text-xs font-bold text-ink-500">
+                  How was your experience?
+                </p>
               </div>
             </div>
 
             <div className="flex flex-col items-center py-2">
               {renderStars(score, true, score, setScore)}
-              <p className="text-sm text-ink-500 mt-3 font-medium">
+
+              <p className="mt-3 text-sm font-bold text-ink-500">
                 {score === 0
                   ? 'Select a rating'
                   : score === 1
@@ -633,60 +784,77 @@ const RatingModal = ({
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-ink-700 mb-1.5">
+              <label className="mb-1.5 block text-sm font-extrabold text-ink-700">
                 Your review
               </label>
+
               <textarea
                 value={review}
                 onChange={(e) => setReview(e.target.value)}
                 rows={5}
                 maxLength={1000}
                 placeholder="Tell others about your experience..."
-                className="w-full resize-none rounded-xl border border-ink-100 bg-white px-4 py-3 text-sm text-ink-800 outline-none transition-all placeholder:text-ink-400 focus:border-primary-300 focus:ring-4 focus:ring-primary-100"
+                className="w-full resize-none rounded-xl border border-ink-200 bg-white px-4 py-3 text-sm text-ink-800 outline-none transition placeholder:text-ink-400 focus:border-primary-400 focus:ring-2 focus:ring-primary-200"
               />
-              <div className="text-right text-xs text-ink-400 mt-1 font-medium">
+
+              <div className="mt-1 text-right text-xs font-bold text-ink-400">
                 {review.length}/1000
               </div>
             </div>
 
             {error && (
-              <div className="rounded-xl bg-rose-50 border border-rose-200/60 p-3 text-sm text-rose-700 font-medium">
+              <div className="rounded-xl border border-danger-200 bg-danger-50 p-3 text-sm font-medium text-danger-700">
                 {error}
               </div>
             )}
 
-            <button
-              onClick={submitRating}
-              disabled={loading}
-              className="w-full rounded-xl bg-gradient-to-r from-primary-500 to-brand-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <i className="bi bi-send" />
-                  {isOwnReview ? 'Update Review' : 'Publish Review'}
-                </>
-              )}
-            </button>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={loading}
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={submitRating}
+                disabled={loading}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 text-sm font-extrabold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Send size={16} />
+                    {isOwnReview ? 'Update Review' : 'Publish Review'}
+                  </>
+                )}
+              </button>
+            </div>
           </>
         )}
 
         {isBeingReviewed && !isPending && (
           <>
-            <div className="rounded-2xl bg-ink-50/50 border border-ink-100/60 p-4 shadow-sm">
+            <div className="rounded-2xl border border-ink-100 bg-ink-50/50 p-4">
               <div className="flex items-start gap-3">
                 {renderAvatar(rating.rater, 'small')}
-                <div className="flex-1">
-                  <p className="font-extrabold text-sm text-ink-900">
+
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-black text-ink-950">
                     {getUserName(rating.rater)}
                   </p>
+
                   <div className="mt-1">{renderStars(rating.rating)}</div>
+
                   {rating.review && (
-                    <p className="text-sm text-ink-700 mt-2 leading-relaxed">
+                    <p className="mt-2 text-sm font-medium leading-relaxed text-ink-700">
                       {rating.review}
                     </p>
                   )}
@@ -695,45 +863,59 @@ const RatingModal = ({
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-ink-700 mb-1.5">
+              <label className="mb-1.5 block text-sm font-extrabold text-ink-700">
                 Your reply
               </label>
+
               <textarea
                 value={reply}
                 onChange={(e) => setReply(e.target.value)}
                 rows={4}
                 maxLength={500}
                 placeholder="Say something nice..."
-                className="w-full resize-none rounded-xl border border-ink-100 bg-white px-4 py-3 text-sm text-ink-800 outline-none transition-all placeholder:text-ink-400 focus:border-primary-300 focus:ring-4 focus:ring-primary-100"
+                className="w-full resize-none rounded-xl border border-ink-200 bg-white px-4 py-3 text-sm text-ink-800 outline-none transition placeholder:text-ink-400 focus:border-primary-400 focus:ring-2 focus:ring-primary-200"
               />
-              <div className="text-right text-xs text-ink-400 mt-1 font-medium">
+
+              <div className="mt-1 text-right text-xs font-bold text-ink-400">
                 {reply.length}/500
               </div>
             </div>
 
             {error && (
-              <div className="rounded-xl bg-rose-50 border border-rose-200/60 p-3 text-sm text-rose-700 font-medium">
+              <div className="rounded-xl border border-danger-200 bg-danger-50 p-3 text-sm font-medium text-danger-700">
                 {error}
               </div>
             )}
 
-            <button
-              onClick={submitReply}
-              disabled={loading}
-              className="w-full rounded-xl bg-gradient-to-r from-primary-500 to-brand-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <i className="bi bi-chat-dots" />
-                  {rating.reply_text ? 'Update Reply' : 'Post Reply'}
-                </>
-              )}
-            </button>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={loading}
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={submitReply}
+                disabled={loading}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 text-sm font-extrabold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <MessageCircle size={16} />
+                    {rating.reply_text ? 'Update Reply' : 'Post Reply'}
+                  </>
+                )}
+              </button>
+            </div>
           </>
         )}
       </div>

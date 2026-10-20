@@ -33,6 +33,16 @@ import { toast } from 'sonner';
 import { chatAPI } from '@/services/api/sharedApi';
 
 /* ============================================================
+   CONTEXT CONSTANTS
+   ------------------------------------------------------------
+   Must match backend/controllers/chatController.js
+============================================================ */
+
+const CONTEXT_ITEM = 'dti_donor_applicant';
+const CONTEXT_REQUEST = 'pop_request';
+const CONTEXT_DIRECT = 'direct_chat';
+
+/* ============================================================
    HELPERS
 ============================================================ */
 
@@ -49,6 +59,11 @@ const getConversationClosed = (conversation) =>
     conversation?.status === 'closed' ||
     conversation?.status === 'cancelled'
   );
+
+const getContextType = (conversation) =>
+  conversation?.contextType ||
+  conversation?.context_type ||
+  null;
 
 const getParticipantName = (profile) =>
   profile?.fullName ||
@@ -94,13 +109,13 @@ export default function ChatHeader({
   onSearch,
   onOpenSettings,
 
-  /* DTI-only */
+  /* DTI-only callbacks */
   onOpenDetails,
   onViewItem,
   onReinterest,
+  onReport,
 
   /* Shared */
-  onReport,
   canCloseConversation = true,
 
   onConversationUpdated,
@@ -118,6 +133,22 @@ export default function ChatHeader({
 
   const conversationId = getConversationId(conversation);
   const isClosed = getConversationClosed(conversation);
+
+  /* ----------------------------------------------------------
+     CONTEXT DETECTION
+     ----------------------------------------------------------
+     Auto-derives whether this is a DTI item chat, a POP
+     request chat, or a direct chat. Replaces the previous
+     `showDtiOptions` prop.
+  ---------------------------------------------------------- */
+
+  const contextType = getContextType(conversation);
+
+  const isItemContext = contextType === CONTEXT_ITEM;
+  const isRequestContext = contextType === CONTEXT_REQUEST;
+  const isDirectContext = contextType === CONTEXT_DIRECT;
+
+  const isDtiContext = isItemContext;
 
   const participant =
     other ||
@@ -311,7 +342,7 @@ export default function ChatHeader({
     }
 
     navigate(
-      `/popchat?conversation=${encodeURIComponent(conversationId)}`
+      `/chat?conversation=${encodeURIComponent(conversationId)}`
     );
   }, [conversationId, navigate]);
 
@@ -434,27 +465,15 @@ export default function ChatHeader({
 
           <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
             {typing ? (
-              <span
-                className="
-                  truncate text-[10px] font-bold text-primary-600
-                "
-              >
+              <span className="truncate text-[10px] font-bold text-primary-600">
                 Typing…
               </span>
             ) : isOnline ? (
-              <span
-                className="
-                  truncate text-[10px] font-bold text-emerald-600
-                "
-              >
+              <span className="truncate text-[10px] font-bold text-emerald-600">
                 Online
               </span>
             ) : (
-              <span
-                className="
-                  truncate text-[10px] font-semibold text-ink-500
-                "
-              >
+              <span className="truncate text-[10px] font-semibold text-ink-500">
                 {realtimeLabel}
               </span>
             )}
@@ -462,11 +481,7 @@ export default function ChatHeader({
             {realtimeStatus === 'connected' && (
               <>
                 <span className="text-ink-300">•</span>
-                <span
-                  className="
-                    truncate text-[10px] font-semibold text-ink-400
-                  "
-                >
+                <span className="truncate text-[10px] font-semibold text-ink-400">
                   Private chat
                 </span>
               </>
@@ -637,9 +652,12 @@ export default function ChatHeader({
 
               {/* ============================================
                  ITEM CONTEXT ACTIONS (DTI)
+                 --------------------------------------------
+                 Auto-shown whenever conversation.context_type
+                 is 'dti_donor_applicant'.
               ============================================ */}
 
-              {onOpenDetails && (
+              {isDtiContext && onOpenDetails && (
                 <button
                   type="button"
                   onClick={handleOpenDetails}
@@ -654,7 +672,7 @@ export default function ChatHeader({
                 </button>
               )}
 
-              {onViewItem && (
+              {isDtiContext && onViewItem && (
                 <button
                   type="button"
                   onClick={handleViewItem}
@@ -669,20 +687,22 @@ export default function ChatHeader({
                 </button>
               )}
 
-              {onReinterest && !isClosed && (
-                <button
-                  type="button"
-                  onClick={handleReinterest}
-                  className="
-                    flex w-full items-center gap-3 rounded-xl px-3 py-2.5
-                    text-left text-xs font-bold text-ink-700 transition
-                    hover:bg-ink-50
-                  "
-                >
-                  <RefreshCw size={16} />
-                  <span>Re-declare interest</span>
-                </button>
-              )}
+              {isDtiContext &&
+                onReinterest &&
+                !isClosed && (
+                  <button
+                    type="button"
+                    onClick={handleReinterest}
+                    className="
+                      flex w-full items-center gap-3 rounded-xl px-3 py-2.5
+                      text-left text-xs font-bold text-ink-700 transition
+                      hover:bg-ink-50
+                    "
+                  >
+                    <RefreshCw size={16} />
+                    <span>Re-declare interest</span>
+                  </button>
+                )}
 
               {showExpand && (
                 <button
@@ -757,7 +777,7 @@ export default function ChatHeader({
                 </>
               )}
 
-              {pathname !== '/popchat' && (
+              {pathname !== '/chat' && (
                 <button
                   type="button"
                   onClick={handleClose}

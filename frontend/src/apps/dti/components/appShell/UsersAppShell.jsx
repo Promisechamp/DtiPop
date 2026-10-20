@@ -21,20 +21,27 @@ import {
 } from 'framer-motion';
 
 import { useAuth } from '@/context/AuthContext';
+import { DTI_BASE, POP_BASE, makePaths } from '@/utils/routeBases';
 
 import NotificationBell from '../../components/common/NotificationBell';
-import ChatDrawer from '../chat/ChatDrawer';
-import ChatButton from '../chat/ChatButton';
 
 import logo from '@/assets/dti.png';
 import popLogo from '@/assets/popLogo3.png';
+
+/* =========================================================
+   ROUTE HELPERS
+   to("/x")  -> "/app/dti/x"
+   strip(p)  -> "/x"
+========================================================= */
+
+const { to, strip } = makePaths(DTI_BASE);
 
 /* =========================================================
    Sidebar navigation item (desktop + mobile)
 ========================================================= */
 
 const SidebarItem = ({
-  to,
+  to: target,
   label,
   icon,
   badge,
@@ -42,7 +49,7 @@ const SidebarItem = ({
 }) => {
   return (
     <RouterNavLink
-      to={to}
+      to={target}
       onClick={onClick}
       className={({ isActive }) => `
         group relative flex items-center gap-3
@@ -94,7 +101,7 @@ const SidebarItem = ({
 ========================================================= */
 
 const IconButton = ({
-  to,
+  to: target,
   onClick,
   icon,
   label,
@@ -120,9 +127,9 @@ const IconButton = ({
     />
   );
 
-  if (to) {
+  if (target) {
     return (
-      <Link to={to} aria-label={label} title={label} className={className}>
+      <Link to={target} aria-label={label} title={label} className={className}>
         {content}
       </Link>
     );
@@ -178,7 +185,6 @@ const Brand = ({ homePath, compact = false }) => {
 const AppShell = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const {
     user,
@@ -195,12 +201,13 @@ const AppShell = () => {
 
   /* -------------------------------------------------------
      Home destination
+     Logged-out visitors go to the public landing page.
   ------------------------------------------------------- */
 
   const homePath = useMemo(() => {
     if (!isAuthenticated || !user) return '/';
-    if (user.role === 'admin' || user.role === 'super_admin') return '/admin';
-    if (user.role === 'user') return '/dashboard';
+    if (user.role === 'admin' || user.role === 'super_admin') return to('/admin');
+    if (user.role === 'user') return to('/dashboard');
     return '/';
   }, [isAuthenticated, user]);
 
@@ -210,41 +217,44 @@ const AppShell = () => {
 
   const publicLinks = useMemo(
     () => [
-      { to: '/browse', label: 'Browse', icon: 'bi-grid' },
-      { to: '/winners', label: 'Winners', icon: 'bi-trophy' },
-      { to: '/how-it-works', label: 'How It Works', icon: 'bi-question-circle' },
-      { to: '/about', label: 'About', icon: 'bi-info-circle' },
+      { to: to('/browse'), label: 'Browse', icon: 'bi-grid' },
+      { to: to('/winners'), label: 'Winners', icon: 'bi-trophy' },
+      { to: to('/how-it-works'), label: 'How It Works', icon: 'bi-question-circle' },
+      { to: to('/about'), label: 'About', icon: 'bi-info-circle' },
     ],
     []
   );
 
   const accountLinks = useMemo(
     () => [
-      { to: '/dashboard', label: 'Dashboard', icon: 'bi-speedometer2' },
-      { to: '/my-listed-items', label: 'My Listed Items', icon: 'bi-box-seam' },
-      { to: '/my-applications', label: 'My Applications', icon: 'bi-file-earmark-text' },
-      { to: '/favorites', label: 'Favorites', icon: 'bi-heart' },
-      { to: '/support-tickets', label: 'Support Tickets', icon: 'bi-ticket-perforated' },
-      { to: '/ratings', label: 'Rating & Review', icon: 'bi-star-half' },
+      { to: to('/dashboard'), label: 'Dashboard', icon: 'bi-speedometer2' },
+      { to: to('/my-listed-items'), label: 'My Listed Items', icon: 'bi-box-seam' },
+      { to: to('/my-applications'), label: 'My Applications', icon: 'bi-file-earmark-text' },
+      { to: to('/favorites'), label: 'Favorites', icon: 'bi-heart' },
+      { to: to('/support-tickets'), label: 'Support Tickets', icon: 'bi-ticket-perforated' },
+      { to: to('/ratings'), label: 'Rating & Review', icon: 'bi-star-half' },
+      { to: to('/chat'), label: 'Messages', icon: 'bi-chat-dots' },
     ],
     []
   );
 
   const settingsLinks = useMemo(
     () => [
-      { to: '/profile', label: 'Profile', icon: 'bi-person' },
-      { to: '/settings', label: 'Settings', icon: 'bi-gear' },
+      { to: to('/profile'), label: 'Profile', icon: 'bi-person' },
+      { to: to('/settings'), label: 'Settings', icon: 'bi-gear' },
     ],
     []
   );
 
   /* -------------------------------------------------------
-     Active route helper
+     Active route helper (takes an app-relative path)
   ------------------------------------------------------- */
 
   const isActive = (path) => {
-    if (path === '/') return location.pathname === '/';
-    return location.pathname === path;
+    const current = strip(location.pathname);
+
+    if (path === '/') return current === '/';
+    return current === path;
   };
 
   /* -------------------------------------------------------
@@ -327,8 +337,7 @@ const AppShell = () => {
       setLoggingOut(true);
       await signOut();
       setIsOpen(false);
-      setIsChatOpen(false);
-      navigate('/');
+      navigate(to());
     } catch (error) {
       console.error('Sign out failed:', error);
     } finally {
@@ -385,20 +394,6 @@ const AppShell = () => {
                     onClick={onNavigate}
                   />
                 ))}
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    onNavigate?.();
-                    setIsChatOpen(true);
-                  }}
-                  className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold text-ink-600 transition-all duration-200 hover:bg-ink-50 hover:text-ink-900"
-                >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-ink-50 text-ink-500 transition-all duration-200 group-hover:bg-white group-hover:text-primary-600">
-                    <i className="bi bi-chat-dots text-[15px]" />
-                  </span>
-                  <span>Messages</span>
-                </button>
               </div>
             </div>
 
@@ -428,7 +423,6 @@ const AppShell = () => {
       <div className="border-t border-ink-100 px-3 py-3">
         {isAuthenticated ? (
           <div className="space-y-2">
-
             <div className="flex items-center gap-3 rounded-2xl border border-ink-100 bg-ink-50 p-3">
               {profile?.avatar_url ? (
                 <img
@@ -470,7 +464,7 @@ const AppShell = () => {
         ) : (
           <div className="space-y-2">
             <Link
-              to="/login"
+              to={to('/login')}
               onClick={onNavigate}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-bold text-ink-700 transition-colors hover:bg-ink-50"
             >
@@ -478,7 +472,7 @@ const AppShell = () => {
               Sign in
             </Link>
             <Link
-              to="/register"
+              to={to('/register')}
               onClick={onNavigate}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-3 text-sm font-extrabold text-white shadow-sm transition-colors hover:bg-primary-700"
             >
@@ -488,10 +482,10 @@ const AppShell = () => {
           </div>
         )}
 
-        {/* Partner logos */}
+        {/* Partner logos (client-side app switch, no reload) */}
         <div className="mt-4 flex items-center justify-center gap-2 border-t border-ink-100 pt-4">
-          <a
-            href="/app/pop"
+          <Link
+            to={`${POP_BASE}/dashboard`}
             className="flex items-center gap-1.5 rounded-md p-1.5 opacity-80 transition-opacity hover:opacity-100"
             title="Proof of Purchase"
           >
@@ -500,9 +494,9 @@ const AppShell = () => {
               alt="Proof of Purchase"
               className="h-7 w-7 rounded-md object-contain"
             />
-          </a>
-          <a
-            href="/app/dti"
+          </Link>
+          <Link
+            to={`${DTI_BASE}/dashboard`}
             className="flex items-center gap-1.5 rounded-md p-1.5 opacity-80 transition-opacity hover:opacity-100"
             title="Don't Trash It"
           >
@@ -511,7 +505,7 @@ const AppShell = () => {
               alt="Don't Trash It"
               className="h-7 w-7 rounded-md object-contain"
             />
-          </a>
+          </Link>
         </div>
       </div>
     </div>
@@ -536,7 +530,7 @@ const AppShell = () => {
         =================================================== */}
         <div className="lg:pl-[260px]">
           {/* TOP BAR */}
-          <header className="sticky top-0 z-30 border-b border-ink-100 bg-white/95 backdrop-blur-xl">
+          <header className="sticky top-2 z-30 rounded-2xl border-b border-ink-100 bg-white/95 backdrop-blur-xl">
             <div className="flex h-[64px] items-center justify-between gap-4 px-4 sm:px-6">
               {/* Mobile: brand + menu */}
               <div className="flex items-center gap-3 lg:hidden">
@@ -561,21 +555,22 @@ const AppShell = () => {
                   <>
                     <div className="hidden lg:flex lg:items-center lg:gap-0.5">
                       <IconButton
-                        to="/favorites"
+                        to={to('/favorites')}
                         icon={isActive('/favorites') ? 'bi-heart-fill' : 'bi-heart'}
                         label="Favorites"
                         isActive={isActive('/favorites')}
                       />
                       <IconButton
-                        to="/support-tickets"
+                        to={to('/support-tickets')}
                         icon="bi-ticket-perforated"
                         label="Support"
                         isActive={isActive('/support-tickets')}
                       />
                       <IconButton
-                        onClick={() => setIsChatOpen(true)}
+                        to={to('/chat')}
                         icon="bi-chat-dots"
                         label="Messages"
+                        isActive={isActive('/chat')}
                       />
                     </div>
 
@@ -584,7 +579,7 @@ const AppShell = () => {
                     </div>
 
                     <Link
-                      to="/create"
+                      to={to('/create')}
                       className="hidden lg:inline-flex group ml-1 items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary-700 hover:shadow-md"
                     >
                       <span className="flex h-5 w-5 items-center justify-center rounded-md bg-white/15">
@@ -598,13 +593,13 @@ const AppShell = () => {
                 {!isAuthenticated && (
                   <>
                     <Link
-                      to="/login"
+                      to={to('/login')}
                       className="hidden lg:inline-block rounded-xl px-3 py-2 text-sm font-bold text-ink-500 transition-colors hover:text-ink-900"
                     >
                       Sign in
                     </Link>
                     <Link
-                      to="/register"
+                      to={to('/register')}
                       className="hidden lg:inline-flex group items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary-700 hover:shadow-md"
                     >
                       Get started
@@ -671,12 +666,6 @@ const AppShell = () => {
           </>
         )}
       </AnimatePresence>
-
-      {/* ===================================================
-          CHAT
-      =================================================== */}
-      <ChatDrawer isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
-      {isAuthenticated && <ChatButton onClick={() => setIsChatOpen(true)} />}
     </>
   );
 };

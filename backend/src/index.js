@@ -22,12 +22,14 @@ import supportRoutes from "./dti/routes/supportRoutes.js";
 import favoritesRoutes from "./dti/routes/favoritesRoutes.js";
 import analyticsRoutes from "./dti/routes/analyticsRoutes.js";
 import ratingRoutes from "./dti/routes/ratingRoutes.js";
-import userSettingsRoutes from "./dti/routes/userSettingsRoutes.js";
 import itemDiscussionRoutes from "./dti/routes/itemDiscussionRoutes.js";
+
 
 // SHARED ROUTES
 import notificationRoutes from "./shared/routes/notificationRoutes.js";
 import chatRoutes from "./shared/routes/chatRoutes.js";
+import { userSettingsRouter, adminSettingsRouter } from './shared/routes/settingsRoutes.js';
+
 
 // POP ROUTES
 import claimRoutes from "./pop/routes/claimRoutes.js";
@@ -136,6 +138,8 @@ app.get("/api/test", (req, res) => {
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/pop/notifications", notificationRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/users/settings', userSettingsRouter);
+app.use('/api/system-settings', adminSettingsRouter);
 
 
 
@@ -152,7 +156,6 @@ app.use("/api/support", supportRoutes);
 app.use("/api/favorites", favoritesRoutes);
 app.use("/api/admin/analytics", analyticsRoutes);
 app.use("/api/ratings", ratingRoutes);
-app.use("/api/userSettings", userSettingsRoutes);
 app.use("/api/discussions", itemDiscussionRoutes);
 
 

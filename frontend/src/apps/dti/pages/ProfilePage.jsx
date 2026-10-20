@@ -1,5 +1,45 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import {
+  User,
+  UserX,
+  UserMinus,
+  Camera,
+  Mail,
+  MailWarning,
+  Phone,
+  MapPin,
+  Globe,
+  Calendar,
+  Pencil,
+  ShieldCheck,
+  Lock,
+  Key,
+  Gift,
+  Package,
+  FileText,
+  Trophy,
+  Heart,
+  Settings,
+  Zap,
+  Quote,
+  Contact,
+  Image as ImageIcon,
+  Send,
+  Search,
+  LogIn,
+  ArrowRight,
+  ArrowUpRight,
+  ChevronRight,
+  Check,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+  Loader2,
+} from 'lucide-react';
+
+import { DTI_BASE, makePaths } from "@/utils/routeBases";
+
 import { useAuth } from '@/context/AuthContext';
 import {
   authAPI,
@@ -9,10 +49,7 @@ import {
 } from '@/services/api/dtiApi';
 import { toast } from 'sonner';
 import Modal from '@/reusables/Modal';
-import {
-  PageNavigation,
-  PageNavigationSkeleton,
-} from '@/reusables/PageNavigation';
+
 import {
   APPLICATION_STATUSES,
   getCategoryByValue,
@@ -20,170 +57,194 @@ import {
 } from '@/utils/constants';
 import { renderIcon } from '@/utils/constantHelpers';
 
-// ============================================================
-// Shared styles
-// ============================================================
+/* ============================================================
+   SHARED STYLES
+============================================================ */
 
 const inputClass =
-  'w-full rounded-xl border border-ink-100 bg-white px-4 py-2.5 text-sm font-medium text-ink-900 outline-none transition placeholder:text-ink-400 focus:border-primary-300 focus:ring-4 focus:ring-primary-100';
+  'w-full rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-medium text-ink-900 outline-none transition placeholder:text-ink-400 focus:border-primary-400 focus:ring-2 focus:ring-primary-200';
 
-// ============================================================
-// Skeleton
-// ============================================================
+/* ============================================================
+   LOCATION HELPERS
+============================================================ */
+
+const emptyLocation = { city: '', state: '', country: '' };
+
+const normalizeLocation = (raw) => {
+  if (!raw || typeof raw !== 'object') return { ...emptyLocation };
+  return {
+    city: raw.city || '',
+    state: raw.state || '',
+    country: raw.country || '',
+  };
+};
+
+const formatLocation = (raw) => {
+  const loc = normalizeLocation(raw);
+  const parts = [loc.city, loc.state, loc.country].filter(Boolean);
+  return parts.join(', ');
+};
+
+/* ============================================================
+   STATUS HELPERS (lucide component versions)
+============================================================ */
+
+const getStatusIconComponent = (profileUser) => {
+  if (profileUser?.ban_status === 'banned') return UserX;
+  if (profileUser?.ban_status === 'deleted') return UserMinus;
+  if (profileUser?.email_verified) return CheckCircle2;
+  return Clock;
+};
+
+/* ============================================================
+   SKELETON
+============================================================ */
 
 const ProfileSkeleton = () => (
-  <div className="min-h-screen bg-ink-50/30 px-2 pb-10">
-    <PageNavigationSkeleton />
+  <div className="min-h-full bg-transparent">
+    <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
 
-    <div className="mx-auto max-w-7xl space-y-6">
-      {/* Hero */}
-      <div className="overflow-hidden rounded-2xl border border-ink-100/80 bg-white shadow-sm">
-        <div className="h-32 animate-pulse bg-gradient-to-r from-primary-50 via-white to-brand-50" />
 
-        <div className="px-5 pb-6 sm:px-7">
-          <div className="-mt-14 flex flex-col gap-5 sm:-mt-16 sm:flex-row sm:items-end">
-            <div className="h-28 w-28 shrink-0 animate-pulse rounded-full border-8 border-white bg-ink-200 sm:h-32 sm:w-32" />
+      <div className="space-y-7">
+        {/* HERO */}
+        <div className="rounded-[26px] border border-ink-100 bg-white shadow-sm">
+          <div className="h-28 border-b border-ink-100 bg-ink-50 sm:h-36" />
 
-            <div className="flex-1 space-y-3 pb-1">
-              <div className="h-8 w-56 animate-pulse rounded-xl bg-ink-200" />
-              <div className="h-4 w-80 animate-pulse rounded bg-ink-200" />
-              <div className="h-3 w-48 animate-pulse rounded bg-ink-200" />
-            </div>
+          <div className="px-5 pb-6 sm:px-7">
+            <div className="-mt-14 flex flex-col gap-5 sm:-mt-16 sm:flex-row sm:items-end">
+              <div className="h-28 w-28 shrink-0 animate-pulse rounded-full border-8 border-white bg-ink-200 sm:h-32 sm:w-32" />
 
-            <div className="flex gap-2">
-              <div className="h-10 w-28 animate-pulse rounded-xl bg-ink-200" />
-              <div className="h-10 w-24 animate-pulse rounded-xl bg-ink-200" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {[1, 2, 3, 4].map((item) => (
-          <div
-            key={item}
-            className="rounded-2xl border border-ink-100/80 bg-white p-4 shadow-sm"
-          >
-            <div className="animate-pulse">
-              <div className="h-10 w-10 rounded-xl bg-ink-200" />
-              <div className="mt-4 h-7 w-12 rounded bg-ink-200" />
-              <div className="mt-2 h-3 w-20 rounded bg-ink-200" />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Main info */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-2xl border border-ink-100/80 bg-white shadow-sm">
-          <div className="border-b border-ink-100 p-5">
-            <div className="h-9 w-40 animate-pulse rounded-xl bg-ink-200" />
-          </div>
-
-          <div className="grid gap-4 p-5 sm:grid-cols-2">
-            {Array.from({ length: 8 }).map((_, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between border-b border-ink-50 py-3"
-              >
-                <div className="h-3 w-20 animate-pulse rounded bg-ink-200" />
-                <div className="h-3 w-28 animate-pulse rounded bg-ink-200" />
+              <div className="flex-1 space-y-3 pb-1">
+                <div className="h-8 w-56 animate-pulse rounded-xl bg-ink-200" />
+                <div className="h-4 w-80 animate-pulse rounded bg-ink-200" />
+                <div className="h-3 w-48 animate-pulse rounded bg-ink-200" />
               </div>
-            ))}
+
+              <div className="flex gap-2">
+                <div className="h-10 w-28 animate-pulse rounded-xl bg-ink-200" />
+                <div className="h-10 w-24 animate-pulse rounded-xl bg-ink-200" />
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-ink-100/80 bg-white shadow-sm">
-            <div className="border-b border-ink-100 p-5">
-              <div className="h-9 w-32 animate-pulse rounded-xl bg-ink-200" />
+        {/* STATS */}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="h-3 w-20 animate-pulse rounded-full bg-ink-100" />
+                <div className="h-9 w-9 animate-pulse rounded-xl bg-ink-100" />
+              </div>
+              <div className="mt-2 h-8 w-12 animate-pulse rounded bg-ink-100" />
             </div>
+          ))}
+        </div>
 
-            <div className="p-5">
-              <div className="h-24 animate-pulse rounded-xl bg-ink-100" />
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-ink-100/80 bg-white shadow-sm">
+        {/* MAIN GRID */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="rounded-[26px] border border-ink-100 bg-white shadow-sm">
             <div className="border-b border-ink-100 p-5">
               <div className="h-9 w-40 animate-pulse rounded-xl bg-ink-200" />
             </div>
 
-            <div className="grid grid-cols-2 gap-3 p-5">
-              {[1, 2, 3, 4].map((item) => (
+            <div className="grid gap-4 p-5 sm:grid-cols-2">
+              {Array.from({ length: 8 }).map((_, index) => (
                 <div
-                  key={item}
-                  className="h-12 animate-pulse rounded-xl bg-ink-100"
-                />
+                  key={index}
+                  className="flex items-center justify-between border-b border-ink-100 py-3"
+                >
+                  <div className="h-3 w-20 animate-pulse rounded bg-ink-200" />
+                  <div className="h-3 w-28 animate-pulse rounded bg-ink-200" />
+                </div>
               ))}
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Collections */}
-      {[1, 2, 3].map((section) => (
-        <div
-          key={section}
-          className="overflow-hidden rounded-2xl border border-ink-100/80 bg-white shadow-sm"
-        >
-          <div className="border-b border-ink-100 p-5">
-            <div className="h-9 w-48 animate-pulse rounded-xl bg-ink-200" />
-          </div>
-
-          <div className="divide-y divide-ink-50">
-            {[1, 2, 3].map((item) => (
-              <div
-                key={item}
-                className="flex items-center gap-4 px-5 py-4"
-              >
-                <div className="h-12 w-12 shrink-0 animate-pulse rounded-xl bg-ink-200" />
-
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 w-3/4 animate-pulse rounded bg-ink-200" />
-                  <div className="h-3 w-1/2 animate-pulse rounded bg-ink-200" />
-                </div>
-
-                <div className="h-8 w-8 animate-pulse rounded-xl bg-ink-200" />
+          <div className="space-y-6">
+            <div className="rounded-[26px] border border-ink-100 bg-white shadow-sm">
+              <div className="border-b border-ink-100 p-5">
+                <div className="h-9 w-32 animate-pulse rounded-xl bg-ink-200" />
               </div>
-            ))}
+
+              <div className="p-5">
+                <div className="h-24 animate-pulse rounded-xl bg-ink-100" />
+              </div>
+            </div>
+
+            <div className="rounded-[26px] border border-ink-100 bg-white shadow-sm">
+              <div className="border-b border-ink-100 p-5">
+                <div className="h-9 w-40 animate-pulse rounded-xl bg-ink-200" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 p-5">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-12 animate-pulse rounded-xl bg-ink-100"
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         </div>
-      ))}
+
+        {/* COLLECTIONS */}
+        {Array.from({ length: 3 }).map((_, section) => (
+          <div
+            key={section}
+            className="overflow-hidden rounded-[26px] border border-ink-100 bg-white shadow-sm"
+          >
+            <div className="border-b border-ink-100 p-5">
+              <div className="h-9 w-48 animate-pulse rounded-xl bg-ink-200" />
+            </div>
+
+            <div className="divide-y divide-ink-100">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4 px-5 py-4">
+                  <div className="h-12 w-12 shrink-0 animate-pulse rounded-xl bg-ink-200" />
+
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-3/4 animate-pulse rounded bg-ink-200" />
+                    <div className="h-3 w-1/2 animate-pulse rounded bg-ink-200" />
+                  </div>
+
+                  <div className="h-8 w-8 animate-pulse rounded-xl bg-ink-200" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   </div>
 );
 
-// ============================================================
-// Main Component
-// ============================================================
+/* ============================================================
+   MAIN COMPONENT
+============================================================ */
 
 const ProfilePage = () => {
   const { userId: paramUserId } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const fileInputRef = useRef(null);
-
+  const { to } = makePaths(DTI_BASE);
   const userId = paramUserId;
   const isOwnProfile = !userId || userId === user?.id;
 
-  // ==========================================================
-  // Profile state
-  // ==========================================================
-
+  /* Profile state */
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // ==========================================================
-  // Form state
-  // ==========================================================
-
+  /* Form state */
   const [fullName, setFullName] = useState('');
   const [bio, setBio] = useState('');
-  const [location, setLocation] = useState({});
-  const [country, setCountry] = useState('');
+  const [location, setLocation] = useState({ ...emptyLocation });
   const [phone, setPhone] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
 
@@ -193,33 +254,21 @@ const ProfilePage = () => {
   const [resending, setResending] = useState(false);
   const [message, setMessage] = useState('');
 
-  // ==========================================================
-  // User data
-  // ==========================================================
-
+  /* User data */
   const [allApplications, setAllApplications] = useState([]);
   const [allFavorites, setAllFavorites] = useState([]);
 
-  // ==========================================================
-  // Modals
-  // ==========================================================
-
+  /* Modals */
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
-  // ==========================================================
-  // Password
-  // ==========================================================
-
+  /* Password */
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
 
-  // ==========================================================
-  // Cloudinary
-  // ==========================================================
-
+  /* Cloudinary */
   const cloudName =
     import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'djda2nagd';
 
@@ -227,9 +276,9 @@ const ProfilePage = () => {
     import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET_PROFILE ||
     'donttrashit_profiles';
 
-  // ==========================================================
-  // Fetch applications
-  // ==========================================================
+  /* ==========================================================
+     FETCH APPLICATIONS
+  ========================================================== */
 
   useEffect(() => {
     if (!isOwnProfile || !user) return;
@@ -244,9 +293,9 @@ const ProfilePage = () => {
       });
   }, [isOwnProfile, user]);
 
-  // ==========================================================
-  // Fetch favorites
-  // ==========================================================
+  /* ==========================================================
+     FETCH FAVORITES
+  ========================================================== */
 
   useEffect(() => {
     if (!isOwnProfile || !user) return;
@@ -261,9 +310,9 @@ const ProfilePage = () => {
       });
   }, [isOwnProfile, user]);
 
-  // ==========================================================
-  // Fetch profile
-  // ==========================================================
+  /* ==========================================================
+     FETCH PROFILE
+  ========================================================== */
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -272,14 +321,13 @@ const ProfilePage = () => {
         return;
       }
 
-      // Own profile
+      /* Own profile */
       if (isOwnProfile && user) {
         setProfile(user);
 
         setFullName(user?.full_name || '');
         setBio(user?.bio || '');
-        setLocation(user?.location || {});
-        setCountry(user?.country || '');
+        setLocation(normalizeLocation(user?.location));
         setPhone(user?.phone || '');
         setAvatarUrl(user?.avatar_url || '');
 
@@ -288,19 +336,14 @@ const ProfilePage = () => {
             const response = await usersAPI.getProfile(user.id);
 
             const extraData =
-              response.data?.profile ||
-              response.data ||
-              response;
+              response.data?.profile || response.data || response;
 
             setProfile((prev) => ({
               ...prev,
               ...extraData,
             }));
           } catch (err) {
-            console.warn(
-              'Could not fetch extended profile data',
-              err
-            );
+            console.warn('Could not fetch extended profile data', err);
           }
         }
 
@@ -308,7 +351,7 @@ const ProfilePage = () => {
         return;
       }
 
-      // Public profile without ID
+      /* Public profile without ID */
       if (!userId) {
         setError('No user ID provided');
         setLoading(false);
@@ -322,16 +365,13 @@ const ProfilePage = () => {
         const response = await usersAPI.getProfile(userId);
 
         const profileData =
-          response.data?.profile ||
-          response.data ||
-          response;
+          response.data?.profile || response.data || response;
 
         setProfile(profileData);
 
         setFullName(profileData?.full_name || '');
         setBio(profileData?.bio || '');
-        setLocation(profileData?.location || {});
-        setCountry(profileData?.country || '');
+        setLocation(normalizeLocation(profileData?.location));
         setPhone(profileData?.phone || '');
         setAvatarUrl(profileData?.avatar_url || '');
       } catch (err) {
@@ -341,7 +381,7 @@ const ProfilePage = () => {
 
         if (err.response?.status === 404) {
           toast.error('User not found');
-          navigate('/browse');
+          navigate(to('/browse'));
         } else {
           toast.error('Failed to load profile');
         }
@@ -351,42 +391,26 @@ const ProfilePage = () => {
     };
 
     fetchProfile();
-  }, [
-    userId,
-    user,
-    isOwnProfile,
-    navigate,
-    isAuthenticated,
-  ]);
+  }, [userId, user, isOwnProfile, navigate, isAuthenticated]);
 
-  // ==========================================================
-  // Stats
-  // ==========================================================
+  /* ==========================================================
+     STATS
+  ========================================================== */
 
   const stats = useMemo(() => {
     const itemsGivenCount =
-      profile?.items_given_count ||
-      profile?.items_given?.length ||
-      0;
+      profile?.items_given_count || profile?.items_given?.length || 0;
 
     const itemsReceivedCount =
-      profile?.items_received_count ||
-      profile?.items_received?.length ||
-      0;
+      profile?.items_received_count || profile?.items_received?.length || 0;
 
     const applicationsCount =
-      profile?.applications_count ||
-      profile?.applications?.length ||
-      0;
+      profile?.applications_count || profile?.applications?.length || 0;
 
-    const winsCount =
-      profile?.wins_count ||
-      profile?.wins?.length ||
-      0;
+    const winsCount = profile?.wins_count || profile?.wins?.length || 0;
 
     const pendingApplications = allApplications.filter(
-      (application) =>
-        application.status === APPLICATION_STATUSES.PENDING
+      (application) => application.status === APPLICATION_STATUSES.PENDING
     ).length;
 
     return {
@@ -397,15 +421,11 @@ const ProfilePage = () => {
       pendingApplications,
       favorites: allFavorites.length,
     };
-  }, [
-    profile,
-    allApplications,
-    allFavorites,
-  ]);
+  }, [profile, allApplications, allFavorites]);
 
-  // ==========================================================
-  // Avatar upload
-  // ==========================================================
+  /* ==========================================================
+     AVATAR UPLOAD
+  ========================================================== */
 
   const handleAvatarUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -426,9 +446,7 @@ const ProfilePage = () => {
     ];
 
     if (!allowedTypes.includes(file.type)) {
-      toast.error(
-        'Only JPG, PNG, GIF, and WEBP images are allowed'
-      );
+      toast.error('Only JPG, PNG, GIF, and WEBP images are allowed');
       return;
     }
 
@@ -440,74 +458,50 @@ const ProfilePage = () => {
 
       formData.append('file', file);
       formData.append('upload_preset', uploadPreset);
-      formData.append(
-        'folder',
-        'donttrashit/profiles'
-      );
+      formData.append('folder', 'donttrashit/profiles');
 
       const xhr = new XMLHttpRequest();
 
-      const uploadPromise = new Promise(
-        (resolve, reject) => {
-          xhr.open(
-            'POST',
-            `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`
-          );
+      const uploadPromise = new Promise((resolve, reject) => {
+        xhr.open(
+          'POST',
+          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`
+        );
 
-          xhr.upload.addEventListener(
-            'progress',
-            (event) => {
-              if (event.lengthComputable) {
-                const progress = Math.round(
-                  (event.loaded / event.total) * 100
-                );
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            const progress = Math.round((event.loaded / event.total) * 100);
 
-                setUploadProgress(progress);
-              }
+            setUploadProgress(progress);
+          }
+        });
+
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+
+              resolve(data);
+            } catch (parseError) {
+              reject(new Error('Failed to parse response'));
             }
-          );
+          } else {
+            try {
+              const errorData = JSON.parse(xhr.responseText);
 
-          xhr.onload = () => {
-            if (xhr.status === 200) {
-              try {
-                const data = JSON.parse(
-                  xhr.responseText
-                );
-
-                resolve(data);
-              } catch (parseError) {
-                reject(
-                  new Error(
-                    'Failed to parse response'
-                  )
-                );
-              }
-            } else {
-              try {
-                const errorData = JSON.parse(
-                  xhr.responseText
-                );
-
-                reject(
-                  new Error(
-                    errorData.error?.message ||
-                      'Upload failed'
-                  )
-                );
-              } catch (parseError) {
-                reject(
-                  new Error('Upload failed')
-                );
-              }
+              reject(
+                new Error(errorData.error?.message || 'Upload failed')
+              );
+            } catch (parseError) {
+              reject(new Error('Upload failed'));
             }
-          };
+          }
+        };
 
-          xhr.onerror = () =>
-            reject(new Error('Network error'));
+        xhr.onerror = () => reject(new Error('Network error'));
 
-          xhr.send(formData);
-        }
-      );
+        xhr.send(formData);
+      });
 
       const data = await uploadPromise;
 
@@ -515,15 +509,12 @@ const ProfilePage = () => {
 
       setUploadProgress(100);
 
-      const { error } =
-        await usersAPI.updateProfile({
-          avatar_url: newAvatarUrl,
-        });
+      const { error } = await usersAPI.updateProfile({
+        avatar_url: newAvatarUrl,
+      });
 
       if (error) {
-        throw new Error(
-          error || 'Failed to update profile picture'
-        );
+        throw new Error(error || 'Failed to update profile picture');
       }
 
       setAvatarUrl(newAvatarUrl);
@@ -533,19 +524,11 @@ const ProfilePage = () => {
         avatar_url: newAvatarUrl,
       }));
 
-      toast.success(
-        'Profile picture updated successfully!'
-      );
+      toast.success('Profile picture updated successfully!');
     } catch (error) {
-      console.error(
-        'Error uploading avatar:',
-        error
-      );
+      console.error('Error uploading avatar:', error);
 
-      toast.error(
-        error.message ||
-          'Failed to upload profile picture'
-      );
+      toast.error(error.message || 'Failed to upload profile picture');
 
       setUploadProgress(0);
     } finally {
@@ -556,9 +539,9 @@ const ProfilePage = () => {
     }
   };
 
-  // ==========================================================
-  // Profile update
-  // ==========================================================
+  /* ==========================================================
+     PROFILE UPDATE
+  ========================================================== */
 
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
@@ -571,17 +554,17 @@ const ProfilePage = () => {
         full_name: fullName,
         bio,
         phone,
+        location: {
+          city: location.city || null,
+          state: location.state || null,
+          country: location.country || null,
+        },
       };
 
-      const { error } =
-        await usersAPI.updateProfile(updateData);
+      const { error } = await usersAPI.updateProfile(updateData);
 
       if (error) {
-        setMessage({
-          type: 'error',
-          text: error,
-        });
-
+        setMessage({ type: 'error', text: error });
         toast.error(error);
       } else {
         setMessage({
@@ -589,9 +572,7 @@ const ProfilePage = () => {
           text: 'Profile updated successfully!',
         });
 
-        toast.success(
-          'Profile updated successfully!'
-        );
+        toast.success('Profile updated successfully!');
 
         setShowEditProfileModal(false);
 
@@ -601,27 +582,19 @@ const ProfilePage = () => {
         }));
       }
     } catch (error) {
-      console.error(
-        'Error updating profile:',
-        error
-      );
+      console.error('Error updating profile:', error);
 
-      setMessage({
-        type: 'error',
-        text: 'Failed to update profile',
-      });
+      setMessage({ type: 'error', text: 'Failed to update profile' });
 
-      toast.error(
-        'Failed to update profile'
-      );
+      toast.error('Failed to update profile');
     } finally {
       setUpdating(false);
     }
   };
 
-  // ==========================================================
-  // Password change
-  // ==========================================================
+  /* ==========================================================
+     PASSWORD CHANGE
+  ========================================================== */
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
@@ -632,23 +605,16 @@ const ProfilePage = () => {
     }
 
     if (newPassword.length < 6) {
-      toast.error(
-        'Password must be at least 6 characters'
-      );
+      toast.error('Password must be at least 6 characters');
       return;
     }
 
     setChangingPassword(true);
 
     try {
-      await usersAPI.changePassword(
-        currentPassword,
-        newPassword
-      );
+      await usersAPI.changePassword(currentPassword, newPassword);
 
-      toast.success(
-        'Password changed successfully!'
-      );
+      toast.success('Password changed successfully!');
 
       setShowPasswordModal(false);
 
@@ -656,35 +622,27 @@ const ProfilePage = () => {
       setNewPassword('');
       setConfirmPassword('');
     } catch (error) {
-      console.error(
-        'Error changing password:',
-        error
-      );
+      console.error('Error changing password:', error);
 
       toast.error(
-        error.response?.data?.error ||
-          'Failed to change password'
+        error.response?.data?.error || 'Failed to change password'
       );
     } finally {
       setChangingPassword(false);
     }
   };
 
-  // ==========================================================
-  // Verification
-  // ==========================================================
+  /* ==========================================================
+     VERIFICATION
+  ========================================================== */
 
   const handleResendVerification = async () => {
     setResending(true);
 
     try {
-      await authAPI.resendVerification(
-        profile?.email
-      );
+      await authAPI.resendVerification(profile?.email);
 
-      toast.success(
-        'Verification email resent! Please check your inbox.'
-      );
+      toast.success('Verification email resent! Please check your inbox.');
     } catch (error) {
       toast.error(
         error.response?.data?.error ||
@@ -695,37 +653,29 @@ const ProfilePage = () => {
     }
   };
 
-  // ==========================================================
-  // Format date
-  // ==========================================================
+  /* ==========================================================
+     FORMAT DATE
+  ========================================================== */
 
   const formatDate = (date) => {
     if (!date) return 'N/A';
 
-    return new Date(date).toLocaleDateString(
-      'en-US',
-      {
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-      }
-    );
+    return new Date(date).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
   };
 
-  // ==========================================================
-  // Role
-  // ==========================================================
+  /* ==========================================================
+     ROLE
+  ========================================================== */
 
   const getRoleBadge = (role) => {
     const badges = {
-      super_admin:
-        'bg-rose-50 text-rose-700 border-rose-200',
-
-      admin:
-        'bg-primary-50 text-primary-700 border-primary-200',
-
-      user:
-        'bg-ink-50 text-ink-600 border-ink-200',
+      super_admin: 'border-danger-200 bg-danger-50 text-danger-700',
+      admin: 'border-primary-200 bg-primary-50 text-primary-700',
+      user: 'border-ink-200 bg-ink-50 text-ink-600',
     };
 
     return badges[role] || badges.user;
@@ -741,106 +691,67 @@ const ProfilePage = () => {
     return labels[role] || role || 'User';
   };
 
-  // ==========================================================
-  // Status
-  // ==========================================================
+  /* ==========================================================
+     STATUS
+  ========================================================== */
 
   const getStatusBadge = (profileUser) => {
-    if (
-      profileUser?.ban_status === 'banned'
-    ) {
-      return 'bg-rose-50 text-rose-700 border-rose-200';
+    if (profileUser?.ban_status === 'banned') {
+      return 'border-danger-200 bg-danger-50 text-danger-700';
     }
 
-    if (
-      profileUser?.ban_status === 'deleted'
-    ) {
-      return 'bg-ink-50 text-ink-400 border-ink-200';
+    if (profileUser?.ban_status === 'deleted') {
+      return 'border-ink-200 bg-ink-50 text-ink-400';
     }
 
     if (profileUser?.email_verified) {
-      return 'bg-primary-50 text-primary-700 border-primary-200';
+      return 'border-primary-200 bg-primary-50 text-primary-700';
     }
 
-    return 'bg-amber-50 text-amber-700 border-amber-200';
+    return 'border-warning-200 bg-warning-50 text-warning-700';
   };
 
   const getStatusLabel = (profileUser) => {
-    if (
-      profileUser?.ban_status === 'banned'
-    ) {
-      return 'Banned';
-    }
-
-    if (
-      profileUser?.ban_status === 'deleted'
-    ) {
-      return 'Deleted';
-    }
-
-    if (profileUser?.email_verified) {
-      return 'Active';
-    }
-
+    if (profileUser?.ban_status === 'banned') return 'Banned';
+    if (profileUser?.ban_status === 'deleted') return 'Deleted';
+    if (profileUser?.email_verified) return 'Active';
     return 'Unverified';
   };
 
-  const getStatusIcon = (profileUser) => {
-    if (
-      profileUser?.ban_status === 'banned'
-    ) {
-      return 'bi-person-x';
-    }
-
-    if (
-      profileUser?.ban_status === 'deleted'
-    ) {
-      return 'bi-person-dash';
-    }
-
-    if (profileUser?.email_verified) {
-      return 'bi-check-circle';
-    }
-
-    return 'bi-clock';
-  };
-
-  // ==========================================================
-  // Authentication screen
-  // ==========================================================
+  /* ==========================================================
+     UNAUTHENTICATED
+  ========================================================== */
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-ink-50/30 px-2 pb-10">
-        <PageNavigation />
+      <div className="min-h-full bg-transparent">
 
-        <div className="mx-auto max-w-7xl">
-          <div className="relative overflow-hidden rounded-2xl border border-ink-100/80 bg-white p-12 text-center shadow-sm">
-            <div className="pointer-events-none absolute left-1/2 top-0 h-40 w-64 -translate-x-1/2 rounded-full bg-primary-100/40 blur-3xl" />
 
-            <div className="relative">
-              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary-100 bg-primary-50 text-primary-500 shadow-sm">
-                <i className="bi bi-person text-2xl" />
+        <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+          <div className="flex min-h-[420px] items-center justify-center rounded-[28px] border border-dashed border-ink-200 bg-white px-6 py-12">
+            <div className="mx-auto max-w-md text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-primary-50 text-primary-600">
+                <User size={27} />
               </div>
 
-              <h3 className="text-lg font-extrabold text-ink-800">
-                Sign in to View Profile
-              </h3>
+              <h2 className="mt-5 text-lg font-black text-ink-950">
+                Sign in to view profile
+              </h2>
 
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-ink-400">
-                Manage your profile, track your
-                applications, and keep up with your
-                community activity.
+              <p className="mt-2 text-sm font-medium leading-6 text-ink-500">
+                Manage your profile, track your applications, and keep up
+                with your community activity.
               </p>
 
-              <Link
-                to="/login"
-                className="group mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-brand-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <i className="bi bi-box-arrow-in-right" />
-                Sign In
-                <i className="bi bi-arrow-right text-xs transition-transform group-hover:translate-x-0.5" />
-              </Link>
+              <div className="mt-6 flex justify-center">
+                <Link
+                  to={to("/login")}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 text-sm font-extrabold text-white transition hover:bg-primary-700"
+                >
+                  <LogIn size={16} />
+                  Sign in
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -848,48 +759,49 @@ const ProfilePage = () => {
     );
   }
 
-  // ==========================================================
-  // Loading
-  // ==========================================================
+  /* ==========================================================
+     LOADING
+  ========================================================== */
 
   if (loading) {
     return <ProfileSkeleton />;
   }
 
-  // ==========================================================
-  // Error
-  // ==========================================================
+  /* ==========================================================
+     ERROR
+  ========================================================== */
 
   if (error || !profile) {
     return (
-      <div className="min-h-screen bg-ink-50/30 px-2 pb-10">
-        <PageNavigation />
+      <div className="min-h-full bg-transparent">
 
-        <div className="mx-auto max-w-7xl">
-          <div className="relative overflow-hidden rounded-2xl border border-ink-100/80 bg-white p-12 text-center shadow-sm">
-            <div className="pointer-events-none absolute left-1/2 top-0 h-40 w-64 -translate-x-1/2 rounded-full bg-amber-100/40 blur-3xl" />
 
-            <div className="relative">
-              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-100 bg-amber-50 text-amber-500 shadow-sm">
-                <i className="bi bi-exclamation-triangle text-2xl" />
+        <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+          <div className="flex min-h-[420px] items-center justify-center rounded-[28px] border border-dashed border-ink-200 bg-white px-6 py-12">
+            <div className="mx-auto max-w-md text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-warning-50 text-warning-600">
+                <AlertTriangle size={27} />
               </div>
 
-              <h3 className="text-lg font-extrabold text-ink-800">
-                Profile Not Found
-              </h3>
+              <h2 className="mt-5 text-lg font-black text-ink-950">
+                Profile not found
+              </h2>
 
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-ink-400">
+              <p className="mt-2 text-sm font-medium leading-6 text-ink-500">
                 {error ||
                   "The user profile you're looking for doesn't exist."}
               </p>
 
-              <button
-                onClick={() => navigate('/browse')}
-                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-brand-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <i className="bi bi-search" />
-                Browse Items
-              </button>
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => navigate(to('/browse'))}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 text-sm font-extrabold text-white transition hover:bg-primary-700"
+                >
+                  <Search size={16} />
+                  Browse items
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -897,60 +809,46 @@ const ProfilePage = () => {
     );
   }
 
-  // ==========================================================
-  // Profile data
-  // ==========================================================
+  /* ==========================================================
+     PROFILE DATA
+  ========================================================== */
 
-  const isVerified =
-    profile?.email_verified === true;
+  const isVerified = profile?.email_verified === true;
 
-  const itemsGiven = Array.isArray(
-    profile.items_given
-  )
+  const itemsGiven = Array.isArray(profile.items_given)
     ? profile.items_given
     : [];
 
-  const itemsReceived = Array.isArray(
-    profile.items_received
-  )
+  const itemsReceived = Array.isArray(profile.items_received)
     ? profile.items_received
     : [];
 
-  const applications = Array.isArray(
-    profile.applications
-  )
+  const applications = Array.isArray(profile.applications)
     ? profile.applications
     : [];
 
-  const wins = Array.isArray(profile.wins)
-    ? profile.wins
-    : [];
+  const wins = Array.isArray(profile.wins) ? profile.wins : [];
 
-  // ==========================================================
-  // Render
-  // ==========================================================
+  const StatusIcon = getStatusIconComponent(profile);
+
+  const locationDisplay = formatLocation(profile.location);
+
+  /* ==========================================================
+     RENDER
+  ========================================================== */
 
   return (
-    <div className="min-h-screen bg-ink-50/30 px-2 pb-10">
-      <PageNavigation />
+    <div className="min-h-full bg-transparent">
 
-      <div className="mx-auto max-w-7xl space-y-6">
+      <div className="mx-auto w-full max-w-[1500px] space-y-6 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
         {/* ====================================================
             PROFILE HERO
         ==================================================== */}
 
-        <section className="relative overflow-hidden rounded-2xl border border-ink-100/80 bg-white shadow-sm">
-          <div className="absolute inset-x-0 top-0 h-36 bg-gradient-to-r from-primary-50 via-white to-brand-50" />
+        <section className="overflow-hidden rounded-[26px] border border-ink-100 bg-white shadow-sm">
+          <div className="h-28 border-b border-ink-100 bg-ink-100 sm:h-36" />
 
-          <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-primary-200/20 blur-3xl" />
-
-          <div className="pointer-events-none absolute -left-20 top-10 h-56 w-56 rounded-full bg-brand-200/20 blur-3xl" />
-
-          <div className="relative h-28 sm:h-36">
-            <div className="absolute inset-x-0 bottom-0 h-px bg-ink-100/70" />
-          </div>
-
-          <div className="relative px-5 pb-5 sm:px-7 sm:pb-7">
+          <div className="px-5 pb-5 sm:px-7 sm:pb-7">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
               {/* Avatar */}
               <div className="-mt-14 shrink-0 sm:-mt-16">
@@ -979,9 +877,7 @@ const ProfilePage = () => {
                         strokeLinecap="round"
                         pathLength="100"
                         strokeDasharray={`${
-                          uploadingAvatar
-                            ? uploadProgress
-                            : 100
+                          uploadingAvatar ? uploadProgress : 100
                         } 100`}
                         className="transition-all duration-300"
                       />
@@ -990,21 +886,18 @@ const ProfilePage = () => {
                     {avatarUrl ? (
                       <img
                         src={avatarUrl}
-                        alt={
-                          profile.full_name ||
-                          'Profile'
-                        }
+                        alt={profile.full_name || 'Profile'}
                         className="absolute inset-[5px] h-[calc(100%-10px)] w-[calc(100%-10px)] rounded-full border-4 border-white object-cover shadow-lg"
                       />
                     ) : (
                       <div className="absolute inset-[5px] flex items-center justify-center rounded-full border-4 border-white bg-primary-50 shadow-lg">
-                        <i className="bi bi-person text-4xl text-primary-400" />
+                        <User size={44} className="text-primary-400" />
                       </div>
                     )}
 
                     {uploadingAvatar && (
-                      <div className="absolute inset-[5px] flex items-center justify-center rounded-full bg-ink-900/55">
-                        <span className="text-sm font-extrabold text-white">
+                      <div className="absolute inset-[5px] flex items-center justify-center rounded-full bg-ink-950/55">
+                        <span className="text-sm font-black text-white">
                           {uploadProgress}%
                         </span>
                       </div>
@@ -1014,17 +907,15 @@ const ProfilePage = () => {
                   {isOwnProfile && (
                     <button
                       type="button"
-                      onClick={() =>
-                        fileInputRef.current?.click()
-                      }
+                      onClick={() => fileInputRef.current?.click()}
                       disabled={uploadingAvatar}
-                      className="absolute bottom-1 right-1 flex h-9 w-9 items-center justify-center rounded-xl border-4 border-white bg-primary-600 text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="absolute bottom-1 right-1 flex h-9 w-9 items-center justify-center rounded-xl border-4 border-white bg-primary-600 text-white shadow-md transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
                       title="Change profile picture"
                     >
                       {uploadingAvatar ? (
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        <Loader2 size={14} className="animate-spin" />
                       ) : (
-                        <i className="bi bi-camera-fill text-sm" />
+                        <Camera size={14} />
                       )}
                     </button>
                   )}
@@ -1042,53 +933,43 @@ const ProfilePage = () => {
               {/* Identity */}
               <div className="min-w-0 flex-1 pb-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-2xl font-extrabold tracking-tight text-ink-900 sm:text-3xl">
-                    {profile.full_name ||
-                      'Anonymous'}
+                  <h1 className="text-2xl font-black tracking-tight text-ink-950 sm:text-3xl">
+                    {profile.full_name || 'Anonymous'}
                   </h1>
 
                   <span
-                    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-extrabold ${getRoleBadge(
+                    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-extrabold ${getRoleBadge(
                       profile.role
                     )}`}
                   >
-                    {getRoleLabel(
-                      profile.role
-                    )}
+                    {getRoleLabel(profile.role)}
                   </span>
 
                   <span
-                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-extrabold ${getStatusBadge(
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-extrabold ${getStatusBadge(
                       profile
                     )}`}
                   >
-                    <i
-                      className={`bi ${getStatusIcon(
-                        profile
-                      )}`}
-                    />
+                    <StatusIcon size={11} />
                     {getStatusLabel(profile)}
                   </span>
                 </div>
 
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-500">
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-medium text-ink-500">
                   <span className="flex items-center gap-1.5">
-                    <i className="bi bi-envelope text-ink-400" />
+                    <Mail size={14} className="text-ink-400" />
                     {profile.email}
                   </span>
 
                   <span className="flex items-center gap-1.5">
-                    <i className="bi bi-calendar3 text-ink-400" />
-                    Joined{' '}
-                    {formatDate(
-                      profile.created_at
-                    )}
+                    <Calendar size={14} className="text-ink-400" />
+                    Joined {formatDate(profile.created_at)}
                   </span>
 
-                  {profile.location && (
+                  {locationDisplay && (
                     <span className="flex items-center gap-1.5">
-                      <i className="bi bi-geo-alt text-ink-400" />
-                      {profile.location?.city}, {profile.location?.state}  {profile.location?.country}
+                      <MapPin size={14} className="text-ink-400" />
+                      {locationDisplay}
                     </span>
                   )}
                 </div>
@@ -1098,65 +979,56 @@ const ProfilePage = () => {
               {isOwnProfile && (
                 <div className="flex shrink-0 flex-wrap gap-2">
                   <button
-                    onClick={() =>
-                      setShowEditProfileModal(
-                        true
-                      )
-                    }
-                    className="inline-flex items-center gap-2 rounded-xl border border-primary-200 bg-primary-50 px-4 py-2.5 text-xs font-extrabold text-primary-700 transition-all hover:-translate-y-0.5 hover:bg-primary-100 hover:shadow-sm"
+                    type="button"
+                    onClick={() => setShowEditProfileModal(true)}
+                    className="inline-flex items-center gap-2 rounded-xl border border-primary-200 bg-primary-50 px-4 py-2.5 text-xs font-extrabold text-primary-700 transition hover:bg-primary-100"
                   >
-                    <i className="bi bi-pencil" />
+                    <Pencil size={13} />
                     Edit Profile
                   </button>
 
                   <button
-                    onClick={() =>
-                      setShowPasswordModal(
-                        true
-                      )
-                    }
-                    className="inline-flex items-center gap-2 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-xs font-extrabold text-ink-700 transition-all hover:-translate-y-0.5 hover:bg-ink-50 hover:shadow-sm"
+                    type="button"
+                    onClick={() => setShowPasswordModal(true)}
+                    className="inline-flex items-center gap-2 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-xs font-extrabold text-ink-700 transition hover:bg-ink-50"
                   >
-                    <i className="bi bi-shield-lock" />
+                    <ShieldCheck size={13} />
                     Security
                   </button>
                 </div>
               )}
             </div>
 
-            {/* Verification */}
+            {/* Verification banner */}
             {isOwnProfile && !isVerified && (
-              <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-warning-200 bg-warning-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
-                    <i className="bi bi-envelope-exclamation" />
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-warning-100 text-warning-600">
+                    <MailWarning size={15} />
                   </div>
 
                   <div>
-                    <p className="text-sm font-extrabold text-amber-800">
+                    <p className="text-sm font-extrabold text-warning-900">
                       Verify your email address
                     </p>
 
-                    <p className="mt-0.5 text-xs text-amber-700/80">
-                      Verify your email to unlock
-                      all account features.
+                    <p className="mt-0.5 text-xs font-medium text-warning-700">
+                      Verify your email to unlock all account features.
                     </p>
                   </div>
                 </div>
 
                 <button
-                  onClick={
-                    handleResendVerification
-                  }
+                  type="button"
+                  onClick={handleResendVerification}
                   disabled={resending}
-                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-amber-200 bg-white px-4 py-2 text-xs font-extrabold text-amber-700 shadow-sm transition hover:bg-amber-100 disabled:opacity-60"
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-warning-200 bg-white px-4 py-2 text-xs font-extrabold text-warning-700 shadow-sm transition hover:bg-warning-100 disabled:cursor-wait disabled:opacity-60"
                 >
                   {resending ? (
-                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
+                    <Loader2 size={13} className="animate-spin" />
                   ) : (
-                    <i className="bi bi-send" />
+                    <Send size={13} />
                   )}
-
                   Resend Email
                 </button>
               </div>
@@ -1172,27 +1044,22 @@ const ProfilePage = () => {
           <StatCard
             label="Items Given"
             value={stats.itemsGiven}
-            icon="bi-gift"
-            color="text-primary-700"
-            bg="bg-primary-50"
-            description="Shared with others"
+            icon={Gift}
+            tone="primary"
           />
 
           <StatCard
             label="Items Received"
             value={stats.itemsReceived}
-            icon="bi-box-seam"
-            color="text-emerald-700"
-            bg="bg-emerald-50"
-            description="Received from community"
+            icon={Package}
+            tone="success"
           />
 
           <StatCard
             label="Applications"
             value={stats.applications}
-            icon="bi-file-earmark-text"
-            color="text-sky-700"
-            bg="bg-sky-50"
+            icon={FileText}
+            tone="ink"
             subtext={
               stats.pendingApplications > 0
                 ? `${stats.pendingApplications} pending`
@@ -1203,10 +1070,8 @@ const ProfilePage = () => {
           <StatCard
             label="Wins"
             value={stats.wins}
-            icon="bi-trophy"
-            color="text-amber-700"
-            bg="bg-amber-50"
-            description="Successful applications"
+            icon={Trophy}
+            tone="warning"
           />
         </section>
 
@@ -1216,78 +1081,66 @@ const ProfilePage = () => {
 
         <section className="grid grid-cols-1 gap-6 lg:grid-cols-[1.15fr_0.85fr]">
           {/* Details */}
-          <div className="overflow-hidden rounded-2xl border border-ink-100/80 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-[26px] border border-ink-100 bg-white shadow-sm">
             <SectionHeader
-              icon="bi-person-vcard"
+              icon={Contact}
               title="Profile Details"
-              description="Your account information"
+              description="Account information"
             />
 
             <div className="grid grid-cols-1 gap-x-8 p-5 sm:grid-cols-2">
               <DetailRow
                 label="Full Name"
                 value={profile.full_name}
-                icon="bi-person"
+                icon={User}
               />
 
               <DetailRow
                 label="Email"
                 value={profile.email}
-                icon="bi-envelope"
+                icon={Mail}
               />
 
               <DetailRow
                 label="Phone"
                 value={profile.phone}
-                icon="bi-telephone"
+                icon={Phone}
               />
 
               <DetailRow
                 label="Location"
-               // value={profile.location}
-                icon="bi-geo-alt"
-              />
-
-              <DetailRow
-                label="Country"
-                value={profile.country}
-                icon="bi-globe2"
+                value={locationDisplay || profile.lication?.country || '—'}
+                icon={MapPin}
               />
 
               <DetailRow
                 label="Member Since"
-                value={formatDate(
-                  profile.created_at
-                )}
-                icon="bi-calendar3"
+                value={formatDate(profile.created_at)}
+                icon={Calendar}
               />
 
               <DetailRow
                 label="Role"
-                value={getRoleLabel(
-                  profile.role
-                )}
-                icon="bi-shield-check"
-                badge={getRoleBadge(
-                  profile.role
-                )}
+                value={getRoleLabel(profile.role)}
+                icon={ShieldCheck}
+                badge={getRoleBadge(profile.role)}
               />
 
               <DetailRow
                 label="Account Status"
                 value={getStatusLabel(profile)}
-                icon={getStatusIcon(profile)}
+                icon={StatusIcon}
                 badge={getStatusBadge(profile)}
               />
             </div>
           </div>
 
-          {/* Right */}
+          {/* Right column */}
           <div className="space-y-6">
             {/* Bio */}
-            <div className="rounded-2xl border border-ink-100/80 bg-white shadow-sm">
+            <div className="rounded-[26px] border border-ink-100 bg-white shadow-sm">
               <SectionHeader
-                icon="bi-chat-square-quote"
+                icon={Quote}
                 title="About"
                 description="A little about this member"
               />
@@ -1296,7 +1149,7 @@ const ProfilePage = () => {
                 <div className="relative rounded-xl bg-ink-50/70 p-4">
                   <div className="absolute left-0 top-4 h-8 w-1 rounded-r-full bg-primary-500" />
 
-                  <p className="pl-3 text-sm leading-7 text-ink-600">
+                  <p className="pl-3 text-sm font-medium leading-7 text-ink-600">
                     {profile.bio ||
                       'This member has not added a bio yet.'}
                   </p>
@@ -1306,38 +1159,38 @@ const ProfilePage = () => {
 
             {/* Quick links */}
             {isOwnProfile && (
-              <div className="rounded-2xl border border-ink-100/80 bg-white shadow-sm">
+              <div className="rounded-[26px] border border-ink-100 bg-white shadow-sm">
                 <SectionHeader
-                  icon="bi-lightning-charge"
+                  icon={Zap}
                   title="Quick Access"
                   description="Jump to your account"
                 />
 
                 <div className="grid grid-cols-2 gap-2.5 p-5">
                   <QuickLink
-                    to="/my-listed-items"
-                    icon="bi-box-seam"
+                    to={to ("/my-listed-items")}
+                    icon={Package}
                     label="My Items"
                     count={stats.itemsGiven}
                   />
 
                   <QuickLink
-                    to="/my-applications"
-                    icon="bi-file-earmark-text"
+                    to={ to("/my-applications")}
+                    icon={FileText}
                     label="Applications"
                     count={stats.applications}
                   />
 
                   <QuickLink
-                    to="/favorites"
-                    icon="bi-heart"
+                    to={to("/favorites")}
+                    icon={Heart}
                     label="Favorites"
                     count={stats.favorites}
                   />
 
                   <QuickLink
-                    to="/settings"
-                    icon="bi-gear"
+                    to={to("/settings")}
+                    icon={Settings}
                     label="Settings"
                   />
                 </div>
@@ -1352,28 +1205,24 @@ const ProfilePage = () => {
 
         {itemsGiven.length > 0 && (
           <CollectionSection
-            icon="bi-gift"
+            icon={Gift}
             title="Items Given"
             description="Items you've shared with the community"
             count={itemsGiven.length}
             action={
               isOwnProfile && (
                 <Link
-                  to="/my-listed-items"
+                  to={to("/my-listed-items")}
                   className="inline-flex items-center gap-1 text-xs font-extrabold text-primary-600 transition hover:text-primary-700"
                 >
                   View all
-                  <i className="bi bi-arrow-right" />
+                  <ArrowRight size={12} />
                 </Link>
               )
             }
           >
             {itemsGiven.slice(0, 5).map((item) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                formatDate={formatDate}
-              />
+              <ItemRow key={item.id} item={item} formatDate={formatDate} />
             ))}
 
             {itemsGiven.length > 5 && (
@@ -1391,20 +1240,14 @@ const ProfilePage = () => {
 
         {itemsReceived.length > 0 && (
           <CollectionSection
-            icon="bi-box-seam"
+            icon={Package}
             title="Items Received"
             description="Items received from other members"
             count={itemsReceived.length}
           >
-            {itemsReceived
-              .slice(0, 5)
-              .map((item) => (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  formatDate={formatDate}
-                />
-              ))}
+            {itemsReceived.slice(0, 5).map((item) => (
+              <ItemRow key={item.id} item={item} formatDate={formatDate} />
+            ))}
           </CollectionSection>
         )}
 
@@ -1414,68 +1257,50 @@ const ProfilePage = () => {
 
         {applications.length > 0 && (
           <CollectionSection
-            icon="bi-file-earmark-text"
+            icon={FileText}
             title="Applications"
             description="Applications submitted for available items"
             count={applications.length}
           >
-            {applications
-              .slice(0, 5)
-              .map((app) => {
-                const badge =
-                  getApplicationStatusDisplay(
-                    app.status
-                  );
+            {applications.slice(0, 5).map((app) => {
+              const badge = getApplicationStatusDisplay(app.status);
 
-                const colorMap = {
-                  green:
-                    'bg-primary-50 text-primary-700 border-primary-200',
+              const colorMap = {
+                green: 'border-primary-200 bg-primary-50 text-primary-700',
+                yellow: 'border-warning-200 bg-warning-50 text-warning-700',
+                red: 'border-danger-200 bg-danger-50 text-danger-700',
+                gray: 'border-ink-200 bg-ink-50 text-ink-600',
+              };
 
-                  yellow:
-                    'bg-amber-50 text-amber-700 border-amber-200',
-
-                  red:
-                    'bg-rose-50 text-rose-700 border-rose-200',
-
-                  gray:
-                    'bg-ink-50 text-ink-600 border-ink-200',
-                };
-
-                return (
-                  <div
-                    key={app.id}
-                    className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-ink-50/60"
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
-                      <i className="bi bi-file-earmark-text" />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-extrabold text-ink-900">
-                        {app.item?.title ||
-                          'Unknown Item'}
-                      </p>
-
-                      <p className="mt-0.5 text-xs text-ink-400">
-                        Applied{' '}
-                        {formatDate(
-                          app.created_at
-                        )}
-                      </p>
-                    </div>
-
-                    <span
-                      className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-extrabold ${
-                        colorMap[badge?.color] ||
-                        colorMap.gray
-                      }`}
-                    >
-                      {badge?.label ||
-                        app.status}
-                    </span>
+              return (
+                <div
+                  key={app.id}
+                  className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-ink-50/60"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
+                    <FileText size={15} />
                   </div>
-                );
-              })}
+
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-black text-ink-950">
+                      {app.item?.title || 'Unknown Item'}
+                    </p>
+
+                    <p className="mt-0.5 text-[11px] font-bold text-ink-400">
+                      Applied {formatDate(app.created_at)}
+                    </p>
+                  </div>
+
+                  <span
+                    className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-extrabold ${
+                      colorMap[badge?.color] || colorMap.gray
+                    }`}
+                  >
+                    {badge?.label || app.status}
+                  </span>
+                </div>
+              );
+            })}
           </CollectionSection>
         )}
 
@@ -1485,37 +1310,33 @@ const ProfilePage = () => {
 
         {wins.length > 0 && (
           <CollectionSection
-            icon="bi-trophy"
+            icon={Trophy}
             title="Wins"
             description="Successful applications and received items"
             count={wins.length}
-            accent="amber"
+            accent="warning"
           >
             {wins.slice(0, 5).map((win) => (
               <div
                 key={win.id}
-                className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-amber-50/40"
+                className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-warning-50/40"
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                  <i className="bi bi-trophy-fill" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warning-50 text-warning-600">
+                  <Trophy size={15} fill="currentColor" />
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-extrabold text-ink-900">
-                    {win.item?.title ||
-                      'Unknown Item'}
+                  <p className="truncate text-sm font-black text-ink-950">
+                    {win.item?.title || 'Unknown Item'}
                   </p>
 
-                  <p className="mt-0.5 text-xs text-ink-400">
-                    Won{' '}
-                    {formatDate(
-                      win.created_at
-                    )}
+                  <p className="mt-0.5 text-[11px] font-bold text-ink-400">
+                    Won {formatDate(win.created_at)}
                   </p>
                 </div>
 
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-extrabold text-amber-700">
-                  <i className="bi bi-check-circle-fill" />
+                <span className="inline-flex items-center gap-1 rounded-full border border-warning-200 bg-warning-50 px-2.5 py-1 text-[10px] font-extrabold text-warning-700">
+                  <CheckCircle2 size={11} />
                   Won
                 </span>
               </div>
@@ -1530,48 +1351,34 @@ const ProfilePage = () => {
         {isOwnProfile && (
           <Modal
             isOpen={showEditProfileModal}
-            onClose={() =>
-              setShowEditProfileModal(false)
-            }
+            onClose={() => setShowEditProfileModal(false)}
             title="Edit Profile"
             size="lg"
           >
-            <form
-              onSubmit={handleProfileUpdate}
-              className="space-y-5"
-            >
+            <form onSubmit={handleProfileUpdate} className="space-y-5">
               {message && (
                 <div
-                  className={`flex items-center gap-2 rounded-xl border p-3.5 text-sm ${
+                  className={`flex items-center gap-2 rounded-xl border p-3.5 text-sm font-medium ${
                     message.type === 'success'
-                      ? 'border-primary-200 bg-primary-50 text-primary-700'
-                      : 'border-rose-200 bg-rose-50 text-rose-700'
+                      ? 'border-success-200 bg-success-50 text-success-700'
+                      : 'border-danger-200 bg-danger-50 text-danger-700'
                   }`}
                 >
-                  <i
-                    className={`bi ${
-                      message.type === 'success'
-                        ? 'bi-check-circle-fill'
-                        : 'bi-exclamation-triangle-fill'
-                    }`}
-                  />
+                  {message.type === 'success' ? (
+                    <CheckCircle2 size={15} className="shrink-0" />
+                  ) : (
+                    <AlertTriangle size={15} className="shrink-0" />
+                  )}
 
-                  <span>
-                    {message.text}
-                  </span>
+                  <span>{message.text}</span>
                 </div>
               )}
 
-              <FormField
-                label="Full Name"
-                required
-              >
+              <FormField label="Full Name" required>
                 <input
                   type="text"
                   value={fullName}
-                  onChange={(e) =>
-                    setFullName(e.target.value)
-                  }
+                  onChange={(e) => setFullName(e.target.value)}
                   className={inputClass}
                   required
                 />
@@ -1580,9 +1387,7 @@ const ProfilePage = () => {
               <FormField label="Bio">
                 <textarea
                   value={bio}
-                  onChange={(e) =>
-                    setBio(e.target.value)
-                  }
+                  onChange={(e) => setBio(e.target.value)}
                   rows={4}
                   minLength={100}
                   maxLength={200}
@@ -1594,22 +1399,20 @@ const ProfilePage = () => {
                   <span
                     className={
                       bio.length < 100
-                        ? 'font-semibold text-rose-500'
-                        : 'font-semibold text-primary-600'
+                        ? 'font-bold text-danger-500'
+                        : 'font-bold text-primary-600'
                     }
                   >
                     {bio.length < 100
-                      ? `${
-                          100 - bio.length
-                        } more characters required`
+                      ? `${100 - bio.length} more characters required`
                       : 'Minimum length reached'}
                   </span>
 
                   <span
                     className={
                       bio.length > 180
-                        ? 'font-semibold text-orange-500'
-                        : 'text-ink-400'
+                        ? 'font-bold text-warning-500'
+                        : 'font-bold text-ink-400'
                     }
                   >
                     {bio.length}/200
@@ -1617,15 +1420,33 @@ const ProfilePage = () => {
                 </div>
               </FormField>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <FormField label="Location">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <FormField label="City">
                   <input
                     type="text"
-                   // value={location}
+                    value={location.city}
                     onChange={(e) =>
-                      setLocation(e.target.value)
+                      setLocation((prev) => ({
+                        ...prev,
+                        city: e.target.value,
+                      }))
                     }
                     placeholder="City"
+                    className={inputClass}
+                  />
+                </FormField>
+
+                <FormField label="State">
+                  <input
+                    type="text"
+                    value={location.state}
+                    onChange={(e) =>
+                      setLocation((prev) => ({
+                        ...prev,
+                        state: e.target.value,
+                      }))
+                    }
+                    placeholder="State"
                     className={inputClass}
                   />
                 </FormField>
@@ -1633,9 +1454,12 @@ const ProfilePage = () => {
                 <FormField label="Country">
                   <input
                     type="text"
-                    value={country}
+                    value={location.country}
                     onChange={(e) =>
-                      setCountry(e.target.value)
+                      setLocation((prev) => ({
+                        ...prev,
+                        country: e.target.value,
+                      }))
                     }
                     placeholder="Country"
                     className={inputClass}
@@ -1647,9 +1471,7 @@ const ProfilePage = () => {
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) =>
-                    setPhone(e.target.value)
-                  }
+                  onChange={(e) => setPhone(e.target.value)}
                   placeholder="+234..."
                   className={inputClass}
                 />
@@ -1658,12 +1480,8 @@ const ProfilePage = () => {
               <div className="flex flex-col-reverse gap-2 border-t border-ink-100 pt-5 sm:flex-row sm:justify-end">
                 <button
                   type="button"
-                  onClick={() =>
-                    setShowEditProfileModal(
-                      false
-                    )
-                  }
-                  className="rounded-xl border border-ink-200 bg-white px-5 py-2.5 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50"
+                  onClick={() => setShowEditProfileModal(false)}
+                  className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-5 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50"
                 >
                   Cancel
                 </button>
@@ -1671,16 +1489,16 @@ const ProfilePage = () => {
                 <button
                   type="submit"
                   disabled={updating}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-brand-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 text-sm font-extrabold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {updating ? (
                     <>
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      <Loader2 size={16} className="animate-spin" />
                       Saving...
                     </>
                   ) : (
                     <>
-                      <i className="bi bi-check-lg" />
+                      <Check size={16} />
                       Save Changes
                     </>
                   )}
@@ -1706,59 +1524,41 @@ const ProfilePage = () => {
             title="Change Password"
             size="sm"
           >
-            <form
-              onSubmit={handlePasswordChange}
-              className="space-y-5"
-            >
-              <div className="rounded-xl border border-primary-100 bg-primary-50/70 p-4">
+            <form onSubmit={handlePasswordChange} className="space-y-5">
+              <div className="rounded-2xl border border-primary-100 bg-primary-50/70 p-4">
                 <div className="flex gap-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-100 text-primary-600">
-                    <i className="bi bi-shield-lock" />
+                    <Lock size={15} />
                   </div>
 
                   <div>
-                    <p className="text-sm font-extrabold text-primary-800">
+                    <p className="text-sm font-extrabold text-primary-900">
                       Keep your account secure
                     </p>
 
-                    <p className="mt-0.5 text-xs leading-5 text-primary-700/80">
-                      Choose a password that
-                      you don't use elsewhere.
+                    <p className="mt-0.5 text-xs font-medium leading-5 text-primary-700">
+                      Choose a password that you don't use elsewhere.
                     </p>
                   </div>
                 </div>
               </div>
 
-              <FormField
-                label="Current Password"
-                required
-              >
+              <FormField label="Current Password" required>
                 <input
                   type="password"
                   value={currentPassword}
-                  onChange={(e) =>
-                    setCurrentPassword(
-                      e.target.value
-                    )
-                  }
+                  onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="Enter current password"
                   className={inputClass}
                   required
                 />
               </FormField>
 
-              <FormField
-                label="New Password"
-                required
-              >
+              <FormField label="New Password" required>
                 <input
                   type="password"
                   value={newPassword}
-                  onChange={(e) =>
-                    setNewPassword(
-                      e.target.value
-                    )
-                  }
+                  onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Minimum 6 characters"
                   className={inputClass}
                   minLength={6}
@@ -1766,18 +1566,11 @@ const ProfilePage = () => {
                 />
               </FormField>
 
-              <FormField
-                label="Confirm New Password"
-                required
-              >
+              <FormField label="Confirm New Password" required>
                 <input
                   type="password"
                   value={confirmPassword}
-                  onChange={(e) =>
-                    setConfirmPassword(
-                      e.target.value
-                    )
-                  }
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm new password"
                   className={inputClass}
                   minLength={6}
@@ -1789,14 +1582,12 @@ const ProfilePage = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setShowPasswordModal(
-                      false
-                    );
+                    setShowPasswordModal(false);
                     setCurrentPassword('');
                     setNewPassword('');
                     setConfirmPassword('');
                   }}
-                  className="rounded-xl border border-ink-200 bg-white px-5 py-2.5 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50"
+                  className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-5 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50"
                 >
                   Cancel
                 </button>
@@ -1804,16 +1595,16 @@ const ProfilePage = () => {
                 <button
                   type="submit"
                   disabled={changingPassword}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 text-sm font-extrabold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {changingPassword ? (
                     <>
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      <Loader2 size={16} className="animate-spin" />
                       Updating...
                     </>
                   ) : (
                     <>
-                      <i className="bi bi-key" />
+                      <Key size={16} />
                       Update Password
                     </>
                   )}
@@ -1827,30 +1618,25 @@ const ProfilePage = () => {
   );
 };
 
-// ============================================================
-// Section Header
-// ============================================================
+/* ============================================================
+   SECTION HEADER
+============================================================ */
 
-function SectionHeader({
-  icon,
-  title,
-  description,
-  action,
-}) {
+function SectionHeader({ icon: Icon, title, description, action }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-ink-100 px-5 py-4">
       <div className="flex min-w-0 items-center gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
-          <i className={`bi ${icon}`} />
+          <Icon size={15} />
         </div>
 
         <div className="min-w-0">
-          <h3 className="truncate text-sm font-extrabold text-ink-800">
+          <h3 className="truncate text-sm font-black text-ink-950">
             {title}
           </h3>
 
           {description && (
-            <p className="mt-0.5 truncate text-[11px] text-ink-400">
+            <p className="mt-0.5 truncate text-[11px] font-bold text-ink-400">
               {description}
             </p>
           )}
@@ -1862,12 +1648,12 @@ function SectionHeader({
   );
 }
 
-// ============================================================
-// Collection Section
-// ============================================================
+/* ============================================================
+   COLLECTION SECTION
+============================================================ */
 
 function CollectionSection({
-  icon,
+  icon: Icon,
   title,
   description,
   count,
@@ -1876,39 +1662,35 @@ function CollectionSection({
   accent = 'primary',
 }) {
   const accentClasses = {
-    primary:
-      'bg-primary-50 text-primary-600',
-
-    amber:
-      'bg-amber-50 text-amber-600',
+    primary: 'bg-primary-50 text-primary-600',
+    warning: 'bg-warning-50 text-warning-600',
   };
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-ink-100/80 bg-white shadow-sm">
+    <section className="overflow-hidden rounded-[26px] border border-ink-100 bg-white shadow-sm">
       <div className="flex items-center justify-between gap-4 border-b border-ink-100 px-5 py-4">
         <div className="flex min-w-0 items-center gap-3">
           <div
             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-              accentClasses[accent] ||
-              accentClasses.primary
+              accentClasses[accent] || accentClasses.primary
             }`}
           >
-            <i className={`bi ${icon}`} />
+            <Icon size={15} />
           </div>
 
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="truncate text-sm font-extrabold text-ink-800">
+              <h3 className="truncate text-sm font-black text-ink-950">
                 {title}
               </h3>
 
-              <span className="rounded-full bg-ink-50 px-2 py-0.5 text-[10px] font-extrabold text-ink-500">
+              <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-extrabold text-ink-600">
                 {count}
               </span>
             </div>
 
             {description && (
-              <p className="mt-0.5 truncate text-[11px] text-ink-400">
+              <p className="mt-0.5 truncate text-[11px] font-bold text-ink-400">
                 {description}
               </p>
             )}
@@ -1918,27 +1700,20 @@ function CollectionSection({
         {action}
       </div>
 
-      <div className="divide-y divide-ink-50">
-        {children}
-      </div>
+      <div className="divide-y divide-ink-100">{children}</div>
     </section>
   );
 }
 
-// ============================================================
-// Item Row
-// ============================================================
+/* ============================================================
+   ITEM ROW
+============================================================ */
 
-function ItemRow({
-  item,
-  formatDate,
-}) {
-  const category = getCategoryByValue(
-    item.category
-  );
+function ItemRow({ item, formatDate }) {
+  const category = getCategoryByValue(item.category);
 
   return (
-    <div className="group flex items-center gap-4 px-5 py-4 transition-all hover:bg-ink-50/60">
+    <div className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-ink-50/60">
       {/* Image */}
       <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-ink-100 bg-ink-50">
         {item.images?.[0] ? (
@@ -1948,154 +1723,112 @@ function ItemRow({
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <i className="bi bi-image text-sm text-ink-400" />
+          <div className="flex h-full w-full items-center justify-center text-ink-300">
+            <ImageIcon size={16} />
           </div>
         )}
       </div>
 
       {/* Content */}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-extrabold text-ink-900">
+        <p className="truncate text-sm font-black text-ink-950">
           {item.title}
         </p>
 
         <div className="mt-1 flex flex-wrap items-center gap-1.5">
           {category &&
-            renderIcon(
-              category.icon,
-              'h-3 w-3',
-              category.color
-            )}
+            renderIcon(category.icon, 'h-3 w-3', category.color)}
 
-          <span className="text-xs font-medium text-ink-400">
-            {item.category ||
-              'Uncategorized'}
+          <span className="text-[11px] font-bold text-ink-400">
+            {item.category || 'Uncategorized'}
           </span>
 
-          <span className="text-ink-300">
-            •
-          </span>
+          <span className="text-ink-300">•</span>
 
-          <span className="text-xs text-ink-400">
-            {formatDate(
-              item.created_at
-            )}
+          <span className="text-[11px] font-bold text-ink-400">
+            {formatDate(item.created_at)}
           </span>
         </div>
       </div>
 
       {/* Action */}
       <Link
-        to={`/item/${item.id}`}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-ink-100 bg-white text-ink-400 opacity-0 shadow-sm transition-all hover:border-primary-200 hover:bg-primary-50 hover:text-primary-600 group-hover:opacity-100"
+        to={to(`/item/${item.id}`)}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-ink-100 bg-white text-ink-400 opacity-0 shadow-sm transition hover:border-primary-200 hover:bg-primary-50 hover:text-primary-600 group-hover:opacity-100"
         title="View item"
       >
-        <i className="bi bi-arrow-up-right text-sm" />
+        <ArrowUpRight size={14} />
       </Link>
     </div>
   );
 }
 
-// ============================================================
-// Collection Footer
-// ============================================================
+/* ============================================================
+   COLLECTION FOOTER
+============================================================ */
 
-function CollectionFooter({
-  to,
-  text,
-}) {
+function CollectionFooter({ to, text }) {
   return (
-    <div className="border-t border-ink-50 px-5 py-3 text-center">
+    <div className="border-t border-ink-100 px-5 py-3 text-center">
       <Link
-        to={to}
+        to={to(to)}
         className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold text-primary-600 transition hover:bg-primary-50 hover:text-primary-700"
       >
         {text}
-        <i className="bi bi-arrow-right" />
+        <ArrowRight size={12} />
       </Link>
     </div>
   );
 }
 
-// ============================================================
-// Stat Card
-// ============================================================
+/* ============================================================
+   STAT CARD
+============================================================ */
 
-function StatCard({
-  label,
-  value,
-  icon,
-  color = 'text-ink-700',
-  bg = 'bg-ink-50',
-  subtext,
-  description,
-}) {
+function StatCard({ label, value, icon: Icon, tone = 'ink', subtext }) {
+  const tones = {
+    ink: { color: 'text-ink-900', bg: 'bg-ink-50' },
+    warning: { color: 'text-warning-600', bg: 'bg-warning-50' },
+    success: { color: 'text-success-600', bg: 'bg-success-50' },
+    danger: { color: 'text-danger-600', bg: 'bg-danger-50' },
+    primary: { color: 'text-primary-600', bg: 'bg-primary-50' },
+  };
+  const style = tones[tone] || tones.ink;
+
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-ink-100/80 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
-      <div className="absolute right-0 top-0 h-20 w-20 translate-x-8 -translate-y-8 rounded-full bg-ink-50/70 transition-transform duration-300 group-hover:scale-150" />
+    <div className="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-center justify-between gap-3">
+        <p className="truncate text-xs font-bold text-ink-500">{label}</p>
 
-      <div className="relative">
-        <div className="flex items-start justify-between gap-3">
-          <div
-            className={`flex h-10 w-10 items-center justify-center rounded-xl ${bg}`}
-          >
-            <i
-              className={`bi ${icon} ${color} text-base`}
-            />
-          </div>
-
-          <span className="text-[10px] font-bold uppercase tracking-wider text-ink-300">
-            Total
-          </span>
-        </div>
-
-        <p
-          className={`mt-4 text-2xl font-extrabold tracking-tight ${color}`}
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${style.bg}`}
         >
-          {typeof value === 'number'
-            ? value.toLocaleString()
-            : value}
-        </p>
-
-        <p className="mt-0.5 text-xs font-extrabold text-ink-600">
-          {label}
-        </p>
-
-        {subtext ? (
-          <p className="mt-1 text-[11px] font-semibold text-ink-400">
-            {subtext}
-          </p>
-        ) : description ? (
-          <p className="mt-1 text-[11px] font-medium text-ink-400">
-            {description}
-          </p>
-        ) : null}
+          <Icon size={15} className={style.color} />
+        </span>
       </div>
+
+      <p className={`mt-2 text-2xl font-black tracking-tight ${style.color}`}>
+        {typeof value === 'number' ? value.toLocaleString() : value}
+      </p>
+
+      {subtext && (
+        <p className="mt-0.5 text-[10px] font-bold text-ink-400">{subtext}</p>
+      )}
     </div>
   );
 }
 
-// ============================================================
-// Detail Row
-// ============================================================
+/* ============================================================
+   DETAIL ROW
+============================================================ */
 
-function DetailRow({
-  label,
-  value,
-  badge,
-  icon,
-}) {
+function DetailRow({ label, value, badge, icon: Icon }) {
   return (
-    <div className="flex items-center gap-4 border-b border-ink-50 py-3 last:border-0">
+    <div className="flex items-center gap-4 border-b border-ink-100 py-3 last:border-0">
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <i
-          className={`bi ${icon} text-xs text-ink-300`}
-        />
+        {Icon && <Icon size={13} className="shrink-0 text-ink-300" />}
 
-        <span className="text-xs font-bold text-ink-500">
-          {label}
-        </span>
+        <span className="text-xs font-bold text-ink-500">{label}</span>
       </div>
 
       <div className="max-w-[60%] text-right">
@@ -2115,26 +1848,19 @@ function DetailRow({
   );
 }
 
-// ============================================================
-// Quick Link
-// ============================================================
+/* ============================================================
+   QUICK LINK
+============================================================ */
 
-function QuickLink({
-  to,
-  icon,
-  label,
-  count,
-}) {
+function QuickLink({ to, icon: Icon, label, count }) {
   return (
     <Link
-      to={to}
-      className="group flex items-center justify-between rounded-xl border border-ink-100 bg-white p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary-200 hover:bg-primary-50/50 hover:shadow-sm"
+      to={(to)}
+      className="group flex items-center justify-between rounded-xl border border-ink-100 bg-white p-3 transition duration-200 hover:-translate-y-0.5 hover:border-primary-200 hover:bg-primary-50/50 hover:shadow-sm"
     >
       <div className="flex min-w-0 items-center gap-2.5">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 transition-colors group-hover:bg-primary-100">
-          <i
-            className={`bi ${icon} text-sm`}
-          />
+          <Icon size={14} />
         </div>
 
         <span className="truncate text-xs font-extrabold text-ink-700">
@@ -2147,30 +1873,27 @@ function QuickLink({
           {count}
         </span>
       ) : (
-        <i className="bi bi-chevron-right text-[10px] text-ink-300 transition-transform group-hover:translate-x-0.5 group-hover:text-primary-500" />
+        <ChevronRight
+          size={12}
+          className="shrink-0 text-ink-300 transition-transform group-hover:translate-x-0.5 group-hover:text-primary-500"
+        />
       )}
     </Link>
   );
 }
 
-// ============================================================
-// Form Field
-// ============================================================
+/* ============================================================
+   FORM FIELD
+============================================================ */
 
-function FormField({
-  label,
-  required = false,
-  children,
-}) {
+function FormField({ label, required = false, children }) {
   return (
     <div>
       <label className="mb-1.5 block text-xs font-extrabold text-ink-700">
         {label}
 
         {required && (
-          <span className="ml-1 text-rose-500">
-            *
-          </span>
+          <span className="ml-1 text-danger-500">*</span>
         )}
       </label>
 

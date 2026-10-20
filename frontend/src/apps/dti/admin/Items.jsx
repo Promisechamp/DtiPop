@@ -1,16 +1,38 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-} from 'react';
+// src/admin/AdminItems.jsx
 
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Package,
+  CheckCircle2,
+  Clock,
+  Trophy,
+  Flag,
+  XCircle,
+  Circle,
+  Star,
+  Slash,
+  LayoutGrid,
+  Eye,
+  ShieldCheck,
+  Trash2,
+  Image as ImageIcon,
+  CircleArrowOutUpRight,
+  AlertTriangle,
+  MinusCircle,
+  ArrowDown,
+  ArrowUp,
+  Users,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  Inbox,
+  X,
+} from 'lucide-react';
 
 import { adminAPI } from '@/services/api/dtiApi';
-
 import {
   ITEM_CATEGORIES,
   ITEM_CONDITIONS,
@@ -21,43 +43,51 @@ import {
   getConditionByValue,
   getStatusDisplay,
 } from '@/utils/constants';
-
 import { renderIcon } from '@/utils/constantHelpers';
-import {
-  CircleArrowOutUpRight,
-  Trash2,
-  Grid3x3,
-  Star,
-  StarHalf,
-  Package,
-  CheckCircle2,
-  Clock,
-  Trophy,
-  Flag,
-  Filter,
-  Table as TableIcon,
-  LayoutGrid,
-  Minus,
-  Plus,
-  Search,
-  ChevronUp,
-  ChevronDown,
-  ChevronRight,
-  XCircle,
-  Image as ImageIcon,
-  Eye,
-  ShieldCheck,
-  MoreVertical,
-  Slash,
-  AlertTriangle,
-  ChevronLeft,
-} from 'lucide-react';
-import { useBreakpoint } from '@/reusables/Breakpoint';
-import { PageNavigation, PageNavigationSkeleton } from '@/reusables/PageNavigation';
+
 import Modal from '@/reusables/Modal';
+import ActionMenu from '@/reusables/ActionMenu';
 import Select from '@/reusables/Select';
+import FilterBar, { ColumnStepper, ViewToggle } from '@/reusables/FilterBar';
+import { usePageState } from '@/hooks/usePageState';
 
 const ITEMS_PER_PAGE = 20;
+
+/* ============================================================
+   PAGE CONFIG — stable module-level refs
+============================================================ */
+
+const URL_DEFAULTS = {
+  search: '',
+  status: '',
+  category: '',
+  condition: '',
+  sortBy: 'created_at',
+  sortOrder: 'desc',
+  page: 1,
+  tab: 'all',
+};
+
+const FILTER_KEYS = [
+  'search',
+  'status',
+  'category',
+  'condition',
+  'sortBy',
+  'sortOrder',
+  'tab',
+];
+
+// "Clear filters" keeps the user on their current tab
+const FILTER_RESET = {
+  search: '',
+  status: '',
+  category: '',
+  condition: '',
+  sortBy: 'created_at',
+  sortOrder: 'desc',
+  page: 1,
+};
 
 /* ============================================================
    HELPERS
@@ -93,131 +123,248 @@ const formatDateTime = (date) => {
   });
 };
 
+const getStatusIconComponent = (status) => {
+  switch (status) {
+    case 'active':
+      return CheckCircle2;
+    case 'pending':
+      return Clock;
+    case 'completed':
+      return Trophy;
+    case 'cancelled':
+      return XCircle;
+    default:
+      return Circle;
+  }
+};
+
+const getStatusBadge = (itemStatus, appsCount) => {
+  if (!appsCount && itemStatus === 'active') {
+    return {
+      label: 'No Apps',
+      Icon: MinusCircle,
+      classes: 'border-warning-200 bg-warning-50 text-warning-700',
+    };
+  }
+
+  const display = getStatusDisplay(itemStatus);
+
+  const colorMap = {
+    green: 'border-success-200 bg-success-50 text-success-700',
+    yellow: 'border-warning-200 bg-warning-50 text-warning-700',
+    blue: 'border-primary-200 bg-primary-50 text-primary-700',
+    red: 'border-danger-200 bg-danger-50 text-danger-700',
+    gray: 'border-ink-200 bg-ink-50 text-ink-600',
+  };
+
+  return {
+    label: display?.label || itemStatus,
+    Icon: getStatusIconComponent(itemStatus),
+    classes: colorMap[display?.color] || colorMap.gray,
+  };
+};
+
 /* ============================================================
-   SKELETON
+   SKELETON / STAT CARD / EMPTY — unchanged
 ============================================================ */
 
 const ItemsSkeleton = () => (
-  <div className="space-y-5">
-    <PageNavigationSkeleton />
-    {/* Header skeleton */}
-    <div className="space-y-2">
-      <div className="h-2.5 w-28 animate-pulse rounded bg-ink-100" />
-      <div className="h-8 w-56 animate-pulse rounded-lg bg-ink-100" />
-      <div className="h-4 w-72 animate-pulse rounded bg-ink-100" />
-    </div>
-
-    {/* Stats skeleton */}
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-      {[...Array(6)].map((_, i) => (
-        <div key={i} className="h-24 animate-pulse rounded-2xl border border-ink-100 bg-white" />
-      ))}
-    </div>
-
-    {/* Toolbar skeleton */}
-    <div className="h-20 animate-pulse rounded-2xl border border-ink-100 bg-white" />
-
-    {/* Table skeleton */}
-    <div className="overflow-hidden rounded-2xl border border-ink-100 bg-white">
-      <div className="h-12 animate-pulse bg-ink-50" />
-      {[...Array(8)].map((_, i) => (
-        <div key={i} className="flex items-center gap-5 border-t border-ink-50 px-5 py-4">
-          <div className="h-10 w-10 shrink-0 animate-pulse rounded-xl bg-ink-100" />
-          <div className="flex-1 space-y-2">
-            <div className="h-3 w-48 animate-pulse rounded bg-ink-100" />
-            <div className="h-2.5 w-28 animate-pulse rounded bg-ink-100" />
+  <div className="min-h-full bg-transparent">
+    <div className="mx-auto w-full max-w-[1500px]">
+      <div className="space-y-7">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <div className="mb-2 flex items-center gap-2">
+              <div className="h-3.5 w-3.5 animate-pulse rounded bg-ink-200" />
+              <div className="h-3 w-32 animate-pulse rounded bg-ink-200" />
+            </div>
+            <div className="h-8 w-56 animate-pulse rounded bg-ink-200" />
+            <div className="mt-3 h-4 w-72 max-w-full animate-pulse rounded bg-ink-200" />
           </div>
-          <div className="hidden h-3 w-20 animate-pulse rounded bg-ink-100 sm:block" />
-          <div className="hidden h-3 w-16 animate-pulse rounded bg-ink-100 md:block" />
-          <div className="h-3 w-14 animate-pulse rounded bg-ink-100" />
+          <div className="h-11 w-48 animate-pulse rounded-xl bg-ink-200" />
         </div>
-      ))}
+
+        <div className="h-12 w-full animate-pulse rounded-lg bg-ink-100" />
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="h-3 w-16 animate-pulse rounded-full bg-ink-100" />
+                <div className="h-9 w-9 animate-pulse rounded-xl bg-ink-100" />
+              </div>
+              <div className="mt-2 h-8 w-12 animate-pulse rounded bg-ink-100" />
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-3xl border border-ink-100 bg-white p-3 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="h-12 flex-1 animate-pulse rounded-2xl bg-ink-100" />
+            <div className="flex gap-2">
+              <div className="h-12 w-32 animate-pulse rounded-2xl bg-ink-100" />
+              <div className="h-12 w-12 animate-pulse rounded-2xl bg-ink-100" />
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-[26px] border border-ink-100 bg-white shadow-sm">
+          <div className="h-11 animate-pulse bg-ink-50" />
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-4 border-t border-ink-100 px-5 py-3.5"
+            >
+              <div className="h-10 w-10 animate-pulse rounded-xl bg-ink-100" />
+              <div className="flex-1 space-y-1.5">
+                <div className="h-3.5 w-1/3 animate-pulse rounded bg-ink-100" />
+                <div className="h-2.5 w-1/4 animate-pulse rounded bg-ink-100" />
+              </div>
+              <div className="hidden h-3 w-20 animate-pulse rounded bg-ink-100 sm:block" />
+              <div className="hidden h-5 w-16 animate-pulse rounded-full bg-ink-100 md:block" />
+              <div className="h-3 w-14 animate-pulse rounded bg-ink-100" />
+              <div className="flex gap-1">
+                {Array.from({ length: 4 }).map((_, j) => (
+                  <div
+                    key={j}
+                    className="h-8 w-8 animate-pulse rounded-lg bg-ink-100"
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   </div>
 );
+
+function StatCard({ label, value, icon: Icon, tone = 'ink' }) {
+  const tones = {
+    ink: { color: 'text-ink-900', bg: 'bg-ink-50' },
+    warning: { color: 'text-warning-600', bg: 'bg-warning-50' },
+    success: { color: 'text-success-600', bg: 'bg-success-50' },
+    danger: { color: 'text-danger-600', bg: 'bg-danger-50' },
+    primary: { color: 'text-primary-600', bg: 'bg-primary-50' },
+  };
+  const style = tones[tone] || tones.ink;
+
+  return (
+    <div className="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-ink-200 hover:shadow-md">
+      <div className="flex items-center justify-between gap-3">
+        <p className="truncate text-xs font-bold text-ink-500">{label}</p>
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${style.bg}`}
+        >
+          <Icon size={15} className={style.color} />
+        </span>
+      </div>
+      <p className={`mt-2 text-2xl font-black tracking-tight ${style.color}`}>
+        {typeof value === 'number' ? value.toLocaleString() : value}
+      </p>
+    </div>
+  );
+}
+
+function EmptyState({ filtered, onReset, icon: Icon = Inbox, title, description }) {
+  return (
+    <div className="flex min-h-[420px] items-center justify-center rounded-[28px] border border-dashed border-ink-200 bg-white px-6 py-12">
+      <div className="mx-auto max-w-md text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-primary-50 text-primary-600">
+          <Icon size={27} />
+        </div>
+        <h2 className="mt-5 text-lg font-black text-ink-950">
+          {filtered ? 'No matching items' : title}
+        </h2>
+        <p className="mt-2 text-sm font-medium leading-6 text-ink-500">
+          {filtered
+            ? 'Try adjusting your search or filters to find the item you are looking for.'
+            : description}
+        </p>
+        {filtered && (
+          <div className="mt-6 flex justify-center">
+            <button
+              type="button"
+              onClick={onReset}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50"
+            >
+              <RefreshCw size={15} />
+              Clear filters
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /* ============================================================
    MAIN COMPONENT
 ============================================================ */
 
 const AdminItems = () => {
-  const breakpoint = useBreakpoint();
+  /* ---------- URL + localStorage state ---------- */
+  const {
+    filters,
+    setFilters,
+    viewMode,
+    setViewMode,
+    gridCols,
+    setGridCols,
+    filtersExpanded,
+    setFiltersExpanded,
+  } = usePageState({
+    namespace: 'admin.items',
+    urlDefaults: URL_DEFAULTS,
+    filterKeys: FILTER_KEYS,
+  });
 
-  /* ----------------------------------------------------------
-     ITEMS
-  ---------------------------------------------------------- */
+  const {
+    search,
+    status: statusFilter,
+    category: categoryFilter,
+    condition: conditionFilter,
+    sortBy,
+    sortOrder,
+    page: currentPage,
+    tab: activeTab,
+  } = filters;
 
+  /* ---------- debounced search for fetch throttle only ---------- */
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  /* ---------- grid style derived from persisted gridCols ---------- */
+  const gridStyle = useMemo(
+    () => ({ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }),
+    [gridCols]
+  );
+
+  /* ---------- data state ---------- */
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [total, setTotal] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
-
-  /* ----------------------------------------------------------
-     SEARCH / FILTERS
-  ---------------------------------------------------------- */
-
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState('');
-
-  const [statusFilter, setStatusFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [conditionFilter, setConditionFilter] = useState('');
-
-  const [sortBy, setSortBy] = useState('created_at');
-  const [sortOrder, setSortOrder] = useState('desc');
-
-  /* ----------------------------------------------------------
-     TABS
-  ---------------------------------------------------------- */
-
-  const [activeTab, setActiveTab] = useState('all');
 
   const [featuredItems, setFeaturedItems] = useState([]);
   const [featuredLoading, setFeaturedLoading] = useState(false);
 
-  /* ----------------------------------------------------------
-     UI
-  ---------------------------------------------------------- */
-
-  const [filtersExpanded, setFiltersExpanded] = useState(false);
-
-  const [viewMode, setViewMode] = useState('table');
-
-  // Grid columns for "All Items" card view
-  const [gridCols, setGridCols] = useState(2);
-  const [isCustomCols, setIsCustomCols] = useState(false);
-
-  // Grid columns for "Featured" tab
-  const [gridColsFeatured, setGridColsFeatured] = useState(2);
-  const [isCustomColsFeatured, setIsCustomColsFeatured] = useState(false);
-
-  const [openMenuId, setOpenMenuId] = useState(null);
-
-  /* ----------------------------------------------------------
-     MODALS
-  ---------------------------------------------------------- */
-
+  /* ---------- modals ---------- */
   const [showItemModal, setShowItemModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
-
   const [showModerateModal, setShowModerateModal] = useState(false);
-
   const [showFeatureModal, setShowFeatureModal] = useState(false);
-
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-
   const [actionLoading, setActionLoading] = useState(false);
-
   const [moderateAction, setModerateAction] = useState('');
   const [moderateReason, setModerateReason] = useState('');
-
   const [featureCanApply, setFeatureCanApply] = useState(false);
-
-  /* ----------------------------------------------------------
-     GLOBAL STATS
-  ---------------------------------------------------------- */
 
   const [globalStats, setGlobalStats] = useState({
     total: 0,
@@ -227,63 +374,26 @@ const AdminItems = () => {
     flagged: 0,
   });
 
-
-  /* ==========================================================
-     RESPONSIVE COLUMNS
-  ========================================================== */
-
-  const getDefaultCols = useCallback((bp) => {
-    if (bp === 'xs' || bp === 'sm') return 1;
-    if (bp === 'md') return 2;
-    if (bp === 'lg') return 3;
-    if (bp === 'xl' || bp === '2xl') return 4;
-    return 2;
-  }, []);
-
-  // All Items grid columns
-  useEffect(() => {
-    if (!isCustomCols) {
-      setGridCols(getDefaultCols(breakpoint));
-    }
-  }, [breakpoint, isCustomCols, getDefaultCols]);
-
-  // Featured grid columns
-  useEffect(() => {
-    if (!isCustomColsFeatured) {
-      setGridColsFeatured(getDefaultCols(breakpoint));
-    }
-  }, [breakpoint, isCustomColsFeatured, getDefaultCols]);
-
-  /* ==========================================================
-     SEARCH DEBOUNCE
-  ========================================================== */
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const trimmed = searchInput.trim();
-      setSearch(trimmed);
-      setCurrentPage(1);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
-
-  /* ==========================================================
-     ACTIVE FILTER COUNT
-  ========================================================== */
-
+  /* ---------- derived filter counts ---------- */
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (statusFilter) count++;
     if (categoryFilter) count++;
     if (conditionFilter) count++;
     if (sortBy !== 'created_at') count++;
+    if (sortOrder !== 'desc') count++;
     return count;
-  }, [statusFilter, categoryFilter, conditionFilter, sortBy]);
+  }, [statusFilter, categoryFilter, conditionFilter, sortBy, sortOrder]);
 
-  /* ==========================================================
-     OPTIONS
-  ========================================================== */
+  const hasActiveFilters =
+    Boolean(statusFilter) ||
+    Boolean(categoryFilter) ||
+    Boolean(conditionFilter) ||
+    Boolean(search) ||
+    sortBy !== 'created_at' ||
+    sortOrder !== 'desc';
 
+  /* ---------- select options ---------- */
   const statusOptions = useMemo(
     () => [
       { value: '', label: 'All Statuses', icon: 'bi-funnel' },
@@ -328,28 +438,18 @@ const AdminItems = () => {
       { value: 'created_at', label: 'Newest First', icon: 'bi-sort-down' },
       { value: 'title', label: 'Title A-Z', icon: 'bi-sort-alpha-down' },
       { value: 'views_count', label: 'Most Views', icon: 'bi-eye' },
-      { value: 'applications_count', label: 'Most Applications', icon: 'bi-people' },
+      {
+        value: 'applications_count',
+        label: 'Most Applications',
+        icon: 'bi-people',
+      },
     ],
     []
   );
 
-  /* ==========================================================
-     CLOSE ACTION MENUS
-  ========================================================== */
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (openMenuId && !event.target.closest('.action-menu')) {
-        setOpenMenuId(null);
-      }
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, [openMenuId]);
-
-  /* ==========================================================
-     FETCH NORMAL ITEMS
-  ========================================================== */
+  /* ============================================================
+     FETCH
+  ============================================================ */
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -357,18 +457,20 @@ const AdminItems = () => {
       const params = {
         limit: ITEMS_PER_PAGE,
         offset: (currentPage - 1) * ITEMS_PER_PAGE,
-        ...(search && { search }),
+        ...(debouncedSearch && { search: debouncedSearch }),
         ...(statusFilter && { status: statusFilter }),
         ...(categoryFilter && { category: categoryFilter }),
         ...(conditionFilter && { condition: conditionFilter }),
         sortBy,
         sortOrder,
       };
+
       const response = await adminAPI.getItems(params);
       const data = response.data || {};
       const fetchedItems = data.items || [];
-      setItems(fetchedItems);
       const fetchedTotal = Number(data.total) || 0;
+
+      setItems(fetchedItems);
       setTotal(fetchedTotal);
       setTotalPages(Math.ceil(fetchedTotal / ITEMS_PER_PAGE));
     } catch (error) {
@@ -377,11 +479,15 @@ const AdminItems = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, search, statusFilter, categoryFilter, conditionFilter, sortBy, sortOrder]);
-
-  /* ==========================================================
-     FETCH FEATURED ITEMS
-  ========================================================== */
+  }, [
+    currentPage,
+    debouncedSearch,
+    statusFilter,
+    categoryFilter,
+    conditionFilter,
+    sortBy,
+    sortOrder,
+  ]);
 
   const fetchFeaturedItems = useCallback(async () => {
     setFeaturedLoading(true);
@@ -401,14 +507,11 @@ const AdminItems = () => {
     }
   }, []);
 
-  /* ==========================================================
-     FETCH GLOBAL STATS
-  ========================================================== */
-
   const fetchGlobalStats = useCallback(async () => {
     try {
       const response = await adminAPI.getAnalyticsOverview();
       const stats = response.data?.data?.items || {};
+
       setGlobalStats({
         total: stats.total ?? total,
         active: stats.active ?? 0,
@@ -420,26 +523,18 @@ const AdminItems = () => {
       console.error('Failed to fetch global stats:', error);
       setGlobalStats({
         total,
-        active: items.filter((item) => item.status === 'active').length,
-        pending: items.filter((item) => item.status === 'pending').length,
-        completed: items.filter((item) => item.status === 'completed').length,
-        flagged: items.filter((item) => item.is_flagged === true).length,
+        active: items.filter((i) => i.status === 'active').length,
+        pending: items.filter((i) => i.status === 'pending').length,
+        completed: items.filter((i) => i.status === 'completed').length,
+        flagged: items.filter((i) => i.is_flagged === true).length,
       });
     }
   }, [total, items]);
 
-  /* ==========================================================
-     EFFECTS
-  ========================================================== */
-
   useEffect(() => {
-    if (activeTab === 'all') {
-      fetchItems();
-    }
+    if (activeTab === 'all') fetchItems();
   }, [fetchItems, activeTab]);
 
-  // Fetch featured items on mount (and keep in sync), so the tab badge
-  // always reflects the real featured count — not only after the tab is opened.
   useEffect(() => {
     fetchFeaturedItems();
   }, [fetchFeaturedItems]);
@@ -448,68 +543,27 @@ const AdminItems = () => {
     fetchGlobalStats();
   }, [fetchGlobalStats]);
 
-  /* ==========================================================
-     FILTER HANDLERS
-  ========================================================== */
+  /* ============================================================
+     ACTIONS
+  ============================================================ */
 
-  const handleFilterChange = (setter) => (value) => {
-    setter(value);
-    setCurrentPage(1);
+  const clearAllFilters = () => setFilters({ ...FILTER_RESET });
+
+  const refreshAfterMutation = async () => {
+    await Promise.all([fetchItems(), fetchGlobalStats(), fetchFeaturedItems()]);
   };
 
-  const clearAllFilters = () => {
-    setSearchInput('');
-    setSearch('');
-    setStatusFilter('');
-    setCategoryFilter('');
-    setConditionFilter('');
-    setSortBy('created_at');
-    setSortOrder('desc');
-    setCurrentPage(1);
+  const openItemDetails = (item) => {
+    setSelectedItem(item);
+    setShowItemModal(true);
   };
-
-  /* ==========================================================
-     STATUS BADGE
-  ========================================================== */
-
-  const getStatusBadge = (itemStatus, appsCount) => {
-    if (!appsCount && itemStatus === 'active') {
-      return {
-        label: 'No Apps',
-        icon: 'bi-dash-circle',
-        classes: 'bg-amber-50 text-amber-700 border-amber-200',
-      };
-    }
-    const display = getStatusDisplay(itemStatus);
-    const colorMap = {
-      green: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      yellow: 'bg-amber-50 text-amber-700 border-amber-200',
-      blue: 'bg-sky-50 text-sky-700 border-sky-200',
-      red: 'bg-rose-50 text-rose-700 border-rose-200',
-      gray: 'bg-ink-50 text-ink-600 border-ink-200',
-    };
-    return {
-      label: display?.label || itemStatus,
-      icon: display?.icon || 'bi-circle',
-      classes: colorMap[display?.color] || colorMap.gray,
-    };
-  };
-
-  /* ==========================================================
-     OPEN MODERATION
-  ========================================================== */
 
   const openModerateModal = (item) => {
     setSelectedItem(item);
     setModerateAction('');
     setModerateReason('');
     setShowModerateModal(true);
-    setOpenMenuId(null);
   };
-
-  /* ==========================================================
-     OPEN FEATURE MODAL
-  ========================================================== */
 
   const openFeatureModal = (item) => {
     const featured = getFeaturedData(item);
@@ -519,9 +573,20 @@ const AdminItems = () => {
     setShowModerateModal(false);
   };
 
-  /* ==========================================================
-     HANDLE MODERATION
-  ========================================================== */
+  const closeModerationState = () => {
+    setShowModerateModal(false);
+    setSelectedItem(null);
+    setModerateAction('');
+    setModerateReason('');
+  };
+
+  const closeFeatureState = () => {
+    setShowFeatureModal(false);
+    setSelectedItem(null);
+    setModerateAction('');
+    setModerateReason('');
+    setFeatureCanApply(false);
+  };
 
   const handleModerateItem = async () => {
     if (!selectedItem || !moderateAction) return;
@@ -529,20 +594,30 @@ const AdminItems = () => {
       openFeatureModal(selectedItem);
       return;
     }
+
     setActionLoading(true);
     try {
       await adminAPI.moderateItem(selectedItem.id, {
         action: moderateAction,
         reason: moderateReason || undefined,
       });
+
       const actionLabels = {
         approve: 'approved',
         reject: 'rejected',
+        cancel: 'cancelled',
+        complete: 'completed',
         unfeature: 'unfeatured',
         flag: 'flagged',
         unflag: 'unflagged',
+        allow_apply: 'opened for applications',
+        disable_apply: 'closed for applications',
       };
-      toast.success(`Item ${actionLabels[moderateAction] || 'updated'} successfully`);
+
+      toast.success(
+        `Item ${actionLabels[moderateAction] || 'updated'} successfully`
+      );
+
       closeModerationState();
       await refreshAfterMutation();
     } catch (error) {
@@ -552,10 +627,6 @@ const AdminItems = () => {
       setActionLoading(false);
     }
   };
-
-  /* ==========================================================
-     FEATURE ITEM
-  ========================================================== */
 
   const handleFeatureItem = async () => {
     if (!selectedItem) return;
@@ -580,10 +651,6 @@ const AdminItems = () => {
     }
   };
 
-  /* ==========================================================
-     DELETE ITEM
-  ========================================================== */
-
   const handleDeleteItem = async () => {
     if (!selectedItem) return;
     setActionLoading(true);
@@ -601,912 +668,733 @@ const AdminItems = () => {
     }
   };
 
-  /* ==========================================================
-     REFRESH AFTER MUTATION
-  ========================================================== */
+  /* ============================================================
+     ACTIVE FILTER CHIPS
+  ============================================================ */
 
-  const refreshAfterMutation = async () => {
-    const requests = [fetchItems(), fetchGlobalStats(), fetchFeaturedItems()];
-    await Promise.all(requests);
-  };
+  const activeFilterChips = [
+    statusFilter && {
+      key: 'status',
+      label: getStatusDisplay(statusFilter).label || statusFilter,
+      onRemove: () => setFilters({ status: '' }),
+    },
+    categoryFilter && {
+      key: 'category',
+      label: getCategoryByValue(categoryFilter)?.label || categoryFilter,
+      onRemove: () => setFilters({ category: '' }),
+    },
+    conditionFilter && {
+      key: 'condition',
+      label: getConditionByValue(conditionFilter)?.label || conditionFilter,
+      onRemove: () => setFilters({ condition: '' }),
+    },
+    search && {
+      key: 'search',
+      label: `Search: ${search}`,
+      onRemove: () => setFilters({ search: '' }),
+    },
+    sortBy !== 'created_at' && {
+      key: 'sort',
+      label: sortOptions.find((o) => o.value === sortBy)?.label || sortBy,
+      onRemove: () => setFilters({ sortBy: 'created_at' }),
+    },
+    sortOrder !== 'desc' && {
+      key: 'order',
+      label: sortOrder === 'asc' ? 'Ascending' : 'Descending',
+      onRemove: () => setFilters({ sortOrder: 'desc' }),
+    },
+  ].filter(Boolean);
 
-  /* ==========================================================
-     CLOSE MODERATION
-  ========================================================== */
+  /* ============================================================
+     MENU ITEMS
+  ============================================================ */
 
-  const closeModerationState = () => {
-    setShowModerateModal(false);
-    setSelectedItem(null);
-    setModerateAction('');
-    setModerateReason('');
-  };
+  const buildMenuItems = (item) => [
+    {
+      key: 'view',
+      icon: Eye,
+      label: 'View Details',
+      onClick: () => openItemDetails(item),
+    },
+    {
+      key: 'moderate',
+      icon: ShieldCheck,
+      label: 'Moderate',
+      onClick: () => openModerateModal(item),
+    },
+    {
+      key: 'view-site',
+      icon: CircleArrowOutUpRight,
+      label: 'View on Site',
+      onClick: () => {
+        window.open(`/item/${item.id}`, '_blank', 'noopener,noreferrer');
+      },
+    },
+    { key: 'divider-delete', divider: true },
+    {
+      key: 'delete',
+      icon: Trash2,
+      label: 'Delete',
+      danger: true,
+      onClick: () => {
+        setSelectedItem(item);
+        setShowDeleteModal(true);
+      },
+    },
+  ];
 
-  /* ==========================================================
-     CLOSE FEATURE
-  ========================================================== */
-
-  const closeFeatureState = () => {
-    setShowFeatureModal(false);
-    setSelectedItem(null);
-    setModerateAction('');
-    setModerateReason('');
-    setFeatureCanApply(false);
-  };
-
-  /* ==========================================================
-     OPEN ITEM DETAILS
-  ========================================================== */
-
-  const openItemDetails = (item) => {
-    setSelectedItem(item);
-    setShowItemModal(true);
-    setOpenMenuId(null);
-  };
-
-  /* ==========================================================
-     LOADING SCREEN
-  ========================================================== */
+  /* ============================================================
+     LOADING
+  ============================================================ */
 
   if (loading && items.length === 0 && activeTab === 'all') {
     return <ItemsSkeleton />;
   }
 
-  /* ==========================================================
+  /* ============================================================
      RENDER
-  ========================================================== */
+  ============================================================ */
 
   return (
-    <div className="space-y-5">
-      {/* ======================================================
-          HEADER
-      ====================================================== */}
-      <PageNavigation />
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <div className="mb-2 flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-primary-400" />
-            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-primary-600">
-              Item management
-            </span>
-          </div>
-          <h1 className="text-2xl font-extrabold tracking-[-0.03em] text-ink-900 sm:text-3xl">
-            Item Management
-          </h1>
-          <p className="mt-1 text-sm text-ink-500">
-            {total.toLocaleString()} items · Manage and moderate listings
-          </p>
-        </div>
-      </div>
-
-      {/* ======================================================
-          TABS (redesigned — animated sliding indicator)
-      ====================================================== */}
-
-      <div className="flex justify-between px-5 w-full items-center gap-3 border-b border-ink-200/60 bg-transparent px-1 pb-2">
-  {/* All Items Tab */}
-  <button
-    type="button"
-    onClick={() => setActiveTab('all')}
-    className={`group relative flex items-center gap-2.5 pb-2 text-xs font-bold transition-colors ${
-      activeTab === 'all' ? 'text-ink-900' : 'text-ink-400 hover:text-ink-700'
-    }`}
-  >
-    <div className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${
-      activeTab === 'all' ? 'bg-primary-50 text-primary-600' : 'bg-ink-100/60 text-ink-400 group-hover:bg-ink-100'
-    }`}>
-      <Grid3x3 className="h-4 w-4" />
-    </div>
-    <span>All Items</span>
-    <motion.span
-      key={`all-${total}`}
-      initial={{ scale: 0.8, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.2 }}
-      className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold transition-colors ${
-        activeTab === 'all' ? 'bg-primary-100/60 text-primary-700' : 'bg-ink-100 text-ink-500'
-      }`}
-    >
-      {total.toLocaleString()}
-    </motion.span>
-
-    {activeTab === 'all' && (
-      <motion.div
-        layoutId="activeUnderlineTab"
-        transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-        className="absolute -bottom-2 inset-x-0 h-0.5 bg-primary-600 rounded-full"
-      />
-    )}
-  </button>
-
-  {/* Featured Tab */}
-  <button
-    type="button"
-    onClick={() => setActiveTab('featured')}
-    className={`group relative flex items-center gap-2.5 pb-2 text-xs font-bold transition-colors ${
-      activeTab === 'featured' ? 'text-ink-900' : 'text-ink-400 hover:text-amber-700'
-    }`}
-  >
-    <div className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${
-      activeTab === 'featured' ? 'bg-amber-50 text-amber-600' : 'bg-ink-100/60 text-ink-400 group-hover:bg-amber-50/60'
-    }`}>
-      <Star className={`h-4 w-4 ${activeTab === 'featured' ? 'fill-current text-amber-500' : ''}`} />
-    </div>
-    <span>Featured</span>
-    <motion.span
-      key={`featured-${featuredItems.length}`}
-      initial={{ scale: 0.8, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.2 }}
-      className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold transition-colors ${
-        activeTab === 'featured' ? 'bg-amber-100/80 text-amber-800' : 'bg-amber-100/40 text-amber-700'
-      }`}
-    >
-      {featuredLoading ? '···' : featuredItems.length}
-    </motion.span>
-
-    {activeTab === 'featured' && (
-      <motion.div
-        layoutId="activeUnderlineTab"
-        transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-        className="absolute -bottom-2 inset-x-0 h-0.5 bg-amber-500 rounded-full"
-      />
-    )}
-  </button>
-</div>
-
-
-
-      {/* ======================================================
-          CONTENT
-      ====================================================== */}
-
-      <AnimatePresence mode="wait">
-        {activeTab === 'featured' ? (
-          <motion.div
-            key="featured"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
-          >
-            <FeaturedItemsSection
-              items={featuredItems}
-              loading={featuredLoading}
-              onView={openItemDetails}
-              onModerate={openModerateModal}
-              formatDate={formatDate}
-              formatDateTime={formatDateTime}
-              getStatusBadge={getStatusBadge}
-              // Grid controls
-              gridCols={gridColsFeatured}
-              setGridCols={setGridColsFeatured}
-              isCustomCols={isCustomColsFeatured}
-              setIsCustomCols={setIsCustomColsFeatured}
-              getDefaultCols={getDefaultCols}
-              breakpoint={breakpoint}
-            />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="all"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
-            className="space-y-5"
-          >
-            {/* ==================================================
-                STATS
-            ================================================== */}
-
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <StatCard label="Total" value={globalStats.total} icon={Package} />
-              <StatCard
-                label="Active"
-                value={globalStats.active}
-                icon={CheckCircle2}
-                color="text-emerald-600"
-                bg="bg-emerald-50"
-              />
-              <StatCard
-                label="Pending"
-                value={globalStats.pending}
-                icon={Clock}
-                color="text-amber-600"
-                bg="bg-amber-50"
-              />
-              <StatCard
-                label="Completed"
-                value={globalStats.completed}
-                icon={Trophy}
-                color="text-sky-600"
-                bg="bg-sky-50"
-              />
-              <StatCard
-                label="Flagged"
-                value={globalStats.flagged}
-                icon={Flag}
-                color="text-rose-600"
-                bg="bg-rose-50"
-              />
-              <StatCard
-                label="Featured"
-                value={featuredItems.length}
-                icon={Star}
-                color="text-amber-600"
-                bg="bg-amber-50"
-              />
+    <div className="min-h-full bg-transparent">
+      <div className="mx-auto w-full max-w-[1500px]">
+        {/* HEADER */}
+        <header className="mb-7">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+              <div className="mb-2 flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary-600">
+                <Package size={14} />
+                <span>Item management</span>
+              </div>
+              <h1 className="text-2xl font-black tracking-tight text-ink-950 sm:text-3xl">
+                Item Management
+              </h1>
+              <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium leading-6 text-ink-500">
+                <span>{total.toLocaleString()} items</span>
+                <span className="text-ink-300">·</span>
+                <span>Manage and moderate listings</span>
+              </p>
             </div>
+          </div>
+        </header>
 
-            {/* ==================================================
-                FILTER TOOLBAR
-            ================================================== */}
+        {/* TABS */}
+        <div className="mb-7 flex w-full items-center justify-between gap-3 border-b border-ink-100 pb-2">
+          <button
+            type="button"
+            onClick={() => setFilters({ tab: 'all' })}
+            className={`group relative flex items-center gap-2.5 pb-2 text-xs font-extrabold transition-colors ${
+              activeTab === 'all'
+                ? 'text-ink-950'
+                : 'text-ink-400 hover:text-ink-700'
+            }`}
+          >
+            <span
+              className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${
+                activeTab === 'all'
+                  ? 'bg-primary-50 text-primary-600'
+                  : 'bg-ink-100/60 text-ink-400 group-hover:bg-ink-100'
+              }`}
+            >
+              <LayoutGrid size={14} />
+            </span>
+            <span>All Items</span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold transition-colors ${
+                activeTab === 'all'
+                  ? 'bg-primary-100 text-primary-700'
+                  : 'bg-ink-100 text-ink-500'
+              }`}
+            >
+              {total.toLocaleString()}
+            </span>
+            {activeTab === 'all' && (
+              <motion.span
+                layoutId="activeUnderlineTab"
+                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                className="absolute inset-x-0 -bottom-2 h-0.5 rounded-full bg-primary-600"
+              />
+            )}
+          </button>
 
-            <div className="overflow-visible rounded-2xl border border-ink-100/80 bg-white shadow-sm">
-              <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <button
-                  type="button"
-                  onClick={() => setFiltersExpanded((value) => !value)}
-                  className="flex items-center gap-3 text-left transition-colors"
+          <button
+            type="button"
+            onClick={() => setFilters({ tab: 'featured' })}
+            className={`group relative flex items-center gap-2.5 pb-2 text-xs font-extrabold transition-colors ${
+              activeTab === 'featured'
+                ? 'text-ink-950'
+                : 'text-ink-400 hover:text-ink-700'
+            }`}
+          >
+            <span
+              className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${
+                activeTab === 'featured'
+                  ? 'bg-warning-50 text-warning-600'
+                  : 'bg-ink-100/60 text-ink-400 group-hover:bg-warning-50/60'
+              }`}
+            >
+              <Star
+                size={14}
+                fill={activeTab === 'featured' ? 'currentColor' : 'none'}
+              />
+            </span>
+            <span>Featured</span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold transition-colors ${
+                activeTab === 'featured'
+                  ? 'bg-warning-100 text-warning-800'
+                  : 'bg-warning-50 text-warning-700'
+              }`}
+            >
+              {featuredLoading ? '···' : featuredItems.length}
+            </span>
+            {activeTab === 'featured' && (
+              <motion.span
+                layoutId="activeUnderlineTab"
+                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                className="absolute inset-x-0 -bottom-2 h-0.5 rounded-full bg-warning-500"
+              />
+            )}
+          </button>
+        </div>
+
+        {/* CONTENT */}
+        <AnimatePresence mode="wait">
+          {activeTab === 'featured' ? (
+            <motion.div
+              key="featured"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
+              <FeaturedItemsSection
+                items={featuredItems}
+                loading={featuredLoading}
+                onView={openItemDetails}
+                onModerate={openModerateModal}
+                formatDate={formatDate}
+                gridCols={gridCols}
+                setGridCols={setGridCols}
+                gridStyle={gridStyle}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="all"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-7"
+            >
+              {/* STATS */}
+              <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                <StatCard label="Total" value={globalStats.total} icon={Package} tone="ink" />
+                <StatCard label="Active" value={globalStats.active} icon={CheckCircle2} tone="success" />
+                <StatCard label="Pending" value={globalStats.pending} icon={Clock} tone="warning" />
+                <StatCard label="Completed" value={globalStats.completed} icon={Trophy} tone="primary" />
+                <StatCard label="Flagged" value={globalStats.flagged} icon={Flag} tone="danger" />
+                <StatCard label="Featured" value={featuredItems.length} icon={Star} tone="warning" />
+              </section>
+
+              {/* FILTER BAR */}
+              <FilterBar
+                searchValue={search}
+                onSearchChange={(v) => setFilters({ search: v })}
+                searchPlaceholder="Search by title, description, or category..."
+                filtersOpen={filtersExpanded}
+                onToggleFilters={() => setFiltersExpanded((v) => !v)}
+                activeFilterCount={activeFilterCount}
+                onRefresh={fetchItems}
+                refreshing={loading}
+                activeFilters={activeFilterChips}
+                onClearAll={clearAllFilters}
+																rightSlot={<ViewToggle value={viewMode} onChange={setViewMode} />}
+              >
+                <div
+                  className={`grid gap-4 ${
+                    viewMode === 'cards'
+                      ? 'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5'
+                      : 'md:grid-cols-2 lg:grid-cols-4'
+                  }`}
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary-100 bg-primary-50 text-primary-600">
-                    <Filter className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-extrabold text-ink-800">Filters & Search</p>
-                    <p className="mt-0.5 text-xs text-ink-400">
-                      {activeFilterCount > 0
-                        ? `${activeFilterCount} active filter${activeFilterCount > 1 ? 's' : ''}`
-                        : 'No active filters'}
-                      {searchInput && ' · Search active'}
-                    </p>
-                  </div>
-                </button>
+                  <Select
+                    options={statusOptions}
+                    value={statusFilter}
+                    onChange={(v) => setFilters({ status: v })}
+                    placeholder="All Statuses"
+                    showIcon
+                  />
 
-                <div className="flex items-center justify-between gap-3 border-t border-ink-50 pt-3 sm:justify-end sm:border-0 sm:pt-0">
-                  {activeFilterCount > 0 && (
-                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-600 px-1.5 text-[10px] font-black text-white">
-                      {activeFilterCount}
-                    </span>
+                  <Select
+                    options={categoryOptions}
+                    value={categoryFilter}
+                    onChange={(v) => setFilters({ category: v })}
+                    placeholder="All Categories"
+                    showIcon
+                    searchable
+                  />
+
+                  <Select
+                    options={conditionOptions}
+                    value={conditionFilter}
+                    onChange={(v) => setFilters({ condition: v })}
+                    placeholder="All Conditions"
+                    showIcon
+                  />
+
+                  <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <Select
+                        options={sortOptions}
+                        value={sortBy}
+                        onChange={(v) => setFilters({ sortBy: v })}
+                        placeholder="Sort By"
+                        showIcon
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFilters({
+                          sortOrder: sortOrder === 'asc' ? 'desc' : 'asc',
+                        })
+                      }
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-ink-200 bg-white text-ink-600 transition hover:bg-ink-50"
+                      title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                    >
+                      {sortOrder === 'asc' ? (
+                        <ArrowUp size={15} />
+                      ) : (
+                        <ArrowDown size={15} />
+                      )}
+                    </button>
+                  </div>
+
+                  {viewMode === 'cards' && (
+                    <ColumnStepper
+                      label="Grid columns"
+                      value={gridCols}
+                      onChange={setGridCols}
+                      min={1}
+                      max={4}
+                    />
                   )}
 
-                  {/* View mode */}
-                  {viewMode === 'table' ? (
-                    <div className="flex items-center rounded-xl border border-ink-200/80 bg-ink-100 p-1 shadow-sm">
-                      <button
-                        type="button"
-                        onClick={() => setViewMode('table')}
-                        className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                          viewMode === 'table'
-                            ? 'bg-white text-primary-700 shadow-sm'
-                            : 'text-ink-500 hover:text-ink-800'
-                        }`}
-                      >
-                        <TableIcon className="h-3.5 w-3.5" />
-                        <span>Table</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setViewMode('cards')}
-                        className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-ink-500 transition hover:text-ink-800"
-                      >
-                        <LayoutGrid className="h-3.5 w-3.5" />
-                        <span>Cards</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center rounded-xl border border-ink-200/80 bg-ink-100 p-1 shadow-sm">
-                      <button
-                        type="button"
-                        onClick={() => setViewMode('table')}
-                        className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-ink-500 transition hover:text-ink-800"
-                      >
-                        <TableIcon className="h-3.5 w-3.5" />
-                        <span>Table</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsCustomCols(true);
-                          setGridCols((value) => Math.max(1, value - 1));
-                        }}
-                        disabled={gridCols <= 1}
-                        className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-500 transition hover:bg-white/50 hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-30"
-                        title="Fewer columns"
-                      >
-                        <Minus className="h-3 w-3" />
-                      </button>
-                      <span className="min-w-[1.5rem] px-2 text-center text-xs font-bold text-ink-700">
-                        {gridCols}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsCustomCols(true);
-                          setGridCols((value) => Math.min(4, value + 1));
-                        }}
-                        disabled={gridCols >= 4}
-                        className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-500 transition hover:bg-white/50 hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-30"
-                        title="More columns"
-                      >
-                        <Plus className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
+                </div>
+              </FilterBar>
 
+              {/* RESULT SUMMARY */}
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-bold text-ink-500">
+                  {items.length === total
+                    ? total === 1
+                      ? '1 item'
+                      : `${total.toLocaleString()} items`
+                    : `Showing ${items.length} of ${total.toLocaleString()} items`}
+                </p>
+                {hasActiveFilters && (
                   <button
                     type="button"
-                    onClick={() => setFiltersExpanded((value) => !value)}
-                    className="rounded-xl border border-ink-200/80 bg-ink-100 px-3.5 py-2 text-xs font-bold text-ink-700 shadow-sm transition hover:bg-ink-50"
+                    onClick={clearAllFilters}
+                    className="text-xs font-extrabold text-primary-600 hover:text-primary-700"
                   >
-                    <span>{filtersExpanded ? 'Hide' : 'Expand'}</span>
-                    {filtersExpanded ? (
-                      <ChevronUp className="ml-1 inline h-3 w-3" />
-                    ) : (
-                      <ChevronDown className="ml-1 inline h-3 w-3" />
-                    )}
+                    Reset filters
                   </button>
-                </div>
+                )}
               </div>
 
-              <AnimatePresence>
-                {filtersExpanded && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.25, ease: 'easeInOut' }}
-                    className="overflow-hidden border-t border-ink-100"
-                  >
-                    <div className="space-y-4 bg-ink-50/20 px-5 py-4">
-                      {/* Search */}
-                      <div className="relative">
-                        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                        <input
-                          type="text"
-                          value={searchInput}
-                          onChange={(e) => setSearchInput(e.target.value)}
-                          placeholder="Search items by title, description, category..."
-                          className="w-full rounded-xl border border-ink-100 bg-white py-3 pl-10 pr-4 text-sm text-ink-800 outline-none transition-all placeholder:text-ink-400 focus:border-primary-300 focus:ring-4 focus:ring-primary-100"
-                        />
-                      </div>
+              {/* LIST / GRID */}
+              {items.length === 0 ? (
+                <EmptyState
+                  filtered={hasActiveFilters}
+                  onReset={clearAllFilters}
+                  icon={Package}
+                  title="No items yet"
+                  description="No items have been listed yet."
+                />
+              ) : viewMode === 'table' ? (
+                <div className="overflow-hidden rounded-[26px] border border-ink-100 bg-white shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-ink-100 bg-ink-50/60">
+                          <th className="px-5 py-3 text-left text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink-400">
+                            Item
+                          </th>
+                          <th className="px-5 py-3 text-left text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink-400">
+                            Category
+                          </th>
+                          <th className="hidden px-5 py-3 text-center text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink-400 md:table-cell">
+                            Condition
+                          </th>
+                          <th className="px-5 py-3 text-left text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink-400">
+                            Status
+                          </th>
+                          <th className="hidden px-5 py-3 text-center text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink-400 sm:table-cell">
+                            Views
+                          </th>
+                          <th className="hidden px-5 py-3 text-center text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink-400 sm:table-cell">
+                            Apps
+                          </th>
+                          <th className="hidden whitespace-nowrap px-5 py-3 text-left text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink-400 lg:table-cell">
+                            Listed
+                          </th>
+                          <th className="px-5 py-3 text-right text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink-400">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
 
-                      {/* Filters */}
-                      <div className="flex flex-col gap-3 sm:flex-row">
-                        <Select
-                          options={statusOptions}
-                          value={statusFilter}
-                          onChange={handleFilterChange(setStatusFilter)}
-                          placeholder="All Statuses"
-                          showIcon
-                          className="w-full sm:flex-1"
-                        />
-                        <Select
-                          options={categoryOptions}
-                          value={categoryFilter}
-                          onChange={handleFilterChange(setCategoryFilter)}
-                          placeholder="All Categories"
-                          showIcon
-                          searchable
-                          className="w-full sm:flex-1"
-                        />
-                        <Select
-                          options={conditionOptions}
-                          value={conditionFilter}
-                          onChange={handleFilterChange(setConditionFilter)}
-                          placeholder="All Conditions"
-                          showIcon
-                          className="w-full sm:flex-1"
-                        />
-                      </div>
+                      <tbody className="divide-y divide-ink-100">
+                        {items.map((item) => {
+                          const badge = getStatusBadge(
+                            item.status,
+                            item.applications_count
+                          );
+                          const category = getCategoryByValue(item.category);
+                          const condition = getConditionByValue(item.condition);
+                          const featured = getFeaturedData(item);
+                          const BadgeIcon = badge.Icon;
 
-                      {/* Sort */}
-                      <div className="flex flex-wrap items-center gap-3">
-                        <Select
-                          options={sortOptions}
-                          value={sortBy}
-                          onChange={(value) => {
-                            setSortBy(value);
-                            setCurrentPage(1);
-                          }}
-                          placeholder="Sort By"
-                          showIcon
-                          className="w-full sm:w-48"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSortOrder((value) => (value === 'asc' ? 'desc' : 'asc'));
-                            setCurrentPage(1);
-                          }}
-                          className="inline-flex items-center justify-center gap-1 rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm font-bold text-ink-700 shadow-sm transition hover:bg-ink-50"
-                          title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-                        >
-                          {sortOrder === 'asc' ? (
-                            <ChevronUp className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </button>
-                        {(activeFilterCount > 0 || searchInput) && (
-                          <button
-                            type="button"
-                            onClick={clearAllFilters}
-                            className="ml-auto inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-rose-600 transition-colors hover:bg-rose-50"
-                          >
-                            <XCircle className="h-3.5 w-3.5" />
-                            Clear All
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* ==================================================
-                EMPTY
-            ================================================== */}
-
-            {items.length === 0 ? (
-              <EmptyItemsState
-                search={searchInput}
-                statusFilter={statusFilter}
-                categoryFilter={categoryFilter}
-                conditionFilter={conditionFilter}
-              />
-            ) : (
-              <>
-                {/* ==================================================
-                    TABLE
-                ================================================== */}
-
-                {viewMode === 'table' ? (
-                  <div className="overflow-hidden rounded-2xl border border-ink-100/80 bg-white shadow-sm">
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-ink-100 bg-ink-50/60">
-                            <th className="px-5 py-3 text-left text-[10px] font-black uppercase tracking-[0.12em] text-ink-400">
-                              Item
-                            </th>
-                            <th className="px-5 py-3 text-left text-[10px] font-black uppercase tracking-[0.12em] text-ink-400">
-                              Category
-                            </th>
-                            <th className="w-20 px-4 py-3 text-center text-[10px] font-black uppercase tracking-[0.12em] text-ink-400">
-                              Condition
-                            </th>
-                            <th className="px-5 py-3 text-left text-[10px] font-black uppercase tracking-[0.12em] text-ink-400">
-                              Status
-                            </th>
-                            <th className="px-4 py-3 text-center text-[10px] font-black uppercase tracking-[0.12em] text-ink-400">
-                              Views
-                            </th>
-                            <th className="px-4 py-3 text-center text-[10px] font-black uppercase tracking-[0.12em] text-ink-400">
-                              Apps
-                            </th>
-                            <th className="whitespace-nowrap px-5 py-3 text-left text-[10px] font-black uppercase tracking-[0.12em] text-ink-400">
-                              Listed
-                            </th>
-                            <th className="px-5 py-3 text-right text-[10px] font-black uppercase tracking-[0.12em] text-ink-400">
-                              Actions
-                            </th>
-                          </tr>
-                        </thead>
-
-                        <tbody className="divide-y divide-ink-50">
-                          {items.map((item) => {
-                            const badge = getStatusBadge(item.status, item.applications_count);
-                            const category = getCategoryByValue(item.category);
-                            const condition = getConditionByValue(item.condition);
-                            const featured = getFeaturedData(item);
-                            const isMenuOpen = openMenuId === item.id;
-
-                            return (
-                              <motion.tr
-                                key={item.id}
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                className="group transition-colors hover:bg-primary-50/20"
-                              >
-                                {/* Item */}
-                                <td className="px-5 py-3.5">
-                                  <div className="flex items-center gap-3">
-                                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-ink-100 bg-ink-100">
-                                      {item.images?.[0] ? (
-                                        <img
-                                          src={item.images[0]}
-                                          alt=""
-                                          className="img h-full w-full object-cover"
-                                        />
-                                      ) : (
-                                        <div className="flex h-full w-full items-center justify-center">
-                                          <ImageIcon className="img h-4 w-4 text-ink-300" />
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    <div className="min-w-0">
-                                      <button
-                                        type="button"
-                                        onClick={() => openItemDetails(item)}
-                                        className="block max-w-xs truncate text-left text-sm font-extrabold text-ink-900 transition hover:text-primary-600"
-                                      >
-                                        {item.title}
-                                      </button>
-                                      <div className="mt-0.5 flex items-center gap-1.5">
-                                        <span className="text-xs font-medium text-ink-400">
-                                          {item.donor?.full_name || 'User'}
-                                        </span>
+                          return (
+                            <tr
+                              key={item.id}
+                              className="transition hover:bg-ink-50/60"
+                            >
+                              <td className="px-5 py-3.5">
+                                <div className="flex items-center gap-3">
+                                  <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-ink-100 bg-ink-50">
+                                    {item.images?.[0] ? (
+                                      <img
+                                        src={item.images[0]}
+                                        alt=""
+                                        className="h-full w-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="flex h-full w-full items-center justify-center text-ink-300">
+                                        <ImageIcon size={14} />
                                       </div>
-                                      <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                                        {item.is_flagged && (
-                                          <span className="inline-flex items-center gap-0.5 rounded border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-600">
-                                            <Flag className="h-3 w-3 fill-current" />
-                                            Flagged
-                                          </span>
-                                        )}
-                                        {featured.is_featured && (
-                                          <span className="inline-flex items-center gap-0.5 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-600">
-                                            <Star className="h-3 w-3 fill-current" />
-                                            Featured
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
+                                    )}
                                   </div>
-                                </td>
-
-                                {/* Category */}
-                                <td className="px-5 py-3.5">
-                                  <div className="flex items-center gap-1.5">
-                                    {category &&
-                                      renderIcon(category.icon, 'h-4 w-4', category.color)}
-                                    <span className="text-sm font-bold text-ink-600">
-                                      {category?.label || item.category}
-                                    </span>
-                                  </div>
-                                </td>
-
-                                {/* Condition */}
-                                <td className="whitespace-nowrap px-4 py-3.5 text-center text-[10px]">
-                                  {condition && (
-                                    <span
-                                      title={condition.label}
-                                      className="inline-flex items-center gap-1 rounded-full border border-ink-200 bg-white px-2 py-1.5"
-                                    >
-                                      {renderIcon(condition.icon, 'h-4 w-4', condition.color)}
-                                      <span className="inline">{condition.label}</span>
-                                    </span>
-                                  )}
-                                </td>
-
-                                {/* Status */}
-                                <td className="px-5 py-3.5">
-                                  <span
-                                    className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[10px] font-bold ${badge.classes}`}
-                                  >
-                                    <i className={`bi ${badge.icon} text-[10px]`} />
-                                    {badge.label}
-                                  </span>
-                                </td>
-
-                                {/* Views */}
-                                <td className="px-4 py-3.5 text-center text-sm font-bold text-ink-600">
-                                  {item.views_count?.toLocaleString() || 0}
-                                </td>
-
-                                {/* Apps */}
-                                <td className="px-4 py-3.5 text-center">
-                                  <span
-                                    className={`text-sm font-extrabold ${
-                                      !item.applications_count ? 'text-amber-500' : 'text-ink-700'
-                                    }`}
-                                  >
-                                    {item.applications_count?.toLocaleString() || 0}
-                                  </span>
-                                </td>
-
-                                {/* Listed */}
-                                <td className="whitespace-nowrap px-5 py-3.5 text-sm font-medium text-ink-500">
-                                  {formatDate(item.created_at)}
-                                </td>
-
-                                {/* Actions */}
-                                <td className="px-5 py-3.5">
-                                  <div className="flex items-center justify-end gap-1">
+                                  <div className="min-w-0">
                                     <button
                                       type="button"
                                       onClick={() => openItemDetails(item)}
-                                      className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition-all hover:bg-primary-50/60 hover:text-primary-600"
-                                      title="View Details"
+                                      className="block max-w-xs truncate text-left text-sm font-extrabold text-ink-950 transition hover:text-primary-600"
                                     >
-                                      <Eye className="h-4 w-4" />
+                                      {item.title}
                                     </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => openModerateModal(item)}
-                                      className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition-all hover:bg-primary-50/60 hover:text-primary-600"
-                                      title="Moderate"
-                                    >
-                                      <ShieldCheck className="h-4 w-4" />
-                                    </button>
-                                    <Link
-                                      to={`/item/${item.id}`}
-                                      className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition-all hover:bg-primary-50/60 hover:text-primary-600"
-                                      title="View on Site"
-                                    >
-                                      <CircleArrowOutUpRight className="h-4 w-4" />
-                                    </Link>
-
-                                    <div className="action-menu relative">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setOpenMenuId(isMenuOpen ? null : item.id);
-                                        }}
-                                        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
-                                          isMenuOpen
-                                            ? 'bg-primary-50 text-primary-600'
-                                            : 'text-ink-400 hover:bg-ink-50 hover:text-primary-600'
-                                        }`}
-                                        aria-label="More actions"
-                                      >
-                                        <MoreVertical className="h-4 w-4" />
-                                      </button>
-
-                                      {isMenuOpen && (
-                                        <div className="absolute right-0 top-full z-[999] mt-2 w-52 overflow-hidden rounded-2xl border border-ink-100 bg-white p-1.5 shadow-xl shadow-ink-900/10">
-                                          <button
-                                            type="button"
-                                            onClick={() => openItemDetails(item)}
-                                            className="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-left text-sm font-semibold text-ink-700 transition-colors hover:bg-primary-50/60 hover:text-primary-700"
-                                          >
-                                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-50 text-primary-500">
-                                              <Eye className="h-3.5 w-3.5" />
-                                            </span>
-                                            View Details
-                                          </button>
-
-                                          <button
-                                            type="button"
-                                            onClick={() => openModerateModal(item)}
-                                            className="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-left text-sm font-semibold text-ink-700 transition-colors hover:bg-primary-50/60 hover:text-primary-700"
-                                          >
-                                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-50 text-primary-500">
-                                              <ShieldCheck className="h-3.5 w-3.5" />
-                                            </span>
-                                            Moderate
-                                          </button>
-
-                                          <div className="my-1 h-px bg-ink-100" />
-
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setOpenMenuId(null);
-                                              setSelectedItem(item);
-                                              setShowDeleteModal(true);
-                                            }}
-                                            className="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-left text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50"
-                                          >
-                                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 text-rose-500">
-                                              <Trash2 className="h-3.5 w-3.5" />
-                                            </span>
-                                            Delete
-                                          </button>
-                                        </div>
+                                    <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-bold text-ink-400">
+                                      <span>{item.donor?.full_name || 'User'}</span>
+                                    </div>
+                                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                                      {item.is_flagged && (
+                                        <span className="inline-flex items-center gap-0.5 rounded-full border border-danger-200 bg-danger-50 px-1.5 py-0.5 text-[9px] font-extrabold text-danger-700">
+                                          <Flag size={9} fill="currentColor" />
+                                          Flagged
+                                        </span>
+                                      )}
+                                      {featured.is_featured && (
+                                        <span className="inline-flex items-center gap-0.5 rounded-full border border-warning-200 bg-warning-50 px-1.5 py-0.5 text-[9px] font-extrabold text-warning-700">
+                                          <Star size={9} fill="currentColor" />
+                                          Featured
+                                        </span>
                                       )}
                                     </div>
                                   </div>
-                                </td>
-                              </motion.tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                                </div>
+                              </td>
+
+                              <td className="px-5 py-3.5">
+                                <div className="flex items-center gap-1.5">
+                                  {category &&
+                                    renderIcon(
+                                      category.icon,
+                                      'h-3.5 w-3.5',
+                                      category.color
+                                    )}
+                                  <span className="text-xs font-bold text-ink-600">
+                                    {category?.label || item.category}
+                                  </span>
+                                </div>
+                              </td>
+
+                              <td className="hidden whitespace-nowrap px-5 py-3.5 text-center md:table-cell">
+                                {condition && (
+                                  <span
+                                    className="inline-flex items-center gap-1 rounded-full border border-ink-200 bg-ink-50 px-2 py-1 text-[10px] font-extrabold text-ink-600"
+                                    title={condition.label}
+                                  >
+                                    {renderIcon(
+                                      condition.icon,
+                                      'h-3 w-3',
+                                      condition.color
+                                    )}
+                                    <span>{condition.label}</span>
+                                  </span>
+                                )}
+                              </td>
+
+                              <td className="px-5 py-3.5">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[10px] font-extrabold ${badge.classes}`}
+                                >
+                                  <BadgeIcon size={10} />
+                                  {badge.label}
+                                </span>
+                              </td>
+
+                              <td className="hidden px-5 py-3.5 text-center text-xs font-bold text-ink-600 sm:table-cell">
+                                {item.views_count?.toLocaleString() || 0}
+                              </td>
+
+                              <td className="hidden px-5 py-3.5 text-center sm:table-cell">
+                                <span
+                                  className={`text-xs font-extrabold ${
+                                    !item.applications_count
+                                      ? 'text-warning-600'
+                                      : 'text-ink-800'
+                                  }`}
+                                >
+                                  {item.applications_count?.toLocaleString() || 0}
+                                </span>
+                              </td>
+
+                              <td className="hidden whitespace-nowrap px-5 py-3.5 text-xs font-bold text-ink-500 lg:table-cell">
+                                {formatDate(item.created_at)}
+                              </td>
+
+                              <td className="px-5 py-3.5">
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => openItemDetails(item)}
+                                    className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition hover:bg-primary-50 hover:text-primary-600"
+                                    title="View Details"
+                                  >
+                                    <Eye size={15} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => openModerateModal(item)}
+                                    className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition hover:bg-primary-50 hover:text-primary-600"
+                                    title="Moderate"
+                                  >
+                                    <ShieldCheck size={15} />
+                                  </button>
+                                  <Link
+                                    to={`/item/${item.id}`}
+                                    className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition hover:bg-primary-50 hover:text-primary-600"
+                                    title="View on Site"
+                                  >
+                                    <CircleArrowOutUpRight size={15} />
+                                  </Link>
+                                  <ActionMenu
+                                    items={buildMenuItems(item)}
+                                    placement="top"
+                                    align="right"
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                ) : (
-                  /* ==================================================
-                     CARD VIEW (All Items)
-                  ================================================== */
+                </div>
+              ) : (
+                <motion.div
+                  className="grid gap-4"
+                  animate={gridStyle}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                >
+                  {items.map((item) => {
+                    const badge = getStatusBadge(
+                      item.status,
+                      item.applications_count
+                    );
+                    const category = getCategoryByValue(item.category);
+                    const featured = getFeaturedData(item);
+                    const BadgeIcon = badge.Icon;
+                    const imageUrl = item.images?.[0] || null;
 
-                  <motion.div
-                    className="grid gap-4"
-                    animate={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                  >
-                    {items.map((item) => {
-                      const badge = getStatusBadge(item.status, item.applications_count);
-                      const category = getCategoryByValue(item.category);
-                      const featured = getFeaturedData(item);
-                      const imageUrl = item.images?.[0] || null;
-
-                      return (
-                        <motion.div
-                          key={item.id}
-                          layout
-                          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                          className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-ink-100/80 bg-white shadow-sm transition-all hover:shadow-md"
-                        >
-                          <div className="relative h-48 w-full overflow-hidden bg-ink-50">
-                            {imageUrl ? (
-                              <img
-                                src={imageUrl}
-                                alt={item.title}
-                                className="img h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                              />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center">
-                                <ImageIcon className="img h-8 w-8 text-ink-300" />
-                              </div>
+                    return (
+                      <motion.article
+                        key={item.id}
+                        layout
+                        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                        className="group flex flex-col justify-between overflow-hidden rounded-[26px] border border-ink-100 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-ink-200 hover:shadow-md"
+                      >
+                        <div className="relative h-48 w-full overflow-hidden bg-ink-50">
+                          {imageUrl ? (
+                            <img
+                              src={imageUrl}
+                              alt={item.title}
+                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-ink-300">
+                              <ImageIcon size={30} />
+                            </div>
+                          )}
+                          <div className="absolute left-3 top-3">
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-extrabold backdrop-blur-md bg-white/90 ${badge.classes}`}
+                            >
+                              <BadgeIcon size={10} />
+                              {badge.label}
+                            </span>
+                          </div>
+                          <div className="absolute right-3 top-3 flex gap-1">
+                            {item.is_flagged && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full border border-danger-200 bg-danger-50/95 px-1.5 py-0.5 text-[9px] font-extrabold text-danger-700 backdrop-blur-sm">
+                                <Flag size={9} fill="currentColor" />
+                                Flagged
+                              </span>
                             )}
+                            {featured.is_featured && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full border border-warning-200 bg-warning-50/95 px-1.5 py-0.5 text-[9px] font-extrabold text-warning-700 backdrop-blur-sm">
+                                <Star size={9} fill="currentColor" />
+                                Featured
+                              </span>
+                            )}
+                          </div>
+                        </div>
 
-                            <div className="absolute left-3 top-3">
+                        <div className="flex flex-1 flex-col space-y-2 p-4">
+                          <button
+                            type="button"
+                            onClick={() => openItemDetails(item)}
+                            className="line-clamp-1 text-left text-sm font-extrabold text-ink-950 transition hover:text-primary-600"
+                          >
+                            {item.title}
+                          </button>
+                          <div className="flex items-center gap-1.5">
+                            {category &&
+                              renderIcon(
+                                category.icon,
+                                'h-3 w-3',
+                                category.color
+                              )}
+                            <span className="text-[11px] font-bold text-ink-400">
+                              {category?.label || item.category}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-ink-500">
+                            <span className="truncate">
+                              {item.donor?.full_name || 'User'}
+                            </span>
+                            <span className="text-ink-300">·</span>
+                            <span className="text-ink-400">
+                              {formatDate(item.created_at)}
+                            </span>
+                          </div>
+                          {featured.is_featured && (
+                            <div className="mt-1">
                               <span
-                                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold shadow-sm backdrop-blur-md ${badge.classes}`}
+                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[9px] font-extrabold ${
+                                  featured.can_apply
+                                    ? 'border-success-200 bg-success-50 text-success-700'
+                                    : 'border-ink-200 bg-ink-50 text-ink-600'
+                                }`}
                               >
-                                <i className={`bi ${badge.icon} text-[10px]`} />
-                                {badge.label}
+                                {featured.can_apply ? (
+                                  <CheckCircle2 size={10} />
+                                ) : (
+                                  <Slash size={10} />
+                                )}
+                                {featured.can_apply
+                                  ? 'Applications Open'
+                                  : 'Applications Closed'}
                               </span>
                             </div>
+                          )}
+                        </div>
 
-                            <div className="absolute right-3 top-3 flex gap-1">
-                              {item.is_flagged && (
-                                <span className="inline-flex items-center gap-0.5 rounded border border-rose-200 bg-rose-50/90 px-1.5 py-0.5 text-[10px] font-bold text-rose-600 backdrop-blur-sm">
-                                  <Flag className="h-3 w-3 fill-current" />
-                                  Flagged
-                                </span>
-                              )}
-                              {featured.is_featured && (
-                                <span className="inline-flex items-center gap-0.5 rounded border border-amber-200 bg-amber-50/90 px-1.5 py-0.5 text-[10px] font-bold text-amber-600 backdrop-blur-sm">
-                                  <Star className="h-3 w-3 fill-current" />
-                                  Featured
-                                </span>
-                              )}
-                            </div>
+                        <div className="flex items-center justify-between gap-2 border-t border-ink-100 bg-ink-50/50 px-3 py-3">
+                          <div className="flex items-center gap-3 text-[11px] font-bold text-ink-500">
+                            <span className="flex items-center gap-1">
+                              <Eye size={12} />
+                              {item.views_count || 0}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Users size={12} />
+                              {item.applications_count || 0}
+                            </span>
                           </div>
-
-                          <div className="flex flex-1 flex-col space-y-2 p-4">
+                          <div className="flex items-center gap-1">
                             <button
                               type="button"
                               onClick={() => openItemDetails(item)}
-                              className="line-clamp-1 text-left text-base font-extrabold text-ink-800 hover:text-primary-600"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition hover:bg-primary-50 hover:text-primary-600"
+                              title="View Details"
                             >
-                              {item.title}
+                              <Eye size={15} />
                             </button>
-
-                            <div className="flex items-center gap-1.5">
-                              {category && renderIcon(category.icon, 'h-3 w-3', category.color)}
-                              <span className="text-xs font-medium text-ink-400">
-                                {category?.label || item.category}
-                              </span>
-                            </div>
-
-                            <div className="mt-1 flex items-center gap-1.5">
-                              <span className="text-xs font-medium text-ink-500">
-                                {item.donor?.full_name || 'User'}
-                              </span>
-                              <span className="text-ink-300">·</span>
-                              <span className="text-xs font-medium text-ink-400">
-                                {formatDate(item.created_at)}
-                              </span>
-                            </div>
-
-                            {featured.is_featured && (
-                              <div className="mt-1">
-                                <span
-                                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold ${
-                                    featured.can_apply
-                                      ? 'border-emerald-200 bg-emerald-50 text-emerald-600'
-                                      : 'border-ink-200 bg-ink-50 text-ink-500'
-                                  }`}
-                                >
-                                  {featured.can_apply ? (
-                                    <CheckCircle2 className="h-3 w-3" />
-                                  ) : (
-                                    <Slash className="h-3 w-3" />
-                                  )}
-                                  {featured.can_apply
-                                    ? 'Applications Open'
-                                    : 'Applications Closed'}
-                                </span>
-                              </div>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => openModerateModal(item)}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition hover:bg-primary-50 hover:text-primary-600"
+                              title="Moderate"
+                            >
+                              <ShieldCheck size={15} />
+                            </button>
+                            <Link
+                              to={`/item/${item.id}`}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition hover:bg-primary-50 hover:text-primary-600"
+                              title="View on Site"
+                            >
+                              <CircleArrowOutUpRight size={15} />
+                            </Link>
+                            <ActionMenu
+                              items={buildMenuItems(item)}
+                              placement="top"
+                              align="right"
+                            />
                           </div>
+                        </div>
+                      </motion.article>
+                    );
+                  })}
+                </motion.div>
+              )}
 
-                          <div className="flex items-center justify-between gap-2 border-t border-ink-100 bg-ink-50/50 p-3">
-                            <div className="flex items-center gap-3 text-xs font-medium text-ink-500">
-                              <span className="flex items-center gap-1">
-                                <Eye className="h-3.5 w-3.5" />
-                                {item.views_count || 0}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <i className="bi bi-people" />
-                                {item.applications_count || 0}
-                              </span>
-                            </div>
+              {/* PAGINATION */}
+              {totalPages > 1 && (
+                <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs font-bold text-ink-500">
+                    Showing{' '}
+                    <span className="font-extrabold text-ink-700">
+                      {(currentPage - 1) * ITEMS_PER_PAGE + 1}
+                    </span>
+                    –
+                    <span className="font-extrabold text-ink-700">
+                      {Math.min(currentPage * ITEMS_PER_PAGE, total)}
+                    </span>{' '}
+                    of{' '}
+                    <span className="font-extrabold text-ink-700">
+                      {total.toLocaleString()}
+                    </span>{' '}
+                    items
+                  </p>
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={(page) => setFilters({ page })}
+                  />
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => openItemDetails(item)}
-                                className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition-all hover:bg-primary-50/60 hover:text-primary-600"
-                                title="View Details"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openModerateModal(item)}
-                                className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition-all hover:bg-primary-50/60 hover:text-primary-600"
-                                title="Moderate"
-                              >
-                                <ShieldCheck className="h-4 w-4" />
-                              </button>
-                              <Link
-                                to={`/item/${item.id}`}
-                                className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition-all hover:bg-primary-50/60 hover:text-primary-600"
-                                title="View on Site"
-                              >
-                                <CircleArrowOutUpRight className="h-4 w-4" />
-                              </Link>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedItem(item);
-                                  setShowDeleteModal(true);
-                                }}
-                                className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition-all hover:bg-rose-50/60 hover:text-rose-600"
-                                title="Delete"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </motion.div>
-                )}
-
-                {/* ==================================================
-                    PAGINATION
-                ================================================== */}
-
-                {totalPages > 1 && (
-                  <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-xs font-medium text-ink-400">
-                      Showing{' '}
-                      <span className="font-bold text-ink-600">
-                        {(currentPage - 1) * ITEMS_PER_PAGE + 1}
-                      </span>{' '}
-                      –{' '}
-                      <span className="font-bold text-ink-600">
-                        {Math.min(currentPage * ITEMS_PER_PAGE, total)}
-                      </span>{' '}
-                      of{' '}
-                      <span className="font-bold text-ink-600">{total.toLocaleString()}</span> items
-                    </p>
-                    <Pagination
-                      currentPage={currentPage}
-                      totalPages={totalPages}
-                      onPageChange={setCurrentPage}
-                    />
-                  </div>
-                )}
-              </>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ========================================================
+      {/* ============================================================
           ITEM DETAILS MODAL
-      ======================================================== */}
+      ============================================================ */}
 
       <Modal
         isOpen={showItemModal}
@@ -1537,9 +1425,9 @@ const AdminItems = () => {
         )}
       </Modal>
 
-      {/* ========================================================
+      {/* ============================================================
           MODERATION MODAL
-      ======================================================== */}
+      ============================================================ */}
 
       <Modal
         isOpen={showModerateModal}
@@ -1550,77 +1438,96 @@ const AdminItems = () => {
         size="sm"
       >
         {selectedItem && (
-          <>
-            <div className="flex">
+          <div className="space-y-4">
+            <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-extrabold text-ink-900">Moderate Item</h2>
-                <p className="mt-1 text-xs text-ink-400">Choose an action for this listing.</p>
+                <h2 className="text-base font-black text-ink-950">
+                  Moderate Item
+                </h2>
+                <p className="mt-1 text-xs font-bold text-ink-400">
+                  Choose an action for this listing.
+                </p>
               </div>
               <button
                 type="button"
                 disabled={actionLoading}
-                className="ml-auto text-ink-400 hover:text-primary-600 disabled:opacity-50"
                 onClick={closeModerationState}
+                className="shrink-0 text-ink-400 transition hover:text-primary-600 disabled:opacity-50"
+                aria-label="Close"
               >
-                <XCircle className="h-5 w-5" />
+                <X size={16} />
               </button>
             </div>
 
-            <hr className="my-4 border-ink-100" />
+            <div className="rounded-2xl border border-ink-100 bg-ink-50/60 p-3">
+              <p className="text-xs font-medium text-ink-500">
+                Moderating{' '}
+                <span className="font-extrabold text-ink-950">
+                  {selectedItem.title}
+                </span>
+              </p>
+            </div>
 
-            <p className="text-sm font-medium text-ink-500">
-              Moderate "
-              <span className="font-extrabold text-ink-900">{selectedItem.title}</span>"
-            </p>
-
-            <div className="mt-4 space-y-2">
+            <div className="space-y-2">
               {ITEM_MODERATION_ACTIONS.map(({ action, label, icon, color }) => {
                 const isSelected = moderateAction === action;
                 const colorClasses =
                   MODERATION_COLOR_CLASSES[color] ||
-                  'bg-primary-50 border-primary-500 text-primary-700';
+                  'border-primary-400 bg-primary-50 text-primary-700';
+
                 return (
                   <button
                     type="button"
                     key={action}
                     onClick={() => setModerateAction(action)}
-                    className={`w-full rounded-xl border-2 px-4 py-3 text-left transition flex items-center gap-3 ${
+                    className={`flex w-full items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left transition ${
                       isSelected
                         ? colorClasses
                         : 'border-transparent bg-ink-50 text-ink-700 hover:bg-ink-100'
                     }`}
                   >
-                    <i className={`bi ${icon}`} />
-                    <span className="font-bold">{label}</span>
-                    {action === 'feature' && (
-                      <ChevronRight className="ml-auto h-3.5 w-3.5 opacity-50" />
+                    {renderIcon(icon, 'h-4 w-4', '')}
+                    <span className="text-sm font-extrabold">{label}</span>
+                    {isSelected && (
+                      <CheckCircle2
+                        size={15}
+                        className="ml-auto text-current opacity-70"
+                      />
                     )}
                   </button>
                 );
               })}
             </div>
 
-            {(moderateAction === 'reject' || moderateAction === 'flag') && (
-              <div className="mt-4">
-                <label className="mb-1 block text-sm font-extrabold text-ink-700">Reason</label>
+            {(moderateAction === 'reject' ||
+              moderateAction === 'flag' ||
+              moderateAction === 'cancel') && (
+              <div>
+                <label className="mb-1.5 block text-sm font-extrabold text-ink-700">
+                  Reason
+                </label>
                 <textarea
                   value={moderateReason}
                   onChange={(e) => setModerateReason(e.target.value)}
                   placeholder={`Enter reason for ${
-                    moderateAction === 'reject' ? 'rejecting' : 'flagging'
+                    moderateAction === 'reject'
+                      ? 'rejecting'
+                      : moderateAction === 'cancel'
+                      ? 'cancelling'
+                      : 'flagging'
                   }...`}
-                  className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 outline-none shadow-sm transition placeholder:text-ink-400 focus:border-primary-400 focus:ring-2 focus:ring-primary-500/30"
                   rows={3}
+                  className="input-field resize-none text-sm font-medium"
                 />
               </div>
             )}
 
-            <div className="mt-6 flex gap-3">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 disabled={actionLoading}
                 onClick={closeModerationState}
-                className="flex-1 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-bold text-ink-700 transition hover:bg-ink-50 disabled:opacity-50"
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -1628,31 +1535,30 @@ const AdminItems = () => {
                 type="button"
                 onClick={handleModerateItem}
                 disabled={actionLoading || !moderateAction}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-brand-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 text-sm font-extrabold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {actionLoading ? (
-                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                ) : (
                   <>
-                    {moderateAction === 'feature' ? (
-                      <>
-                        <Star className="h-4 w-4 fill-current" />
-                        Continue
-                      </>
-                    ) : (
-                      'Apply'
-                    )}
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Applying...
                   </>
+                ) : moderateAction === 'feature' ? (
+                  <>
+                    <Star size={15} fill="currentColor" />
+                    Continue
+                  </>
+                ) : (
+                  'Apply'
                 )}
               </button>
             </div>
-          </>
+          </div>
         )}
       </Modal>
 
-      {/* ========================================================
+      {/* ============================================================
           FEATURE CONFIGURATION MODAL
-      ======================================================== */}
+      ============================================================ */}
 
       <Modal
         isOpen={showFeatureModal}
@@ -1663,11 +1569,13 @@ const AdminItems = () => {
         size="sm"
       >
         {selectedItem && (
-          <div>
-            <div className="flex items-start">
+          <div className="space-y-5">
+            <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-extrabold text-ink-900">Feature Item</h2>
-                <p className="mt-1 text-xs font-medium text-ink-400">
+                <h2 className="text-base font-black text-ink-950">
+                  Feature Item
+                </h2>
+                <p className="mt-1 text-xs font-bold text-ink-400">
                   Configure this featured listing.
                 </p>
               </div>
@@ -1675,84 +1583,92 @@ const AdminItems = () => {
                 type="button"
                 disabled={actionLoading}
                 onClick={closeFeatureState}
-                className="ml-auto text-ink-400 transition hover:text-primary-600 disabled:opacity-50"
+                className="shrink-0 text-ink-400 transition hover:text-primary-600 disabled:opacity-50"
+                aria-label="Close"
               >
-                <XCircle className="h-5 w-5" />
+                <X size={16} />
               </button>
             </div>
 
-            <hr className="my-4 border-ink-100" />
-
-            {/* Item */}
-            <div className="flex items-center gap-3 rounded-xl border border-amber-100 bg-amber-50/60 p-3">
-              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-amber-100 bg-white">
+            <div className="flex items-center gap-3 rounded-2xl border border-warning-100 bg-warning-50/60 p-3">
+              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-warning-100 bg-white">
                 {selectedItem.images?.[0] ? (
-                  <img src={selectedItem.images[0]} alt="" className="img h-full w-full object-cover" />
+                  <img
+                    src={selectedItem.images[0]}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-amber-300">
-                    <ImageIcon className="img h-5 w-5" />
+                  <div className="flex h-full w-full items-center justify-center text-warning-300">
+                    <ImageIcon size={20} />
                   </div>
                 )}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-extrabold text-ink-900">{selectedItem.title}</p>
-                <p className="text-xs text-ink-500">This item will appear in Featured Items.</p>
+                <p className="truncate text-sm font-extrabold text-ink-950">
+                  {selectedItem.title}
+                </p>
+                <p className="text-[11px] font-bold text-ink-500">
+                  This item will appear in Featured Items.
+                </p>
               </div>
             </div>
 
-            {/* Can apply */}
-            <div className="mt-5">
+            <div>
               <p className="text-sm font-extrabold text-ink-800">
-                Can users apply for this featured item?
+                Allow applications?
               </p>
               <p className="mt-1 text-xs font-medium leading-relaxed text-ink-400">
-                Choose whether users should be allowed to submit applications for this item.
+                Choose whether users should be allowed to submit applications
+                for this featured item.
               </p>
+
               <div className="mt-3 grid grid-cols-2 gap-3">
-                {/* YES */}
                 <button
                   type="button"
                   onClick={() => setFeatureCanApply(true)}
-                  className={`rounded-xl border-2 p-4 text-left transition-all ${
+                  className={`rounded-2xl border-2 p-4 text-left transition ${
                     featureCanApply
-                      ? 'border-emerald-400 bg-emerald-50 text-emerald-700 shadow-sm'
-                      : 'border-ink-100 bg-white text-ink-600 hover:border-emerald-200 hover:bg-emerald-50/50'
+                      ? 'border-success-400 bg-success-50 text-success-700'
+                      : 'border-ink-100 bg-white text-ink-600 hover:border-success-200 hover:bg-success-50/50'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <CheckCircle2 className="h-5 w-5" />
-                    {featureCanApply && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+                    <CheckCircle2 size={18} />
+                    {featureCanApply && (
+                      <CheckCircle2 size={14} className="text-success-600" />
+                    )}
                   </div>
                   <p className="mt-2 text-sm font-extrabold">Yes</p>
                   <p className="mt-0.5 text-[10px] font-medium text-ink-400">
-                    Applications are allowed
+                    Applications allowed
                   </p>
                 </button>
 
-                {/* NO */}
                 <button
                   type="button"
                   onClick={() => setFeatureCanApply(false)}
-                  className={`rounded-xl border-2 p-4 text-left transition-all ${
+                  className={`rounded-2xl border-2 p-4 text-left transition ${
                     !featureCanApply
-                      ? 'border-ink-400 bg-ink-50 text-ink-800 shadow-sm'
+                      ? 'border-ink-400 bg-ink-50 text-ink-800'
                       : 'border-ink-100 bg-white text-ink-600 hover:border-ink-200 hover:bg-ink-50'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <Slash className="h-5 w-5" />
-                    {!featureCanApply && <CheckCircle2 className="h-4 w-4 text-ink-600" />}
+                    <Slash size={18} />
+                    {!featureCanApply && (
+                      <CheckCircle2 size={14} className="text-ink-600" />
+                    )}
                   </div>
                   <p className="mt-2 text-sm font-extrabold">No</p>
                   <p className="mt-0.5 text-[10px] font-medium text-ink-400">
-                    Applications are disabled
+                    Applications disabled
                   </p>
                 </button>
               </div>
             </div>
 
-            {/* Buttons */}
-            <div className="mt-6 flex gap-3">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 disabled={actionLoading}
@@ -1761,7 +1677,7 @@ const AdminItems = () => {
                   setShowModerateModal(true);
                   setModerateAction('feature');
                 }}
-                className="flex-1 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-bold text-ink-700 transition hover:bg-ink-50 disabled:opacity-50"
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Back
               </button>
@@ -1769,13 +1685,16 @@ const AdminItems = () => {
                 type="button"
                 disabled={actionLoading}
                 onClick={handleFeatureItem}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-warning-600 px-4 text-sm font-extrabold text-white transition hover:bg-warning-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {actionLoading ? (
-                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Featuring...
+                  </>
                 ) : (
                   <>
-                    <Star className="h-4 w-4 fill-current" />
+                    <Star size={15} fill="currentColor" />
                     Feature Item
                   </>
                 )}
@@ -1785,9 +1704,9 @@ const AdminItems = () => {
         )}
       </Modal>
 
-      {/* ========================================================
+      {/* ============================================================
           DELETE MODAL
-      ======================================================== */}
+      ============================================================ */}
 
       <Modal
         isOpen={showDeleteModal}
@@ -1797,46 +1716,28 @@ const AdminItems = () => {
             setSelectedItem(null);
           }
         }}
-        showCloseButton={false}
+        title="Delete Item"
         size="sm"
       >
         {selectedItem && (
-          <>
-            <div className="flex">
-              <div>
-                <h2 className="text-lg font-extrabold text-ink-900">Delete Item</h2>
+          <div className="space-y-6">
+            <div className="flex items-start gap-4 rounded-2xl border border-danger-100 bg-danger-50 p-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-danger-100 text-danger-600">
+                <AlertTriangle size={18} />
               </div>
-              <button
-                type="button"
-                disabled={actionLoading}
-                className="ml-auto text-ink-400 hover:text-primary-600"
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setSelectedItem(null);
-                }}
-              >
-                <XCircle className="h-5 w-5" />
-              </button>
-            </div>
-
-            <hr className="my-4 border-ink-100" />
-
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600">
-                <AlertTriangle className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-ink-600">
-                  Are you sure you want to delete "
-                  <span className="font-extrabold text-ink-900">{selectedItem.title}</span>"?
+              <div className="min-w-0">
+                <p className="text-sm font-extrabold text-danger-900">
+                  Delete this item?
                 </p>
-                <p className="mt-1 text-xs font-medium text-ink-400">
-                  This action cannot be undone.
+                <p className="mt-1 text-xs font-medium leading-5 text-danger-700">
+                  Are you sure you want to delete{' '}
+                  <strong>"{selectedItem.title}"</strong>? This action cannot
+                  be undone.
                 </p>
               </div>
             </div>
 
-            <div className="mt-6 flex gap-3">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 disabled={actionLoading}
@@ -1844,7 +1745,7 @@ const AdminItems = () => {
                   setShowDeleteModal(false);
                   setSelectedItem(null);
                 }}
-                className="flex-1 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-bold text-ink-700 transition hover:bg-ink-50 disabled:opacity-50"
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -1852,19 +1753,22 @@ const AdminItems = () => {
                 type="button"
                 onClick={handleDeleteItem}
                 disabled={actionLoading}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-danger-600 px-4 text-sm font-extrabold text-white transition hover:bg-danger-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {actionLoading ? (
-                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Deleting...
+                  </>
                 ) : (
                   <>
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 size={15} />
                     Delete
                   </>
                 )}
               </button>
             </div>
-          </>
+          </div>
         )}
       </Modal>
     </div>
@@ -1872,55 +1776,7 @@ const AdminItems = () => {
 };
 
 /* ============================================================
-   STAT CARD
-============================================================ */
-
-function StatCard({ label, value, icon: IconComponent, color = 'text-ink-700', bg = 'bg-ink-50' }) {
-  return (
-    <div className="rounded-2xl border border-ink-100/80 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div className={`flex h-9 w-9 items-center justify-center rounded-xl border border-ink-100/60 ${bg}`}>
-          <IconComponent className={`h-4 w-4 ${color}`} />
-        </div>
-      </div>
-      <p className="mt-3 text-[10px] font-black uppercase tracking-wider text-ink-400">{label}</p>
-      <p className={`mt-1 text-xl font-extrabold ${color}`}>
-        {typeof value === 'number' ? value.toLocaleString() : value}
-      </p>
-    </div>
-  );
-}
-
-/* ============================================================
-   EMPTY ITEMS
-============================================================ */
-
-function EmptyItemsState({ search, statusFilter, categoryFilter, conditionFilter }) {
-  const hasFilters = search || statusFilter || categoryFilter || conditionFilter;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden rounded-2xl border border-ink-100/80 bg-white p-12 text-center shadow-sm"
-    >
-      <div className="pointer-events-none absolute left-1/2 top-0 h-40 w-64 -translate-x-1/2 rounded-full bg-primary-100/40 blur-3xl" />
-
-      <div className="relative">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary-100 bg-primary-50 text-primary-500 shadow-sm">
-          <Package className="h-6 w-6" />
-        </div>
-        <h3 className="text-lg font-extrabold text-ink-800">No items found</h3>
-        <p className="mx-auto mt-1 max-w-md text-sm text-ink-400">
-          {hasFilters ? 'Try adjusting your filters' : 'No items have been listed yet'}
-        </p>
-      </div>
-    </motion.div>
-  );
-}
-
-/* ============================================================
-   FEATURED ITEMS SECTION (REDESIGNED)
+   FEATURED ITEMS SECTION
 ============================================================ */
 
 function FeaturedItemsSection({
@@ -1929,23 +1785,18 @@ function FeaturedItemsSection({
   onView,
   onModerate,
   formatDate,
-  formatDateTime,
-  getStatusBadge,
   gridCols,
   setGridCols,
-  isCustomCols,
-  setIsCustomCols,
-  getDefaultCols,
-  breakpoint,
+  gridStyle,
 }) {
-  // If not custom, sync with breakpoint (handled in parent via useEffect)
-  // but we also allow manual changes here
-
   if (loading) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ">
-        {[...Array(4)].map((_, index) => (
-          <div key={index} className="overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="overflow-hidden rounded-[26px] border border-ink-100 bg-white shadow-sm"
+          >
             <div className="h-48 animate-pulse bg-ink-100" />
             <div className="space-y-3 p-4">
               <div className="h-4 w-3/4 animate-pulse rounded bg-ink-100" />
@@ -1961,193 +1812,161 @@ function FeaturedItemsSection({
 
   if (!items.length) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-2xl border border-ink-100/80 bg-white p-12 text-center shadow-sm"
-      >
-        <div className="pointer-events-none absolute left-1/2 top-0 h-40 w-64 -translate-x-1/2 rounded-full bg-amber-100/50 blur-3xl" />
-        <div className="relative">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-100 bg-amber-50 text-amber-500 shadow-sm">
-            <Star className="h-6 w-6" />
-          </div>
-          <h3 className="text-lg font-extrabold text-ink-800">No featured items</h3>
-          <p className="mx-auto mt-1 max-w-md text-sm text-ink-400">
-            Items marked as featured will appear here.
-          </p>
-        </div>
-      </motion.div>
+      <EmptyState
+        filtered={false}
+        icon={Star}
+        title="No featured items"
+        description="Items marked as featured will appear here."
+      />
     );
   }
 
   return (
-    <div className="space-y-6 px-4">
-  {/* Header with original column controls */}
-  <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-    <div className="flex items-center gap-3">
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
-        <Star className="h-4 w-4 fill-current" />
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-warning-50 text-warning-600">
+            <Star size={15} fill="currentColor" />
+          </div>
+          <div>
+            <h2 className="text-base font-black text-ink-950">
+              Featured Items
+            </h2>
+            <p className="text-[11px] font-bold text-ink-400">
+              {items.length} featured item{items.length !== 1 ? 's' : ''}{' '}
+              currently displayed
+            </p>
+          </div>
+        </div>
+        <ColumnStepper
+          label="Grid columns"
+          value={gridCols}
+          onChange={setGridCols}
+          min={1}
+          max={4}
+        />
       </div>
-      <div>
-        <h2 className="text-lg font-extrabold text-ink-900">Featured Items</h2>
-        <p className="text-xs text-ink-400">
-          {items.length} featured item{items.length !== 1 ? 's' : ''} currently displayed
-        </p>
-      </div>
-    </div>
 
-    {/* Grid column controls (Original layout) */}
-    <div >
-       <div className="inline-flex items-center gap-2 rounded-xl bg-ink-50/80 p-1 border border-ink-200/60 shadow-xs">
-							  <button
-    type="button"
-    onClick={() => {
-      setIsCustomCols(true);
-      setGridCols((value) => Math.max(1, value - 1));
-    }}
-    disabled={gridCols <= 1}
-    className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-ink-600 shadow-xs transition hover:bg-primary-50 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-30"
-    title="Fewer columns"
-  >
-    <Minus className="h-3.5 w-3.5" />
-  </button>
-  
-  <span className="min-w-[1.25rem] text-center text-xs font-extrabold text-ink-800">
-    {gridCols}
-  </span>
-  
-  <button
-    type="button"
-    onClick={() => {
-      setIsCustomCols(true);
-      setGridCols((value) => Math.min(4, value + 1));
-    }}
-    disabled={gridCols >= 4}
-    className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-ink-600 shadow-xs transition hover:bg-primary-50 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-30"
-    title="More columns"
-  >
-    <Plus className="h-3.5 w-3.5" />
-  </button>
-  
-  <button
-    type="button"
-    onClick={() => {
-      setIsCustomCols(false);
-      setGridCols(getDefaultCols(breakpoint));
-    }}
-    className="ml-1 px-2 py-1 text-[11px] font-semibold text-ink-400 hover:text-ink-700 transition-colors"
-  >
-    Reset
-  </button>
-							</div>
-    </div>
+      <motion.div
+        className="grid gap-4"
+        animate={gridStyle}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      >
+        <AnimatePresence mode="popLayout">
+          {items.map((item) => {
+            const badge = getStatusBadge(
+              item.status,
+              item.applications_count
+            );
+            const canApply = item.featured?.can_apply === true;
+            const featuredAt = item.featured?.featured_at;
+            const category = getCategoryByValue(item.category);
+            const BadgeIcon = badge.Icon;
 
-  </div>
-
-  {/* Clean Horizontal/Row-Card Hybrid Layout */}
-  <motion.div
-    className="grid gap-4"
-    animate={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}
-    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-  >
-    <AnimatePresence mode="popLayout">
-      {items.map((item) => {
-        const badge = getStatusBadge(item.status, item.applications_count);
-        const canApply = item.featured?.can_apply === true;
-        const featuredAt = item.featured?.featured_at;
-
-        return (
-          <motion.div
-            key={item.id}
-            layout
-            initial={{ opacity: 0, y: 15, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.98 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="flex flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-ink-200 transition-all hover:shadow-md"
-          >
-            {/* Top row: Image thumbnail, Title, Status */}
-            <div className="flex items-start gap-4">
-              <div
-                className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-ink-100 cursor-pointer"
-                onClick={() => onView(item)}
+            return (
+              <motion.div
+                key={item.id}
+                layout
+                initial={{ opacity: 0, y: 15, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
+                className="flex flex-col rounded-[26px] border border-ink-100 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-ink-200 hover:shadow-md"
               >
-                {item.images?.[0] ? (
-                  <img src={item.images[0]} alt={item.title} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <ImageIcon className="h-5 w-5 text-ink-300" />
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-black/5" />
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-start gap-4">
                   <button
                     type="button"
                     onClick={() => onView(item)}
-                    className="truncate text-sm font-bold text-ink-900 hover:text-primary-600 text-left"
+                    className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-ink-100 bg-ink-50"
                   >
-                    {item.title}
+                    {item.images?.[0] ? (
+                      <img
+                        src={item.images[0]}
+                        alt={item.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-ink-300">
+                        <ImageIcon size={18} />
+                      </div>
+                    )}
                   </button>
-                  <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${badge.classes}`}>
-                    <i className={`bi ${badge.icon}`} />
-                    {badge.label}
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onView(item)}
+                        className="truncate text-left text-sm font-black text-ink-950 hover:text-primary-600"
+                      >
+                        {item.title}
+                      </button>
+                      <span
+                        className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-extrabold ${badge.classes}`}
+                      >
+                        <BadgeIcon size={9} />
+                        {badge.label}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 truncate text-[11px] font-bold text-ink-400">
+                      {item.donor?.full_name || 'Anonymous'}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="rounded-md bg-ink-100 px-1.5 py-0.5 text-[9px] font-extrabold text-ink-600">
+                        {category?.label || item.category || 'General'}
+                      </span>
+                      <span
+                        className={`text-[9px] font-extrabold ${
+                          canApply ? 'text-success-600' : 'text-ink-400'
+                        }`}
+                      >
+                        {canApply
+                          ? '• Applications Open'
+                          : '• Applications Closed'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between border-t border-ink-100 pt-3 text-[11px] font-bold text-ink-500">
+                  <div className="flex items-center gap-4">
+                    <span>
+                      Views:{' '}
+                      <strong className="font-extrabold text-ink-800">
+                        {item.views_count?.toLocaleString() || 0}
+                      </strong>
+                    </span>
+                    <span>
+                      Apps:{' '}
+                      <strong className="font-extrabold text-ink-800">
+                        {item.applications_count?.toLocaleString() || 0}
+                      </strong>
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold text-ink-400">
+                    {formatDate(featuredAt)}
                   </span>
                 </div>
-                <p className="mt-0.5 text-xs text-ink-400">
-                  {item.donor?.full_name || 'Anonymous'}
-                </p>
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="rounded bg-ink-100 px-1.5 py-0.5 text-[10px] font-semibold text-ink-600">
-                    {getCategoryByValue(item.category)?.label || item.category || 'General'}
-                  </span>
-                  <span className={`text-[10px] font-semibold ${canApply ? 'text-emerald-600' : 'text-ink-400'}`}>
-                    {canApply ? '• Applications Open' : '• Applications Closed'}
-                  </span>
-                </div>
-              </div>
-            </div>
 
-            {/* Metrics and Meta row */}
-            <div className="mt-4 flex items-center justify-between border-t border-ink-100 pt-3 text-xs text-ink-500">
-              <div className="flex items-center gap-4">
-                <div>
-                  <span className="text-ink-500">Views:</span> <strong className="text-ink-800">{item.views_count?.toLocaleString() || 0}</strong>
-                </div>
-                <div>
-                  <span className="text-ink-500">Apps:</span> <strong className="text-ink-800">{item.applications_count?.toLocaleString() || 0}</strong>
-                </div>
-              </div>
-              <div className="text-[10px] text-ink-400">
-                {formatDate(featuredAt)}
-              </div>
-            </div>
-
-            {/* Action button */}
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={() => onModerate(item)}
-                className="flex items-center justify-center gap-2 rounded-xl bg-ink-500 p-2.5 text-xs font-bold text-white transition hover:bg-primary-600"
-              >
-                <ShieldCheck className="h-4 w-4" />
-                Moderate Item
-              </button>
-            </div>
-          </motion.div>
-        );
-      })}
-    </AnimatePresence>
-  </motion.div>
-</div>
-
+                <button
+                  type="button"
+                  onClick={() => onModerate(item)}
+                  className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary-600 text-xs font-extrabold text-white transition hover:bg-primary-700"
+                >
+                  <ShieldCheck size={14} />
+                  Moderate Item
+                </button>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </motion.div>
+    </div>
   );
 }
 
 /* ============================================================
-   ITEM DETAILS
+   ITEM DETAILS CONTENT — unchanged
 ============================================================ */
 
 function ItemDetailsContent({
@@ -2162,59 +1981,76 @@ function ItemDetailsContent({
   const category = getCategoryByValue(item.category);
   const condition = getConditionByValue(item.condition);
   const featured = getFeaturedData(item);
+  const BadgeIcon = badge.Icon;
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-start">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-extrabold text-ink-900">Item Details</h2>
-          <p className="mt-1 text-xs text-ink-400">Full listing information</p>
+          <h2 className="text-base font-black text-ink-950">Item Details</h2>
+          <p className="mt-1 text-xs font-bold text-ink-400">
+            Full listing information
+          </p>
         </div>
-        <div className="ml-auto flex items-center gap-5">
-          <Link to={`/item/${item.id}`} className="text-ink-400 hover:text-primary-600" title="View on site">
-            <CircleArrowOutUpRight className="h-4 w-4" />
+        <div className="flex items-center gap-2">
+          <Link
+            to={`/item/${item.id}`}
+            className="shrink-0 text-ink-400 transition hover:text-primary-600"
+            title="View on site"
+          >
+            <CircleArrowOutUpRight size={15} />
           </Link>
-          <button type="button" onClick={onClose} className="text-ink-400 hover:text-primary-600">
-            <XCircle className="h-5 w-5" />
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 text-ink-400 transition hover:text-primary-600"
+            aria-label="Close"
+          >
+            <X size={16} />
           </button>
         </div>
       </div>
 
-      <hr className="border-ink-100" />
+      <div className="border-t border-ink-100" />
 
-      {/* Main info */}
       <div className="flex items-start gap-4">
-        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-ink-100 bg-ink-100">
+        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-ink-100 bg-ink-50">
           {item.images?.[0] ? (
-            <img src={item.images[0]} alt="" className="img h-full w-full object-cover" />
+            <img
+              src={item.images[0]}
+              alt=""
+              className="h-full w-full object-cover"
+            />
           ) : (
-            <div className="flex h-full w-full items-center justify-center">
-              <ImageIcon className="img h-6 w-6 text-ink-300" />
+            <div className="flex h-full w-full items-center justify-center text-ink-300">
+              <ImageIcon size={24} />
             </div>
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="text-lg font-extrabold text-ink-900">{item.title}</h3>
-          <p className="text-sm font-medium text-ink-500">
-            By {item.donor?.full_name || 'Anonymous'} · {formatDate(item.created_at)}
+          <h3 className="truncate text-base font-black text-ink-950">
+            {item.title}
+          </h3>
+          <p className="truncate text-xs font-bold text-ink-500">
+            By {item.donor?.full_name || 'Anonymous'} ·{' '}
+            {formatDate(item.created_at)}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold ${badge.classes}`}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-extrabold ${badge.classes}`}
             >
-              <i className={`bi ${badge.icon}`} />
+              <BadgeIcon size={10} />
               {badge.label}
             </span>
-            <span className="rounded-full border border-ink-200 bg-ink-100 px-2.5 py-1 text-[10px] font-bold text-ink-700">
+            <span className="rounded-full border border-ink-200 bg-ink-50 px-2.5 py-1 text-[10px] font-extrabold text-ink-600">
               {category?.label || item.category || 'Uncategorized'}
             </span>
-            <span className="rounded-full border border-ink-200 bg-ink-100 px-2.5 py-1 text-[10px] font-bold text-ink-700">
+            <span className="rounded-full border border-ink-200 bg-ink-50 px-2.5 py-1 text-[10px] font-extrabold text-ink-600">
               {condition?.label || item.condition || 'Unknown'}
             </span>
             {featured.is_featured && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-600">
-                <Star className="h-3 w-3 fill-current" />
+              <span className="inline-flex items-center gap-1 rounded-full border border-warning-200 bg-warning-50 px-2.5 py-1 text-[10px] font-extrabold text-warning-700">
+                <Star size={10} fill="currentColor" />
                 Featured
               </span>
             )}
@@ -2222,34 +2058,33 @@ function ItemDetailsContent({
         </div>
       </div>
 
-      {/* Featured configuration */}
       {featured.is_featured && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+        <div className="rounded-2xl border border-warning-200 bg-warning-50/60 p-3">
           <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
-              <Star className="h-4 w-4 fill-current" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-warning-100 text-warning-600">
+              <Star size={14} fill="currentColor" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-wider text-amber-600">
+              <p className="text-[10px] font-extrabold uppercase tracking-wider text-warning-700">
                 Featured Configuration
               </p>
-              <div className="mt-1 flex flex-wrap gap-2">
+              <div className="mt-1.5 flex flex-wrap gap-2">
                 <span
-                  className={`rounded-full border px-2 py-1 text-[10px] font-bold ${
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-extrabold ${
                     featured.can_apply
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-600'
-                      : 'border-ink-200 bg-white text-ink-500'
+                      ? 'border-success-200 bg-success-50 text-success-700'
+                      : 'border-ink-200 bg-white text-ink-600'
                   }`}
                 >
                   {featured.can_apply ? (
-                    <CheckCircle2 className="mr-1 inline h-3 w-3" />
+                    <CheckCircle2 size={10} />
                   ) : (
-                    <Slash className="mr-1 inline h-3 w-3" />
+                    <Slash size={10} />
                   )}
                   {featured.can_apply ? 'Can Apply' : 'Cannot Apply'}
                 </span>
                 {featured.featured_at && (
-                  <span className="text-[10px] font-medium text-amber-700">
+                  <span className="text-[10px] font-bold text-warning-700">
                     Featured {formatDateTime(featured.featured_at)}
                   </span>
                 )}
@@ -2259,47 +2094,53 @@ function ItemDetailsContent({
         </div>
       )}
 
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-ink-100/60 bg-ink-50/50 p-3 text-center shadow-sm">
-          <p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-500">Views</p>
-          <p className="text-lg font-extrabold text-ink-900">
+        <div className="rounded-2xl border border-ink-100 bg-ink-50/50 p-3 text-center">
+          <p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-500">
+            Views
+          </p>
+          <p className="mt-0.5 text-lg font-black text-ink-950">
             {item.views_count?.toLocaleString() || 0}
           </p>
         </div>
-        <div className="rounded-xl border border-ink-100/60 bg-ink-50/50 p-3 text-center shadow-sm">
+        <div className="rounded-2xl border border-ink-100 bg-ink-50/50 p-3 text-center">
           <p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-500">
             Applications
           </p>
-          <p className="text-lg font-extrabold text-ink-900">
+          <p className="mt-0.5 text-lg font-black text-ink-950">
             {item.applications_count?.toLocaleString() || 0}
           </p>
         </div>
-        <div className="rounded-xl border border-ink-100/60 bg-ink-50/50 p-3 text-center shadow-sm">
-          <p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-500">Listed</p>
-          <p className="text-lg font-extrabold text-ink-900">{formatDate(item.created_at)}</p>
+        <div className="rounded-2xl border border-ink-100 bg-ink-50/50 p-3 text-center">
+          <p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-500">
+            Listed
+          </p>
+          <p className="mt-0.5 text-sm font-black text-ink-950">
+            {formatDate(item.created_at)}
+          </p>
         </div>
       </div>
 
-      {/* Description */}
       {item.description && (
         <div>
           <p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-500">
             Description
           </p>
-          <p className="mt-1 whitespace-pre-wrap text-sm font-bold leading-relaxed text-ink-700">
+          <p className="mt-1 whitespace-pre-wrap text-sm font-medium leading-6 text-ink-700">
             {item.description}
           </p>
         </div>
       )}
 
-      {/* Dimensions */}
-      {(item.weight_kg || item.length_cm || item.width_cm || item.height_cm) && (
+      {(item.weight_kg ||
+        item.length_cm ||
+        item.width_cm ||
+        item.height_cm) && (
         <div>
           <p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-500">
             Dimensions
           </p>
-          <p className="mt-1 text-sm font-bold text-ink-700">
+          <p className="mt-1 text-sm font-extrabold text-ink-700">
             {item.weight_kg && `${item.weight_kg}kg`}
             {item.length_cm && ` · ${item.length_cm}cm`}
             {item.width_cm && ` × ${item.width_cm}cm`}
@@ -2308,38 +2149,43 @@ function ItemDetailsContent({
         </div>
       )}
 
-      {/* Flag */}
       {item.is_flagged && item.flag_reason && (
-        <div className="rounded-xl border border-rose-200/60 bg-rose-50 p-3 shadow-sm">
-          <p className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-rose-600">
-            <Flag className="h-3 w-3" />
+        <div className="rounded-2xl border border-danger-200 bg-danger-50 p-3">
+          <p className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-danger-700">
+            <Flag size={11} fill="currentColor" />
             Flagged
           </p>
-          <p className="mt-1 text-sm font-bold text-rose-700">{item.flag_reason}</p>
+          <p className="mt-1 text-sm font-bold text-danger-700">
+            {item.flag_reason}
+          </p>
         </div>
       )}
 
-      {/* Rejection */}
       {item.rejection_reason && (
-        <div className="rounded-xl border border-amber-200/60 bg-amber-50 p-3 shadow-sm">
-          <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-600">
+        <div className="rounded-2xl border border-warning-200 bg-warning-50 p-3">
+          <p className="text-[10px] font-extrabold uppercase tracking-wider text-warning-700">
             Rejection Reason
           </p>
-          <p className="mt-1 text-sm font-bold text-amber-700">{item.rejection_reason}</p>
+          <p className="mt-1 text-sm font-bold text-warning-700">
+            {item.rejection_reason}
+          </p>
         </div>
       )}
 
-      {/* Footer */}
-      <div className="flex gap-3 border-t border-ink-100 pt-4">
-        <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-bold text-ink-700 transition hover:bg-ink-50">
+      <div className="flex flex-col-reverse gap-2 border-t border-ink-100 pt-4 sm:flex-row sm:justify-end">
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50"
+        >
           Close
         </button>
         <button
           type="button"
           onClick={onModerate}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-brand-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:shadow-md"
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 text-sm font-extrabold text-white transition hover:bg-primary-700"
         >
-          <ShieldCheck className="h-4 w-4" />
+          <ShieldCheck size={15} />
           Moderate
         </button>
       </div>
@@ -2348,24 +2194,21 @@ function ItemDetailsContent({
 }
 
 /* ============================================================
-   PAGINATION
+   PAGINATION — unchanged
 ============================================================ */
 
 function Pagination({ currentPage, totalPages, onPageChange }) {
   const getPageNumbers = () => {
     const pages = [];
     const maxVisible = 5;
-
     if (totalPages <= maxVisible) {
       for (let i = 1; i <= totalPages; i++) pages.push(i);
     } else {
       pages.push(1);
       if (currentPage > 3) pages.push('...');
-
       const start = Math.max(2, currentPage - 1);
       const end = Math.min(totalPages - 1, currentPage + 1);
       for (let i = start; i <= end; i++) pages.push(i);
-
       if (currentPage < totalPages - 2) pages.push('...');
       pages.push(totalPages);
     }
@@ -2375,24 +2218,27 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
   if (totalPages <= 1) return null;
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1 rounded-2xl border border-ink-100 bg-white p-1 shadow-sm">
       <button
         type="button"
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
         aria-label="Previous page"
-        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
+        className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${
           currentPage === 1
             ? 'cursor-not-allowed text-ink-200'
-            : 'text-ink-500 hover:bg-primary-50/60 hover:text-primary-600'
+            : 'text-ink-500 hover:bg-primary-50 hover:text-primary-600'
         }`}
       >
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft size={14} />
       </button>
 
       {getPageNumbers().map((page, index) =>
         page === '...' ? (
-          <span key={`dots-${index}`} className="flex h-8 w-8 items-center justify-center text-xs font-medium text-ink-300">
+          <span
+            key={`dots-${index}`}
+            className="flex h-8 w-8 items-center justify-center text-xs font-bold text-ink-300"
+          >
             …
           </span>
         ) : (
@@ -2400,9 +2246,9 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
             type="button"
             key={page}
             onClick={() => onPageChange(page)}
-            className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-extrabold transition-all ${
+            className={`flex h-8 w-8 items-center justify-center rounded-xl text-xs font-extrabold transition ${
               currentPage === page
-                ? 'bg-gradient-to-r from-primary-500 to-brand-600 text-white shadow-sm'
+                ? 'bg-primary-600 text-white shadow-sm'
                 : 'text-ink-500 hover:bg-ink-50 hover:text-primary-600'
             }`}
           >
@@ -2416,13 +2262,13 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
         aria-label="Next page"
-        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
+        className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${
           currentPage === totalPages
             ? 'cursor-not-allowed text-ink-200'
-            : 'text-ink-500 hover:bg-primary-50/60 hover:text-primary-600'
+            : 'text-ink-500 hover:bg-primary-50 hover:text-primary-600'
         }`}
       >
-        <ChevronRight className="h-4 w-4" />
+        <ChevronRight size={14} />
       </button>
     </div>
   );

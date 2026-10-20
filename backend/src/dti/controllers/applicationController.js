@@ -1232,6 +1232,8 @@ export const redeclareInterest = async (req, res) => {
 /**
  * Get re-interest history for an application
  */
+
+
 export const getReinterestHistory = async (req, res) => {
   try {
     const { applicationId } = req.params;
@@ -1240,7 +1242,7 @@ export const getReinterestHistory = async (req, res) => {
     if (!applicationId) {
       return res.status(400).json({
         success: false,
-        error: 'Application ID is required'
+        error: 'Application ID is required',
       });
     }
 
@@ -1256,7 +1258,7 @@ export const getReinterestHistory = async (req, res) => {
           id,
           full_name,
           avatar_url,
-          location,
+          location
         ),
         item:items(
           id,
@@ -1266,7 +1268,7 @@ export const getReinterestHistory = async (req, res) => {
             id,
             full_name,
             avatar_url,
-            location,
+            location
           )
         )
       `)
@@ -1275,44 +1277,66 @@ export const getReinterestHistory = async (req, res) => {
 
     if (appError) {
       console.error('Application fetch error:', appError);
-      return res.status(404).json({
+
+      /* PostgREST PGRST116 = no rows returned by .single() → real 404 */
+      if (appError.code === 'PGRST116') {
+        return res.status(404).json({
+          success: false,
+          error: 'Application not found',
+        });
+      }
+
+      /* Anything else is a query/parse/server problem → 500, not 404 */
+      return res.status(500).json({
         success: false,
-        error: 'Application not found'
+        error: 'Failed to fetch application',
       });
     }
 
     if (!application) {
       return res.status(404).json({
         success: false,
-        error: 'Application not found'
+        error: 'Application not found',
       });
     }
 
-    if (application.applicant_id !== userId && application.item.donor_id !== userId) {
+    if (
+      application.applicant_id !== userId &&
+      application.item?.donor_id !== userId
+    ) {
       return res.status(403).json({
         success: false,
-        error: 'You are not authorized to view this re-interest history'
+        error: 'You are not authorized to view this re-interest history',
       });
     }
 
-    const lastReinterestDate = application.last_reinterest_date || application.created_at;
-    const nextAvailableDate = new Date(new Date(lastReinterestDate).getTime() + 7 * 24 * 60 * 60 * 1000);
-    const daysRemaining = Math.ceil((nextAvailableDate - new Date()) / (1000 * 60 * 60 * 24));
+    const lastReinterestDate =
+      application.last_reinterest_date || application.created_at;
+    const nextAvailableDate = new Date(
+      new Date(lastReinterestDate).getTime() + 7 * 24 * 60 * 60 * 1000
+    );
+    const daysRemaining = Math.ceil(
+      (nextAvailableDate - new Date()) / (1000 * 60 * 60 * 24)
+    );
 
     const reinterestTimeline = [];
-    
+
     reinterestTimeline.push({
       type: 'initial',
       date: application.created_at,
-      description: 'Initial application submitted'
+      description: 'Initial application submitted',
     });
 
     for (let i = 1; i <= (application.reinterest_count || 0); i++) {
-      const eventDate = new Date(new Date(application.created_at).getTime() + i * 7 * 24 * 60 * 60 * 1000);
+      const eventDate = new Date(
+        new Date(application.created_at).getTime() +
+          i * 7 * 24 * 60 * 60 * 1000
+      );
+
       reinterestTimeline.push({
         type: 'reinterest',
         date: eventDate,
-        description: `Re-interest declared (${i})`
+        description: `Re-interest declared (${i})`,
       });
     }
 
@@ -1328,18 +1352,19 @@ export const getReinterestHistory = async (req, res) => {
         next_available_date: nextAvailableDate,
         days_until_next_reinterest: Math.max(0, daysRemaining),
         can_redeclare: daysRemaining <= 0,
-        timeline: reinterestTimeline
-      }
+        timeline: reinterestTimeline,
+      },
     });
-
   } catch (error) {
     console.error('Get re-interest history error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch re-interest history'
+      error: 'Failed to fetch re-interest history',
     });
   }
 };
+
+
 
 // ============================================
 // GET APPLICATIONS WITH RE-INTEREST

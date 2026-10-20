@@ -97,6 +97,25 @@ const getRequestTitle = (conversation) => {
   );
 };
 
+const getItemTitle = (conversation) =>
+  conversation?.item?.title ||
+  conversation?.item?.name ||
+  conversation?.itemTitle ||
+  conversation?.item_title ||
+  null;
+
+/*
+ * Context-aware title.
+ *
+ * DTI conversations have `item`, POP conversations have
+ * `request`. Falls through so the same row markup renders the
+ * right label for either.
+ */
+const getContextTitle = (conversation) =>
+  getItemTitle(conversation) ||
+  getRequestTitle(conversation) ||
+  null;
+
 const getRequestStatus = (conversation) => {
   const request = getRequest(conversation);
 
@@ -721,7 +740,7 @@ const DeleteConversationDialog = ({
 
   const participant = getOtherParticipant(conversation);
   const name = getName(participant);
-  const requestTitle = getRequestTitle(conversation);
+  const contextTitle = getContextTitle(conversation);
 
   const modal = (
     <Modal
@@ -780,7 +799,7 @@ const DeleteConversationDialog = ({
           </div>
         </div>
 
-        {requestTitle && (
+        {contextTitle && (
           <div
             className="
               rounded-2xl
@@ -792,11 +811,11 @@ const DeleteConversationDialog = ({
             "
           >
             <p className="text-[10px] font-black uppercase tracking-[0.12em] text-ink-400">
-              Request
+              Context
             </p>
 
             <p className="mt-1 truncate text-sm font-bold text-ink-800">
-              {requestTitle}
+              {contextTitle}
             </p>
           </div>
         )}
@@ -1101,7 +1120,7 @@ const ChatListItem = memo(function ChatListItem({
   const participant = getOtherParticipant(conversation);
   const name = getName(participant);
   const avatar = getAvatar(participant);
-  const requestTitle = getRequestTitle(conversation);
+  const contextTitle = getContextTitle(conversation);
   const lastMessage = getLastMessageText(conversation);
   const lastMessageTime = getLastMessageTime(conversation);
   const unread = getUnreadCount(conversation);
@@ -1111,8 +1130,6 @@ const ChatListItem = memo(function ChatListItem({
 
   const handleActivate = useCallback(
     (event) => {
-      // Ignore clicks coming from the action menu or any nested
-      // interactive element.
       const target = event?.target;
 
       if (
@@ -1138,17 +1155,6 @@ const ChatListItem = memo(function ChatListItem({
   );
 
   return (
-    /*
-     * IMPORTANT:
-     * This used to be a <button>. Nested interactive elements
-     * (the action menu button, the pin/archive/mute actions)
-     * are illegal inside a <button>, which triggered:
-     *   "validateDOMNesting(...): <button> cannot appear as a
-     *    descendant of <button>"
-     *
-     * A <div role="button" tabIndex={0}> preserves all the
-     * accessibility and click semantics without nesting.
-     */
     <div
       role="button"
       tabIndex={0}
@@ -1181,10 +1187,6 @@ const ChatListItem = memo(function ChatListItem({
         }
       `}
     >
-      {/* =====================================================
-          AVATAR
-      ===================================================== */}
-
       <div
         className="
           relative
@@ -1236,10 +1238,6 @@ const ChatListItem = memo(function ChatListItem({
         )}
       </div>
 
-      {/* =====================================================
-          CONTENT
-      ===================================================== */}
-
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
           <p
@@ -1276,7 +1274,7 @@ const ChatListItem = memo(function ChatListItem({
           )}
         </div>
 
-        {requestTitle && (
+        {contextTitle && (
           <p
             className="
               mt-0.5
@@ -1286,7 +1284,7 @@ const ChatListItem = memo(function ChatListItem({
               text-primary-600
             "
           >
-            {requestTitle}
+            {contextTitle}
           </p>
         )}
 
@@ -1328,10 +1326,6 @@ const ChatListItem = memo(function ChatListItem({
         </div>
       </div>
 
-      {/* =====================================================
-          UNREAD
-      ===================================================== */}
-
       {unread > 0 && (
         <span
           className="
@@ -1354,13 +1348,6 @@ const ChatListItem = memo(function ChatListItem({
           {unread > 99 ? "99+" : unread}
         </span>
       )}
-
-      {/* =====================================================
-          ACTION MENU
-          -----------------------------------------------------
-          data-row-action marks the subtree so the parent row's
-          click handler can ignore clicks that originate here.
-      ===================================================== */}
 
       <div
         data-row-action
@@ -1418,6 +1405,9 @@ const ChatList = ({
 
   /* =======================================================
      FILTERED LIST
+     -------------------------------------------------------
+     Search now matches context titles (item or request) as
+     well as participant name and last message.
   ======================================================= */
 
   const filteredConversations = useMemo(() => {
@@ -1430,10 +1420,10 @@ const ChatList = ({
     return conversations.filter((conversation) => {
       const participant = getOtherParticipant(conversation);
       const name = getName(participant);
-      const requestTitle = getRequestTitle(conversation);
+      const contextTitle = getContextTitle(conversation);
       const message = getLastMessageText(conversation);
 
-      return [name, requestTitle, message]
+      return [name, contextTitle, message]
         .filter(Boolean)
         .some((text) =>
           String(text).toLowerCase().includes(value)
@@ -1526,10 +1516,6 @@ const ChatList = ({
         bg-white
       "
     >
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
-
       <div
         className="
           flex
@@ -1662,10 +1648,6 @@ const ChatList = ({
         )}
       </div>
 
-      {/* =====================================================
-          ERROR
-      ===================================================== */}
-
       {error && !loading && (
         <div className="shrink-0 px-3 pt-3">
           <div
@@ -1704,10 +1686,6 @@ const ChatList = ({
           </div>
         </div>
       )}
-
-      {/* =====================================================
-          LIST
-      ===================================================== */}
 
       <div
         className="
@@ -1789,7 +1767,7 @@ const ChatList = ({
 
             <p className="mt-1 max-w-xs text-xs leading-5 text-ink-400">
               {search
-                ? "Try a different name, request title, or message."
+                ? "Try a different name, context title, or message."
                 : "Your conversations will appear here."}
             </p>
           </div>
@@ -1831,10 +1809,6 @@ const ChatList = ({
         )}
       </div>
 
-      {/* =====================================================
-          DELETE MODAL
-      ===================================================== */}
-
       {deleteConversation && (
         <DeleteConversationDialog
           conversation={deleteConversation}
@@ -1846,10 +1820,6 @@ const ChatList = ({
           onConfirm={handleConfirmDelete}
         />
       )}
-
-      {/* =====================================================
-          ASSIGN MODAL
-      ===================================================== */}
 
       {assignConversation && (
         <AssignProviderDialog

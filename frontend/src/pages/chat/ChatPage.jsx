@@ -28,6 +28,25 @@ import { requestsAPI } from '@/services/api/popApi';
 import { chatAPI } from '@/services/api/sharedApi';
 
 /* ============================================================
+   CONTEXT CONSTANTS
+   ------------------------------------------------------------
+   Must match backend/controllers/chatController.js
+============================================================ */
+
+const CONTEXT_DTI = 'dti_donor_applicant';
+const CONTEXT_POP = 'pop_request';
+const CONTEXT_DIRECT = 'direct_chat';
+
+/*
+ * Maps the app identity to the conversation context_type
+ * it should filter by default.
+ */
+const CONTEXT_BY_APP = {
+  dti: CONTEXT_DTI,
+  pop: CONTEXT_POP,
+};
+
+/* ============================================================
    URL HELPERS
 ============================================================ */
 
@@ -94,6 +113,23 @@ function setConversationIdInUrl(
 }
 
 /* ============================================================
+   APP DETECTION
+============================================================ */
+
+function detectAppFromWindow() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const path = window.location.pathname;
+
+  if (path.startsWith('/app/dti')) return 'dti';
+  if (path.startsWith('/app/pop')) return 'pop';
+
+  return null;
+}
+
+/* ============================================================
    RESPONSE HELPERS
 ============================================================ */
 
@@ -114,9 +150,7 @@ const getConversationId = (conversation) =>
   conversation?.conversationId ||
   null;
 
-const isConversationDeleted = (
-  conversation
-) => {
+const isConversationDeleted = (conversation) => {
   if (!conversation) {
     return false;
   }
@@ -178,6 +212,16 @@ export default function ChatPage({
   currentUserId,
   onNewChat,
   onOpenDetails,
+  onViewItem,
+  onReinterest,
+  onReport,
+
+  /*
+   * Optional. Pass 'dti' or 'pop' from the app root to skip
+   * URL sniffing. Falls back to detecting from
+   * window.location.pathname.
+   */
+  appContext,
 }) {
   const [selectedId, setSelectedId] =
     useState(() =>
@@ -215,6 +259,38 @@ export default function ChatPage({
       )
     );
 
+  /*
+   * Whether to show conversations from all apps, or only the
+   * current app's context.
+   *
+   * false (default) → filter by this app's context_type
+   * true            → no filter, show everything
+   */
+  const [showAllApps, setShowAllApps] =
+    useState(false);
+
+  /* ==========================================================
+     APP / CONTEXT DETECTION
+  ========================================================== */
+
+  const detectedApp = useMemo(() => {
+    if (appContext === 'dti' || appContext === 'pop') {
+      return appContext;
+    }
+
+    return detectAppFromWindow();
+  }, [appContext]);
+
+  const contextType = useMemo(() => {
+    if (showAllApps) return null;
+
+    return CONTEXT_BY_APP[detectedApp] || null;
+  }, [showAllApps, detectedApp]);
+
+  /* ==========================================================
+     CONVERSATIONS
+  ========================================================== */
+
   const {
     conversations,
     loading: conversationsLoading,
@@ -231,6 +307,7 @@ export default function ChatPage({
       filter === 'archived'
         ? 'archived'
         : null,
+    contextType,
   });
 
   /* ==========================================================
@@ -694,8 +771,9 @@ export default function ChatPage({
               ?.full_name || '';
 
           const title =
-            conversation.request
-              ?.title || '';
+            conversation.request?.title ||
+            conversation.item?.title ||
+            '';
 
           const lastMessage =
             conversation.lastMessage || '';
@@ -967,13 +1045,21 @@ export default function ChatPage({
       urlConversationLoading
     );
 
+  const appScopeLabel =
+    detectedApp === 'dti'
+      ? 'DTI Chats'
+      : detectedApp === 'pop'
+      ? 'POP Chats'
+      : 'This App';
+
   return (
     <div
       className="
         flex
-        h-full
+        h-[calc(100dvh-85px)]
         min-h-0
         w-full
+								mt-4
         overflow-hidden
         rounded-[28px]
         border
@@ -1084,6 +1170,59 @@ export default function ChatPage({
               </button>
             )}
           </div>
+
+          {/* ==========================================
+             APP SCOPE TOGGLE
+             ------------------------------------------
+             Only shown when we can tell which app
+             we're inside. Offers "this app" vs "all apps".
+          ========================================== */}
+
+          {detectedApp && (
+            <div className="mt-3 flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setShowAllApps(false)}
+                className={`
+                  flex-1
+                  rounded-full
+                  px-3
+                  py-1.5
+                  text-[10px]
+                  font-black
+                  transition
+                  ${
+                    !showAllApps
+                      ? 'bg-primary-600 text-white shadow-xs'
+                      : 'bg-ink-100 text-ink-500 hover:bg-ink-200 hover:text-ink-700'
+                  }
+                `}
+              >
+                {appScopeLabel}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowAllApps(true)}
+                className={`
+                  flex-1
+                  rounded-full
+                  px-3
+                  py-1.5
+                  text-[10px]
+                  font-black
+                  transition
+                  ${
+                    showAllApps
+                      ? 'bg-primary-600 text-white shadow-xs'
+                      : 'bg-ink-100 text-ink-500 hover:bg-ink-200 hover:text-ink-700'
+                  }
+                `}
+              >
+                All Apps
+              </button>
+            </div>
+          )}
 
           {/* SEARCH */}
 
@@ -1342,6 +1481,9 @@ export default function ChatPage({
               )
             }
             onOpenDetails={onOpenDetails}
+            onViewItem={onViewItem}
+            onReinterest={onReinterest}
+            onReport={onReport}
           />
         ) : isOpeningUrlConversation ? (
           <LoadingChat
@@ -1378,6 +1520,7 @@ export default function ChatPage({
 
 /* ============================================================
    CONVERSATION PANEL
+   (unchanged — same as before)
 ============================================================ */
 
 function ConversationPanel({
@@ -1390,6 +1533,9 @@ function ConversationPanel({
   onToggleMute,
   onToggleArchive,
   onOpenDetails,
+  onViewItem,
+  onReinterest,
+  onReport,
 }) {
   const conversationId =
     getConversationId(
@@ -1430,8 +1576,6 @@ function ConversationPanel({
       conversation,
       currentUserId
     );
-
-  /* RESET */
 
   useEffect(() => {
     setReplyTo(null);
@@ -1476,10 +1620,6 @@ function ConversationPanel({
       conversation.status === 'cancelled'
     );
 
-  /* ==========================================================
-     SEND
-  ========================================================== */
-
   const handleSent =
     useCallback(
       async (payload) => {
@@ -1519,10 +1659,6 @@ function ConversationPanel({
       ]
     );
 
-  /* ==========================================================
-     EDIT
-  ========================================================== */
-
   const handleEdited =
     useCallback(
       async (
@@ -1559,10 +1695,6 @@ function ConversationPanel({
       ]
     );
 
-  /* ==========================================================
-     DELETE MESSAGE
-  ========================================================== */
-
   const handleDelete =
     useCallback(
       async (
@@ -1595,10 +1727,6 @@ function ConversationPanel({
         onRefreshConversations,
       ]
     );
-
-  /* ==========================================================
-     CLOSE
-  ========================================================== */
 
   const handleClose =
     useCallback(
@@ -1650,10 +1778,6 @@ function ConversationPanel({
       ]
     );
 
-  /* ==========================================================
-     REOPEN
-  ========================================================== */
-
   const handleReopen =
     useCallback(
       async () => {
@@ -1702,10 +1826,6 @@ function ConversationPanel({
         onRefreshConversations,
       ]
     );
-
-  /* ==========================================================
-     SEARCH
-  ========================================================== */
 
   const handleSearch =
     useCallback(() => {
@@ -1761,10 +1881,6 @@ function ConversationPanel({
       ]
     );
 
-  /* ==========================================================
-     MARK READ
-  ========================================================== */
-
   useEffect(() => {
     if (
       !conversationId ||
@@ -1814,10 +1930,6 @@ function ConversationPanel({
     markReadUpTo,
   ]);
 
-  /* ==========================================================
-     SETTINGS
-  ========================================================== */
-
   const handleOpenSettings =
     useCallback(() => {
       if (isDeleted) {
@@ -1834,10 +1946,6 @@ function ConversationPanel({
       setSettingsOpen(false);
     }, []);
 
-  /* ==========================================================
-     DELETED CONVERSATION
-  ========================================================== */
-
   if (isDeleted) {
     return (
       <DeletedConversationState
@@ -1846,10 +1954,6 @@ function ConversationPanel({
       />
     );
   }
-
-  /* ==========================================================
-     SETTINGS VIEW
-  ========================================================== */
 
   if (settingsOpen) {
     return (
@@ -1917,6 +2021,9 @@ function ConversationPanel({
         onSearch={handleSearch}
         onOpenSettings={handleOpenSettings}
         onOpenDetails={onOpenDetails}
+        onViewItem={onViewItem}
+        onReinterest={onReinterest}
+        onReport={onReport}
       />
 
       {searchOpen && (
@@ -2111,7 +2218,7 @@ function ConversationPanel({
 }
 
 /* ============================================================
-   DELETED CONVERSATION STATE
+   DELETED CONVERSATION STATE  (unchanged)
 ============================================================ */
 
 function DeletedConversationState({
@@ -2308,7 +2415,7 @@ function DeletedConversationState({
 }
 
 /* ============================================================
-   LOADING CHAT
+   LOADING CHAT  (unchanged)
 ============================================================ */
 
 function LoadingChat({
@@ -2409,7 +2516,7 @@ function LoadingChat({
 }
 
 /* ============================================================
-   CONVERSATION LOAD ERROR
+   CONVERSATION LOAD ERROR  (unchanged)
 ============================================================ */
 
 function ConversationLoadError({
@@ -2534,7 +2641,7 @@ function ConversationLoadError({
 }
 
 /* ============================================================
-   EMPTY CHAT
+   EMPTY CHAT  (unchanged)
 ============================================================ */
 
 function EmptyChat({

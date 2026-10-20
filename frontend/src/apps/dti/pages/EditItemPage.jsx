@@ -1,82 +1,184 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { DTI_BASE, makePaths } from "@/utils/routeBases";
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import {
+  Pencil,
+  RefreshCw,
+  Trash2,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  Circle,
+  X,
+  Image as ImageIcon,
+  Upload,
+  Truck,
+  Gift,
+  Wallet,
+  Info,
+  Check,
+  AlertTriangle,
+  Loader2,
+  Globe,
+} from 'lucide-react';
+
 import { useAuth } from '@/context/AuthContext';
 import { itemsAPI } from '@/services/api/dtiApi';
 import Select from '@/reusables/Select';
 import Modal from '@/reusables/Modal';
-import { PageNavigation, PageNavigationSkeleton } from '@/reusables/PageNavigation';
-import { ITEM_CATEGORIES, SHIPPING_OPTIONS, ITEM_CONDITIONS, getStatusDisplay } from '@/utils/constants';
 
-// ============================================
-// Skeleton (Unified design)
-// ============================================
+import {
+  ITEM_CATEGORIES,
+  SHIPPING_OPTIONS,
+  ITEM_CONDITIONS,
+  getStatusDisplay,
+} from '@/utils/constants';
+
+/* ============================================================
+   STATUS ICON MAP
+============================================================ */
+
+const getStatusIconComponent = (status) => {
+  switch (status) {
+    case 'active':
+      return CheckCircle2;
+    case 'pending':
+      return Clock;
+    case 'completed':
+      return CheckCircle2;
+    case 'cancelled':
+      return XCircle;
+    default:
+      return Circle;
+  }
+};
+
+const getStatusBadgeClasses = (color) => {
+  const map = {
+    green: 'border-success-200 bg-success-50 text-success-700',
+    yellow: 'border-warning-200 bg-warning-50 text-warning-700',
+    blue: 'border-primary-200 bg-primary-50 text-primary-700',
+    red: 'border-danger-200 bg-danger-50 text-danger-700',
+  };
+  return map[color] || 'border-ink-200 bg-ink-50 text-ink-600';
+};
+
+/* ============================================================
+   SKELETON
+============================================================ */
+
 const EditItemSkeleton = () => (
-  <div className="min-h-screen bg-ink-50/30">
-    <div className="mt-10 mx-auto max-w-7xl px-2 py-8 sm:px-6 lg:px-8">
-      <PageNavigation />
-      <div className="mt-10 space-y-6">
-        <div className="animate-pulse flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-ink-200"></div>
-          <div>
-            <div className="h-8 w-48 bg-ink-200 rounded"></div>
-            <div className="h-4 w-64 bg-ink-200 rounded mt-2"></div>
+  <div className="min-h-full bg-transparent">
+    <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+
+      <div className="space-y-7">
+        {/* HEADER */}
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <div className="mb-2 flex items-center gap-2">
+              <div className="h-3.5 w-3.5 animate-pulse rounded bg-ink-200" />
+              <div className="h-3 w-32 animate-pulse rounded bg-ink-200" />
+            </div>
+            <div className="h-8 w-48 animate-pulse rounded bg-ink-200" />
+            <div className="mt-3 h-4 w-64 max-w-full animate-pulse rounded bg-ink-200" />
           </div>
         </div>
 
-        {/* Image section */}
-        <div className="bg-white rounded-2xl border border-ink-100/80 shadow-sm p-6">
-          <div className="h-6 w-24 bg-ink-200 rounded mb-4"></div>
-          <div className="grid grid-cols-5 gap-3 mb-4">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-24 bg-ink-200 rounded-xl"></div>
+        {/* IMAGES */}
+        <div className="rounded-[26px] border border-ink-100 bg-white p-6 shadow-sm">
+          <div className="h-5 w-24 animate-pulse rounded bg-ink-200" />
+
+          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-24 animate-pulse rounded-xl bg-ink-100"
+              />
             ))}
           </div>
-          <div className="border-2 border-dashed border-ink-200 rounded-xl p-8">
+
+          <div className="mt-4 rounded-2xl border-2 border-dashed border-ink-200 p-8">
             <div className="flex flex-col items-center gap-2">
-              <div className="w-12 h-12 rounded-xl bg-ink-200"></div>
-              <div className="h-4 w-40 bg-ink-200 rounded"></div>
+              <div className="h-12 w-12 animate-pulse rounded-2xl bg-ink-100" />
+              <div className="h-4 w-40 animate-pulse rounded bg-ink-100" />
+              <div className="mt-3 h-10 w-36 animate-pulse rounded-xl bg-ink-100" />
             </div>
           </div>
         </div>
 
-        {/* Basic info */}
-        <div className="bg-white rounded-2xl border border-ink-100/80 shadow-sm p-6">
-          <div className="h-6 w-32 bg-ink-200 rounded mb-4"></div>
-          <div className="space-y-4">
-            <div className="h-10 w-full bg-ink-200 rounded"></div>
-            <div className="h-24 w-full bg-ink-200 rounded"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="h-10 bg-ink-200 rounded"></div>
-              <div className="h-10 bg-ink-200 rounded"></div>
+        {/* BASIC INFO */}
+        <div className="rounded-[26px] border border-ink-100 bg-white p-6 shadow-sm">
+          <div className="h-5 w-40 animate-pulse rounded bg-ink-200" />
+
+          <div className="mt-5 space-y-4">
+            <div>
+              <div className="mb-2 h-4 w-14 animate-pulse rounded bg-ink-200" />
+              <div className="h-11 w-full animate-pulse rounded-xl bg-ink-100" />
+            </div>
+
+            <div>
+              <div className="mb-2 h-4 w-24 animate-pulse rounded bg-ink-200" />
+              <div className="h-28 w-full animate-pulse rounded-xl bg-ink-100" />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="h-16 animate-pulse rounded-xl bg-ink-100" />
+              <div className="h-16 animate-pulse rounded-xl bg-ink-100" />
             </div>
           </div>
         </div>
 
-        {/* Shipping */}
-        <div className="bg-white rounded-2xl border border-ink-100/80 shadow-sm p-6">
-          <div className="h-6 w-32 bg-ink-200 rounded mb-4"></div>
-          <div className="h-20 bg-ink-200 rounded"></div>
+        {/* SHIPPING */}
+        <div className="rounded-[26px] border border-ink-100 bg-white p-6 shadow-sm">
+          <div className="h-5 w-40 animate-pulse rounded bg-ink-200" />
+
+          <div className="mt-5 rounded-2xl border border-ink-100 bg-ink-50/50 p-4">
+            <div className="mb-3 h-5 w-44 animate-pulse rounded bg-ink-200" />
+
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i}>
+                  <div className="mb-2 h-3 w-20 animate-pulse rounded bg-ink-200" />
+                  <div className="h-10 animate-pulse rounded-xl bg-ink-100" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-ink-100 bg-white p-4">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="h-7 w-7 animate-pulse rounded-xl bg-ink-100" />
+              <div className="h-5 w-44 animate-pulse rounded bg-ink-100" />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="h-11 animate-pulse rounded-xl bg-ink-100" />
+              <div className="h-11 animate-pulse rounded-xl bg-ink-100" />
+            </div>
+          </div>
         </div>
 
-        {/* Buttons */}
-        <div className="flex gap-4 pt-4">
-          <div className="flex-1 h-12 bg-ink-200 rounded-xl"></div>
-          <div className="w-32 h-12 bg-ink-200 rounded-xl"></div>
+        {/* SUBMIT */}
+        <div className="flex flex-col gap-2 border-t border-ink-100 pt-5 sm:flex-row sm:justify-end">
+          <div className="h-11 w-full animate-pulse rounded-xl bg-ink-200 sm:w-32" />
+          <div className="h-11 w-full animate-pulse rounded-xl bg-ink-200 sm:w-32" />
         </div>
       </div>
     </div>
   </div>
 );
 
-// ============================================
-// Main Component
-// ============================================
+/* ============================================================
+   MAIN COMPONENT
+============================================================ */
+
 const EditItemPage = () => {
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { to } = makePaths(DTI_BASE);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [item, setItem] = useState(null);
@@ -90,8 +192,10 @@ const EditItemPage = () => {
   const [newStatus, setNewStatus] = useState('');
   const [statusChanging, setStatusChanging] = useState(false);
 
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'djda2nagd';
-  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET_ITEMS || 'donttrashit_items';
+  const cloudName =
+    import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'djda2nagd';
+  const uploadPreset =
+    import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET_ITEMS || 'donttrashit_items';
 
   const [formData, setFormData] = useState({
     title: '',
@@ -111,174 +215,235 @@ const EditItemPage = () => {
   const [selectedRegion, setSelectedRegion] = useState('');
   const [excludedCountries, setExcludedCountries] = useState([]);
 
-  // Status options with icons/colors
-  const statusOptions = [
-    { value: 'active', label: 'Active', icon: 'bi-check-circle', color: 'green' },
-    { value: 'pending', label: 'Pending', icon: 'bi-clock', color: 'yellow' },
-    { value: 'completed', label: 'Completed', icon: 'bi-check-circle-fill', color: 'blue' },
-    { value: 'cancelled', label: 'Cancelled', icon: 'bi-x-circle', color: 'red' },
-  ];
+  /* Status options — icons as components, color as key */
+  const statusOptions = useMemo(
+    () => [
+      { value: 'active', label: 'Active', icon: CheckCircle2, color: 'green' },
+      { value: 'pending', label: 'Pending', icon: Clock, color: 'yellow' },
+      {
+        value: 'completed',
+        label: 'Completed',
+        icon: CheckCircle2,
+        color: 'blue',
+      },
+      { value: 'cancelled', label: 'Cancelled', icon: XCircle, color: 'red' },
+    ],
+    []
+  );
 
-  // Region options
-  const regionOptions = useMemo(() => [
-    { value: '', label: 'Anywhere', icon: 'bi-globe' },
-    ...SHIPPING_OPTIONS.map(option => ({
-      value: option.value,
-      label: option.label,
-      description: option.description,
-      icon: option.icon,
-      color: option.color,
-    })),
-  ], []);
+  /* Region options */
+  const regionOptions = useMemo(
+    () => [
+      { value: '', label: 'Anywhere', icon: Globe },
+      ...SHIPPING_OPTIONS.map((option) => ({
+        value: option.value,
+        label: option.label,
+        description: option.description,
+        icon: option.icon,
+        color: option.color,
+      })),
+    ],
+    []
+  );
 
   const getCountriesFromRegion = (regionValue) => {
-    const region = SHIPPING_OPTIONS.find(opt => opt.value === regionValue);
+    const region = SHIPPING_OPTIONS.find((opt) => opt.value === regionValue);
     if (!region) return [];
-    return region.description?.split(',').map(c => c.trim()) || [];
+    return region.description?.split(',').map((c) => c.trim()) || [];
   };
 
+  /* ============================================================
+     FETCH ITEM
+  ============================================================ */
+
   const fetchItem = useCallback(async () => {
-  if (!id || !user) return;
-  setLoading(true);
-  try {
-    const response = await itemsAPI.getById(id);
-    const data = response.data.item;
+    if (!id || !user) return;
 
-    if (data.donor_id !== user.id) {
-      toast.error('You do not have permission to edit this item');
+    setLoading(true);
+    try {
+      const response = await itemsAPI.getById(id);
+      const data = response.data.item;
+
+      if (data.donor_id !== user.id) {
+        toast.error('You do not have permission to edit this item');
+        navigate('/my-items');
+        return;
+      }
+
+      setItem(data);
+
+      const shippingRegions = data.shipping_regions || {};
+      const shippingRegion = shippingRegions.region || '';
+      const excludeCountries = shippingRegions.exclude || [];
+
+      setFormData({
+        title: data.title || '',
+        description: data.description || '',
+        category: data.category || '',
+        condition: data.condition || '',
+        weight_kg: data.weight_kg || '',
+        length_cm: data.length_cm || '',
+        width_cm: data.width_cm || '',
+        height_cm: data.height_cm || '',
+        donor_pays_shipping: data.donor_pays_shipping || false,
+        shipping_region: shippingRegion,
+        exclude_countries: excludeCountries,
+        status: data.status || 'active',
+      });
+
+      setSelectedRegion(shippingRegion);
+      setExcludedCountries(excludeCountries);
+
+      if (data.images && data.images.length > 0) {
+        setExistingImages(data.images);
+      }
+    } catch (error) {
+      console.error('Error fetching item:', error);
+      toast.error('Failed to load item details');
       navigate('/my-items');
-      return;
+    } finally {
+      setTimeout(() => setLoading(false), 300);
     }
+  }, [id, user, navigate]);
 
-    setItem(data);
+  useEffect(() => {
+    fetchItem();
+  }, [fetchItem]);
 
-    // Extract shipping region data from the shipping_regions JSONB column
-    const shippingRegions = data.shipping_regions || {};
-    const shippingRegion = shippingRegions.region || '';
-    const excludeCountries = shippingRegions.exclude || [];
-
-    setFormData({
-      title: data.title || '',
-      description: data.description || '',
-      category: data.category || '',
-      condition: data.condition || '',
-      weight_kg: data.weight_kg || '',
-      length_cm: data.length_cm || '',
-      width_cm: data.width_cm || '',
-      height_cm: data.height_cm || '',
-      donor_pays_shipping: data.donor_pays_shipping || false,
-      shipping_region: shippingRegion,
-      exclude_countries: excludeCountries,
-      status: data.status || 'active',
-    });
-
-    setSelectedRegion(shippingRegion);
-    setExcludedCountries(excludeCountries);
-
-    if (data.images && data.images.length > 0) {
-      setExistingImages(data.images);
-    }
-  } catch (error) {
-    console.error('Error fetching item:', error);
-    toast.error('Failed to load item details');
-    navigate('/my-items');
-  } finally {
-    setTimeout(() => setLoading(false), 300);
-  }
-}, [id, user, navigate]);
-
-
-
-  useEffect(() => { fetchItem(); }, [fetchItem]);
+  /* ============================================================
+     HANDLERS
+  ============================================================ */
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
   };
 
   const handleSelectChange = (name, value) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleRegionChange = (region) => {
     setSelectedRegion(region);
     setExcludedCountries([]);
-    setFormData(prev => ({ ...prev, shipping_region: region, exclude_countries: [] }));
+    setFormData((prev) => ({
+      ...prev,
+      shipping_region: region,
+      exclude_countries: [],
+    }));
   };
 
   const handleExcludeToggle = (country) => {
     const newExcludes = excludedCountries.includes(country)
-      ? excludedCountries.filter(c => c !== country)
+      ? excludedCountries.filter((c) => c !== country)
       : [...excludedCountries, country];
     setExcludedCountries(newExcludes);
-    setFormData(prev => ({ ...prev, exclude_countries: newExcludes }));
+    setFormData((prev) => ({ ...prev, exclude_countries: newExcludes }));
   };
 
   const handleShippingToggle = (value) => {
-    setFormData(prev => ({ ...prev, donor_pays_shipping: value }));
+    setFormData((prev) => ({ ...prev, donor_pays_shipping: value }));
     if (!value) {
       setSelectedRegion('');
       setExcludedCountries([]);
-      setFormData(prev => ({ ...prev, shipping_region: '', exclude_countries: [] }));
+      setFormData((prev) => ({
+        ...prev,
+        shipping_region: '',
+        exclude_countries: [],
+      }));
     }
   };
+
+  /* ============================================================
+     IMAGES
+  ============================================================ */
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
     const totalImages = existingImages.length + images.length + files.length;
+
     if (totalImages > 5) {
       toast.error('Maximum 5 images allowed');
       return;
     }
-    const invalidFiles = files.filter(file => file.size > 5 * 1024 * 1024);
+
+    const invalidFiles = files.filter((file) => file.size > 5 * 1024 * 1024);
     if (invalidFiles.length > 0) {
       toast.error('Each image must be less than 5MB');
       return;
     }
-    const invalidTypes = files.filter(file =>
-      !['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)
+
+    const invalidTypes = files.filter(
+      (file) =>
+        ![
+          'image/jpeg',
+          'image/jpg',
+          'image/png',
+          'image/gif',
+          'image/webp',
+        ].includes(file.type)
     );
+
     if (invalidTypes.length > 0) {
       toast.error('Only JPG, PNG, GIF, and WEBP images are allowed');
       return;
     }
-    setImages(prev => [...prev, ...files]);
-    setImagePreviews(prev => [...prev, ...files.map(f => URL.createObjectURL(f))]);
+
+    setImages((prev) => [...prev, ...files]);
+    setImagePreviews((prev) => [
+      ...prev,
+      ...files.map((f) => URL.createObjectURL(f)),
+    ]);
   };
 
   const removeExistingImage = (index) => {
     const imageToRemove = existingImages[index];
-    setRemovedImages(prev => [...prev, imageToRemove]);
-    setExistingImages(prev => prev.filter((_, i) => i !== index));
+    setRemovedImages((prev) => [...prev, imageToRemove]);
+    setExistingImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   const removeNewImage = (index) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
+    setImages((prev) => prev.filter((_, i) => i !== index));
     URL.revokeObjectURL(imagePreviews[index]);
-    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const uploadImagesToCloudinary = async (imageFiles) => {
     const uploadedUrls = [];
     let completed = 0;
     const total = imageFiles.length;
+
     for (const file of imageFiles) {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('upload_preset', uploadPreset);
       fd.append('folder', 'donttrashit/items');
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: fd });
+
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+        { method: 'POST', body: fd }
+      );
+
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error?.message || 'Upload failed');
       }
+
       const data = await res.json();
       uploadedUrls.push(data.secure_url);
       completed++;
       setUploadProgress(Math.round((completed / total) * 100));
     }
+
     return { success: true, urls: uploadedUrls };
   };
+
+  /* ============================================================
+     STATUS
+  ============================================================ */
 
   const handleStatusChange = () => {
     setNewStatus(formData.status);
@@ -291,11 +456,12 @@ const EditItemPage = () => {
       setNewStatus('');
       return;
     }
+
     setStatusChanging(true);
     try {
       await itemsAPI.update(id, { status: newStatus });
       toast.success(`Item status updated to ${newStatus}`);
-      setFormData(prev => ({ ...prev, status: newStatus }));
+      setFormData((prev) => ({ ...prev, status: newStatus }));
       setShowStatusModal(false);
       setNewStatus('');
       await fetchItem();
@@ -305,6 +471,10 @@ const EditItemPage = () => {
       setStatusChanging(false);
     }
   };
+
+  /* ============================================================
+     DELETE
+  ============================================================ */
 
   const handleDelete = async () => {
     try {
@@ -316,12 +486,23 @@ const EditItemPage = () => {
     }
   };
 
+  /* ============================================================
+     SUBMIT
+  ============================================================ */
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.title || !formData.description || !formData.category || !formData.condition) {
+
+    if (
+      !formData.title ||
+      !formData.description ||
+      !formData.category ||
+      !formData.condition
+    ) {
       toast.error('Please fill in all required fields');
       return;
     }
+
     setSaving(true);
     setUploadProgress(0);
 
@@ -332,17 +513,19 @@ const EditItemPage = () => {
       if (images.length > 0) {
         toast.info('Uploading images...');
         const uploadResult = await uploadImagesToCloudinary(images);
+
         if (!uploadResult.success) {
           toast.error(`Upload failed: ${uploadResult.error}`);
           setSaving(false);
           return;
         }
+
         uploadedImageUrls = uploadResult.urls;
         toast.success(`${uploadedImageUrls.length} image(s) uploaded!`);
       }
 
       if (removedImages.length > 0) {
-        allImages = allImages.filter(url => !removedImages.includes(url));
+        allImages = allImages.filter((url) => !removedImages.includes(url));
       }
       allImages = [...allImages, ...uploadedImageUrls];
 
@@ -372,7 +555,7 @@ const EditItemPage = () => {
       toast.info('Updating your item...');
       await itemsAPI.update(id, updateData);
       toast.success('Item updated successfully! 🎉');
-      navigate(`/item/${id}`);
+      navigate(to(`/item/${id}`));
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to update item');
     } finally {
@@ -381,159 +564,300 @@ const EditItemPage = () => {
     }
   };
 
+  /* ============================================================
+     LOADING
+  ============================================================ */
+
   if (loading) return <EditItemSkeleton />;
+
+  /* ============================================================
+     NOT FOUND
+  ============================================================ */
+
   if (!item) {
     return (
-      <div className="min-h-screen bg-ink-50/30 flex items-center justify-center px-4">
-        <div className="text-center">
-          <i className="bi bi-exclamation-triangle text-6xl text-ink-300"></i>
-          <h2 className="text-2xl font-bold text-ink-700 mt-4">Item Not Found</h2>
-          <button onClick={() => navigate('/my-items')} className="mt-4 px-6 py-2 bg-gradient-to-r from-primary-500 to-brand-600 hover:shadow-md text-white rounded-xl font-bold transition">
-            Back to My Items
-          </button>
+      <div className="min-h-full bg-transparent">
+
+        <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+          <div className="flex min-h-[420px] items-center justify-center rounded-[28px] border border-dashed border-ink-200 bg-white px-6 py-12">
+            <div className="mx-auto max-w-md text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-warning-50 text-warning-600">
+                <AlertTriangle size={27} />
+              </div>
+
+              <h2 className="mt-5 text-lg font-black text-ink-950">
+                Item not found
+              </h2>
+
+              <p className="mt-2 text-sm font-medium leading-6 text-ink-500">
+                The item you're looking for doesn't exist or you lack
+                permission.
+              </p>
+
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => navigate('/my-items')}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 text-sm font-extrabold text-white transition hover:bg-primary-700"
+                >
+                  Back to My Items
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
+  /* ============================================================
+     DERIVED
+  ============================================================ */
+
   const currentStatusDisplay = getStatusDisplay(formData.status);
+  const CurrentStatusIcon = getStatusIconComponent(formData.status);
+  const currentStatusClasses = getStatusBadgeClasses(
+    currentStatusDisplay?.color
+  );
+
+  /* ============================================================
+     RENDER
+  ============================================================ */
 
   return (
-    <div className="min-h-screen bg-ink-50/30 pb-20 mt-10">
-      <div className="mx-auto max-w-7xl px-2 py-8 sm:px-6 lg:px-8">
-        <PageNavigation />
-        <div className="mt-10">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 mb-6">
-            <div className="bg-primary-50 border border-primary-100 p-2.5 rounded-xl">
-              <i className="bi bi-pencil-square text-primary-600 text-xl"></i>
-            </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-extrabold tracking-[-0.03em] text-ink-900">Edit Item</h1>
-              <p className="text-ink-500 text-sm">Update your item details</p>
-            </div>
-          </motion.div>
+    <div className="min-h-full bg-transparent">
 
-          {/* Status bar */}
-          <div className="flex items-center gap-2 mb-6 flex-wrap">
-            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border ${
-              currentStatusDisplay?.color === 'green' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-              currentStatusDisplay?.color === 'yellow' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-              currentStatusDisplay?.color === 'blue' ? 'bg-sky-50 text-sky-700 border-sky-200' :
-              currentStatusDisplay?.color === 'red' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-              'bg-ink-50 text-ink-600 border-ink-200'
-            }`}>
-              <i className={`bi ${currentStatusDisplay?.icon || 'bi-circle'} text-[10px]`}></i>
-              {currentStatusDisplay?.label || formData.status}
-            </span>
-            <button onClick={handleStatusChange} className="px-3 py-1.5 bg-primary-50 hover:bg-primary-100 text-primary-700 border border-primary-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
-              <i className="bi bi-arrow-right-circle"></i>
-              Change Status
-            </button>
-            <button onClick={() => setShowDeleteModal(true)} className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
-              <i className="bi bi-trash"></i>
-              Delete
-            </button>
+      <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+        {/* HEADER */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          className="mb-7"
+        >
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+              <div className="mb-2 flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary-600">
+                <Pencil size={14} strokeWidth={2.5} />
+                <span>Edit listing</span>
+              </div>
+
+              <h1 className="text-2xl font-black tracking-tight text-ink-950 sm:text-3xl">
+                Edit Item
+              </h1>
+
+              <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-ink-500">
+                Update your item details.
+              </p>
+            </div>
+
+            {/* Status + actions */}
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-extrabold ${currentStatusClasses}`}
+              >
+                <CurrentStatusIcon size={11} />
+                {currentStatusDisplay?.label || formData.status}
+              </span>
+
+              <button
+                type="button"
+                onClick={handleStatusChange}
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-primary-200 bg-primary-50 px-3 text-xs font-extrabold text-primary-700 transition hover:bg-primary-100"
+              >
+                <RefreshCw size={12} />
+                Change Status
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(true)}
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-danger-200 bg-danger-50 px-3 text-xs font-extrabold text-danger-700 transition hover:bg-danger-100"
+              >
+                <Trash2 size={12} />
+                Delete
+              </button>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* FORM */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* =================================================
+              IMAGES
+          ================================================= */}
+
+          <div className="rounded-[26px] border border-ink-100 bg-white p-6 shadow-sm">
+            <h3 className="text-base font-black tracking-tight text-ink-950">
+              Images
+            </h3>
+
+            {/* CURRENT IMAGES */}
+            {existingImages.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 text-[10px] font-extrabold uppercase tracking-wider text-ink-500">
+                  Current Images
+                </p>
+
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+                  {existingImages.map((image, index) => (
+                    <div key={index} className="group relative">
+                      <img
+                        src={image}
+                        alt=""
+                        className="h-24 w-full rounded-xl border border-ink-100 object-cover"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => removeExistingImage(index)}
+                        className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-danger-500 text-white shadow-sm transition hover:bg-danger-600"
+                        aria-label="Remove image"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* NEW IMAGES */}
+            {imagePreviews.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 text-[10px] font-extrabold uppercase tracking-wider text-ink-500">
+                  New Images
+                </p>
+
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+                  {imagePreviews.map((preview, index) => (
+                    <div key={index} className="group relative">
+                      <img
+                        src={preview}
+                        alt=""
+                        className="h-24 w-full rounded-xl border border-ink-100 object-cover"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => removeNewImage(index)}
+                        className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-danger-500 text-white shadow-sm transition hover:bg-danger-600"
+                        aria-label="Remove image"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* PROGRESS */}
+            {saving && uploadProgress > 0 && uploadProgress < 100 && (
+              <div className="mt-4">
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="text-xs font-bold text-ink-500">
+                    Uploading...
+                  </span>
+
+                  <span className="text-xs font-extrabold text-ink-700">
+                    {uploadProgress}%
+                  </span>
+                </div>
+
+                <div className="h-2 w-full overflow-hidden rounded-full bg-ink-100">
+                  <div
+                    className="h-2 rounded-full bg-primary-600 transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* UPLOAD DROPZONE */}
+            {existingImages.length + images.length < 5 && (
+              <div
+                className={`rounded-2xl border-2 border-dashed border-ink-300 p-8 transition-colors hover:border-primary-300 ${
+                  existingImages.length > 0 || images.length > 0
+                    ? 'mt-4'
+                    : 'mt-4'
+                }`}
+              >
+                <div className="text-center">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-ink-100 text-ink-400">
+                    <ImageIcon size={22} />
+                  </div>
+
+                  <p className="mt-3 text-sm font-bold text-ink-600">
+                    Add more images (max 5 total)
+                  </p>
+
+                  <p className="mt-0.5 text-xs font-bold text-ink-400">
+                    Max 5MB each
+                  </p>
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleImageChange}
+                    className="hidden"
+                    id="image-upload"
+                  />
+
+                  <label
+                    htmlFor="image-upload"
+                    className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-primary-700"
+                  >
+                    <Upload size={14} />
+                    Choose Images
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Images */}
-            <div className="bg-white rounded-2xl border border-ink-100/80 shadow-sm p-6">
-              <h3 className="text-lg font-extrabold text-ink-900 mb-4">Images</h3>
+          {/* =================================================
+              BASIC INFORMATION
+          ================================================= */}
 
-              {existingImages.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-xs font-bold text-ink-500 uppercase tracking-wide mb-2">Current Images</p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                    {existingImages.map((image, index) => (
-                      <div key={index} className="relative group">
-                        <img src={image} alt="" className="w-full h-24 object-cover rounded-xl border border-ink-100" />
-                        <button
-                          type="button"
-                          onClick={() => removeExistingImage(index)}
-                          className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-rose-600 transition shadow-sm"
-                        >
-                          <i className="bi bi-x"></i>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+          <div className="rounded-[26px] border border-ink-100 bg-white p-6 shadow-sm">
+            <h3 className="text-base font-black tracking-tight text-ink-950">
+              Basic Information
+            </h3>
 
-              {imagePreviews.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-xs font-bold text-ink-500 uppercase tracking-wide mb-2">New Images</p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                    {imagePreviews.map((preview, index) => (
-                      <div key={index} className="relative group">
-                        <img src={preview} alt="" className="w-full h-24 object-cover rounded-xl border border-ink-100" />
-                        <button
-                          type="button"
-                          onClick={() => removeNewImage(index)}
-                          className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-rose-600 transition shadow-sm"
-                        >
-                          <i className="bi bi-x"></i>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+            <div className="mt-5 space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-extrabold text-ink-700">
+                  Title <span className="text-danger-500">*</span>
+                </label>
 
-              {(saving && uploadProgress > 0 && uploadProgress < 100) && (
-                <div className="mt-4">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-ink-600">Uploading...</span>
-                    <span className="text-sm font-bold text-ink-700">{uploadProgress}%</span>
-                  </div>
-                  <div className="w-full bg-ink-100 rounded-full h-2">
-                    <div className="bg-gradient-to-r from-primary-500 to-brand-600 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
-                  </div>
-                </div>
-              )}
-
-              {existingImages.length + images.length < 5 && (
-                <div className={`border-2 border-dashed border-ink-200 rounded-xl p-6 hover:border-primary-300 transition-colors ${(existingImages.length > 0 || images.length > 0) ? 'mt-4' : ''}`}>
-                  <div className="text-center">
-                    <i className="bi bi-image text-4xl text-ink-300"></i>
-                    <p className="mt-2 text-sm text-ink-600">Add more images (max 5 total)</p>
-                    <p className="text-xs text-ink-400">Max 5MB each</p>
-                    <input type="file" accept="image/*" multiple onChange={handleImageChange} className="hidden" id="image-upload" />
-                    <label htmlFor="image-upload" className="inline-flex items-center gap-2 mt-3 px-5 py-2.5 bg-gradient-to-r from-primary-500 to-brand-600 hover:shadow-md text-white rounded-xl text-sm font-bold transition cursor-pointer">
-                      <i className="bi bi-upload"></i>
-                      Choose Images
-                    </label>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Basic Info */}
-            <div className="bg-white rounded-2xl border border-ink-100/80 shadow-sm p-6">
-              <h3 className="text-lg font-extrabold text-ink-900 mb-4">Basic Information</h3>
-              <div className="mb-4">
-                <label className="block text-sm font-bold text-ink-700 mb-1">Title *</label>
                 <input
                   type="text"
                   name="title"
                   value={formData.title}
                   onChange={handleChange}
-                  className="w-full px-4 py-2.5 border border-ink-200 rounded-xl focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 outline-none transition text-sm text-ink-900 placeholder:text-ink-400"
                   required
+                  className="input-field text-sm font-medium"
                 />
               </div>
-              <div className="mb-4">
-                <label className="block text-sm font-bold text-ink-700 mb-1">Description *</label>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-extrabold text-ink-700">
+                  Description <span className="text-danger-500">*</span>
+                </label>
+
                 <textarea
                   name="description"
                   value={formData.description}
                   onChange={handleChange}
-                  rows="4"
-                  className="w-full px-4 py-2.5 border border-ink-200 rounded-xl focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 outline-none transition text-sm text-ink-900 placeholder:text-ink-400"
+                  rows={4}
                   required
+                  className="input-field text-sm font-medium"
                 />
               </div>
-              <div className="grid md:grid-cols-2 gap-4">
+
+              <div className="grid gap-4 md:grid-cols-2">
                 <Select
                   label="Category"
                   value={formData.category}
@@ -544,6 +868,7 @@ const EditItemPage = () => {
                   searchable
                   showIcon
                 />
+
                 <Select
                   label="Condition"
                   value={formData.condition}
@@ -556,212 +881,385 @@ const EditItemPage = () => {
                 />
               </div>
             </div>
+          </div>
 
-            {/* Shipping Details */}
-            <div className="bg-white rounded-2xl border border-ink-100/80 shadow-sm p-6">
-              <h3 className="text-lg font-extrabold text-ink-900 mb-4">Shipping Details</h3>
-              <div className="bg-ink-50/50 rounded-xl p-4 mb-4 border border-ink-100/60">
-                <label className="block text-sm font-bold text-ink-700 mb-2">Item Dimensions (Optional)</label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-ink-500">Weight (kg)</label>
-                    <input type="number" name="weight_kg" value={formData.weight_kg} onChange={handleChange} className="w-full px-3 py-2 border border-ink-200 rounded-xl text-sm text-ink-900 focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 outline-none transition" step="0.1" min="0" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-ink-500">Length (cm)</label>
-                    <input type="number" name="length_cm" value={formData.length_cm} onChange={handleChange} className="w-full px-3 py-2 border border-ink-200 rounded-xl text-sm text-ink-900 focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 outline-none transition" min="0" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-ink-500">Width (cm)</label>
-                    <input type="number" name="width_cm" value={formData.width_cm} onChange={handleChange} className="w-full px-3 py-2 border border-ink-200 rounded-xl text-sm text-ink-900 focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 outline-none transition" min="0" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-ink-500">Height (cm)</label>
-                    <input type="number" name="height_cm" value={formData.height_cm} onChange={handleChange} className="w-full px-3 py-2 border border-ink-200 rounded-xl text-sm text-ink-900 focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 outline-none transition" min="0" />
-                  </div>
-                </div>
-              </div>
+          {/* =================================================
+              SHIPPING
+          ================================================= */}
 
-              {/* Inline Shipping Toggle (replaces ShippingToggle component) */}
-              <div className="bg-white p-4 rounded-2xl border border-ink-100/80 shadow-sm">
-                <div className="flex items-center gap-3 mb-3">
-                  <i className={`bi bi-truck text-2xl ${formData.donor_pays_shipping ? 'text-primary-600' : 'text-ink-400'}`}></i>
-                  <div className="flex-1">
-                    <label className="text-sm font-extrabold text-ink-700 cursor-pointer">
-                      Who pays for shipping?
+          <div className="rounded-[26px] border border-ink-100 bg-white p-6 shadow-sm">
+            <h3 className="text-base font-black tracking-tight text-ink-950">
+              Shipping Details
+            </h3>
+
+            {/* DIMENSIONS */}
+            <div className="mt-5 rounded-2xl border border-ink-100 bg-ink-50/50 p-4">
+              <label className="mb-2 block text-sm font-extrabold text-ink-700">
+                Item Dimensions{' '}
+                <span className="text-xs font-medium text-ink-400">
+                  (Optional)
+                </span>
+              </label>
+
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {[
+                  ['weight_kg', 'Weight (kg)'],
+                  ['length_cm', 'Length (cm)'],
+                  ['width_cm', 'Width (cm)'],
+                  ['height_cm', 'Height (cm)'],
+                ].map(([name, label]) => (
+                  <div key={name}>
+                    <label className="mb-1 block text-[11px] font-bold text-ink-500">
+                      {label}
                     </label>
-                  </div>
-                </div>
 
-                <div className="flex flex-col md:flex-row gap-4">
-                  <button
-                    type="button"
-                    onClick={() => handleShippingToggle(true)}
-                    className={`flex-1 px-3 py-2 rounded-xl border-2 transition-all flex items-center justify-center gap-2 font-bold ${
-                      formData.donor_pays_shipping
-                        ? 'border-primary-500 bg-primary-50 text-primary-700 shadow-sm'
-                        : 'border-ink-200 hover:border-ink-300 text-ink-600 hover:bg-ink-50'
-                    }`}
-                  >
-                    <i className="bi bi-gift"></i>
-                    <span className="font-extrabold">I'll Pay</span>
-                    <span className="text-xs font-medium text-ink-500">(Free for winner)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleShippingToggle(false)}
-                    className={`flex-1 px-3 py-2 rounded-xl border-2 transition-all flex items-center justify-center gap-2 font-bold ${
-                      !formData.donor_pays_shipping
-                        ? 'border-primary-500 bg-primary-50 text-primary-700 shadow-sm'
-                        : 'border-ink-200 hover:border-ink-300 text-ink-600 hover:bg-ink-50'
-                    }`}
-                  >
-                    <i className="bi bi-wallet"></i>
-                    <span className="font-extrabold">Winner Pays</span>
-                    <span className="text-xs font-medium text-ink-500">(Free for you)</span>
-                  </button>
-                </div>
-
-                <p className="text-xs font-medium text-ink-500 mt-3 flex items-center gap-1">
-                  <i className="bi bi-info-circle text-ink-400"></i>
-                  {formData.donor_pays_shipping
-                    ? 'You will cover shipping costs. Choose which regions you want to ship to.'
-                    : 'The winner will pay for shipping. You don\'t need to specify shipping regions.'
-                  }
-                </p>
-              </div>
-
-              {formData.donor_pays_shipping && (
-                <>
-                  <div className="mt-4">
-                    <Select
-                      label="Shipping Region"
-                      value={selectedRegion}
-                      onChange={handleRegionChange}
-                      options={regionOptions}
-                      placeholder="Select shipping region"
-                      searchable
-                      showIcon
-                      showDescription
+                    <input
+                      type="number"
+                      name={name}
+                      value={formData[name]}
+                      onChange={handleChange}
+                      step={name === 'weight_kg' ? '0.1' : undefined}
+                      min="0"
+                      className="input-field px-3 py-2 text-sm font-medium"
                     />
                   </div>
-                  {selectedRegion && (
-                    <div className="mt-4 bg-ink-50/50 rounded-xl p-4 border border-ink-100/60">
-                      <label className="block text-sm font-bold text-ink-700 mb-2">Exclude Countries (Optional)</label>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
-                        {getCountriesFromRegion(selectedRegion).map((country) => (
-                          <label key={country} className="flex items-center gap-2 text-sm hover:bg-ink-100 p-1 rounded cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={excludedCountries.includes(country)}
-                              onChange={() => handleExcludeToggle(country)}
-                              className="rounded border-ink-300 text-primary-600 focus:ring-primary-500"
-                            />
-                            <span className="text-ink-700">{country}</span>
-                          </label>
-                        ))}
-                      </div>
-                      {excludedCountries.length > 0 && (
-                        <div className="mt-2 text-xs text-ink-500">
-                          <i className="bi bi-info-circle mr-1"></i>
-                          {excludedCountries.length} countries excluded
-                        </div>
-                      )}
+                ))}
+              </div>
+            </div>
+
+            {/* WHO PAYS */}
+            <div className="mt-4 rounded-2xl border border-ink-100 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center gap-3">
+                <span
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                    formData.donor_pays_shipping
+                      ? 'bg-primary-50 text-primary-600'
+                      : 'bg-ink-100 text-ink-400'
+                  }`}
+                >
+                  <Truck size={16} />
+                </span>
+
+                <label className="flex-1 text-sm font-extrabold text-ink-700">
+                  Who pays for shipping?
+                </label>
+              </div>
+
+              <div className="flex flex-col gap-3 md:flex-row md:gap-4">
+                <button
+                  type="button"
+                  onClick={() => handleShippingToggle(true)}
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 px-3 py-3 transition ${
+                    formData.donor_pays_shipping
+                      ? 'border-primary-500 bg-primary-50 text-primary-700 shadow-sm'
+                      : 'border-ink-300 text-ink-600 hover:border-primary-300 hover:bg-ink-50'
+                  }`}
+                >
+                  <Gift size={14} />
+
+                  <span className="text-sm font-extrabold">I'll Pay</span>
+
+                  <span className="text-xs font-bold text-ink-500">
+                    (Free for winner)
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleShippingToggle(false)}
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 px-3 py-3 transition ${
+                    !formData.donor_pays_shipping
+                      ? 'border-primary-500 bg-primary-50 text-primary-700 shadow-sm'
+                      : 'border-ink-300 text-ink-600 hover:border-primary-300 hover:bg-ink-50'
+                  }`}
+                >
+                  <Wallet size={14} />
+
+                  <span className="text-sm font-extrabold">Winner Pays</span>
+
+                  <span className="text-xs font-bold text-ink-500">
+                    (Free for you)
+                  </span>
+                </button>
+              </div>
+
+              <p className="mt-3 flex items-start gap-1.5 text-[11px] font-bold text-ink-500">
+                <Info size={12} className="mt-0.5 shrink-0 text-ink-400" />
+
+                {formData.donor_pays_shipping
+                  ? 'You will cover shipping costs. Choose which regions you want to ship to.'
+                  : "The winner will pay for shipping. You don't need to specify shipping regions."}
+              </p>
+            </div>
+
+            {/* REGION */}
+            {formData.donor_pays_shipping && (
+              <>
+                <div className="mt-4">
+                  <Select
+                    label="Shipping Region"
+                    value={selectedRegion}
+                    onChange={handleRegionChange}
+                    options={regionOptions}
+                    placeholder="Select shipping region"
+                    searchable
+                    showIcon
+                    showDescription
+                  />
+                </div>
+
+                {/* EXCLUSIONS */}
+                {selectedRegion && (
+                  <div className="mt-4 rounded-2xl border border-ink-100 bg-ink-50/50 p-4">
+                    <label className="mb-2 block text-sm font-extrabold text-ink-700">
+                      Exclude Countries{' '}
+                      <span className="text-xs font-medium text-ink-400">
+                        (Optional)
+                      </span>
+                    </label>
+
+                    <div className="grid max-h-48 grid-cols-2 gap-2 overflow-y-auto md:grid-cols-3">
+                      {getCountriesFromRegion(selectedRegion).map((country) => (
+                        <label
+                          key={country}
+                          className="flex cursor-pointer items-center gap-2 rounded-xl p-1.5 text-sm transition hover:bg-ink-100"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={excludedCountries.includes(country)}
+                            onChange={() => handleExcludeToggle(country)}
+                            className="h-4 w-4 shrink-0 cursor-pointer rounded border-ink-400 text-primary-600 accent-primary-600 focus:ring-2 focus:ring-primary-300"
+                          />
+
+                          <span className="font-bold text-ink-700">
+                            {country}
+                          </span>
+                        </label>
+                      ))}
                     </div>
-                  )}
+
+                    {excludedCountries.length > 0 && (
+                      <div className="mt-2 flex items-center gap-1.5 text-xs font-bold text-ink-500">
+                        <Info size={11} />
+                        {excludedCountries.length} countries excluded
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* WINNER PAYS INFO */}
+            {!formData.donor_pays_shipping && (
+              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-primary-100 bg-primary-50 p-4">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-100 text-primary-600">
+                  <Info size={16} />
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-sm font-extrabold text-primary-900">
+                    Winner Pays Shipping
+                  </p>
+
+                  <p className="mt-1 text-xs font-medium leading-5 text-primary-700">
+                    The winner will be responsible for shipping costs.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* =================================================
+              SUBMIT
+          ================================================= */}
+
+          <div className="flex flex-col-reverse gap-2 border-t border-ink-100 pt-5 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => navigate(to(`/item/${id}`))}
+              disabled={saving}
+              className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-5 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 text-sm font-extrabold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+
+                  {uploadProgress > 0 && uploadProgress < 100
+                    ? `Uploading... ${uploadProgress}%`
+                    : 'Saving...'}
+                </>
+              ) : (
+                <>
+                  <Check size={16} />
+                  Save Changes
                 </>
               )}
-
-              {!formData.donor_pays_shipping && (
-                <div className="bg-primary-50 border border-primary-200 rounded-xl p-4 mt-4">
-                  <div className="flex items-start gap-3">
-                    <i className="bi bi-info-circle text-primary-600 text-xl mt-0.5"></i>
-                    <div>
-                      <p className="text-sm font-bold text-primary-700">Winner Pays Shipping</p>
-                      <p className="text-sm text-primary-600">The winner will be responsible for shipping costs.</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Buttons */}
-            <div className="flex gap-4 pt-4 border-t border-ink-100/80">
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex-1 py-3 bg-gradient-to-r from-primary-500 to-brand-600 hover:shadow-md text-white rounded-xl font-bold transition flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {saving ? (
-                  <>
-                    <span className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></span>
-                    {uploadProgress > 0 && uploadProgress < 100 ? `Uploading... ${uploadProgress}%` : 'Saving...'}
-                  </>
-                ) : (
-                  <>
-                    <i className="bi bi-check-lg"></i> Save Changes
-                  </>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate(`/item/${id}`)}
-                className="px-6 py-3 bg-ink-100 hover:bg-ink-200 text-ink-700 rounded-xl font-bold transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
+            </button>
+          </div>
+        </form>
       </div>
 
-      {/* Status Change Modal */}
-      <Modal isOpen={showStatusModal} onClose={() => { setShowStatusModal(false); setNewStatus(''); }} title="Change Status" size="sm">
-        <p className="text-sm text-ink-500 mb-4">Update status for "<span className="font-extrabold text-ink-900">{item?.title}</span>"</p>
-        <div className="space-y-2">
-          {statusOptions.map((status) => {
-            const isSelected = newStatus === status.value;
-            const isCurrent = formData.status === status.value;
-            return (
-              <button
-                key={status.value}
-                onClick={() => setNewStatus(status.value)}
-                className={`w-full text-left px-4 py-3 rounded-xl transition border-2 flex items-center gap-3 ${
-                  isSelected ? 'bg-primary-50 border-primary-500 text-primary-700 shadow-sm' :
-                  isCurrent ? 'bg-ink-50 border-ink-200 text-ink-600' :
-                  'hover:bg-ink-50 border-transparent text-ink-700'
-                }`}
-              >
-                <i className={`bi ${status.icon}`}></i>
-                <span className="font-bold">{status.label}{isCurrent && !isSelected && <span className="text-xs text-ink-400 ml-2">(current)</span>}</span>
-                {isSelected && <i className="bi bi-check-circle-fill text-primary-600 ml-auto"></i>}
-              </button>
-            );
-          })}
-        </div>
-        <div className="flex gap-3 mt-6">
-          <button onClick={() => { setShowStatusModal(false); setNewStatus(''); }} className="flex-1 px-4 py-2 bg-ink-100 hover:bg-ink-200 text-ink-700 rounded-xl font-bold transition">Cancel</button>
-          <button onClick={confirmStatusChange} disabled={statusChanging || !newStatus} className="flex-1 px-4 py-2 bg-gradient-to-r from-primary-500 to-brand-600 hover:shadow-md text-white rounded-xl font-bold transition flex items-center justify-center gap-2 disabled:opacity-50">
-            {statusChanging ? <><span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span> Updating...</> : newStatus === formData.status ? 'Close' : 'Update Status'}
-          </button>
+      {/* =================================================
+          STATUS MODAL
+      ================================================= */}
+
+      <Modal
+        isOpen={showStatusModal}
+        onClose={() => {
+          setShowStatusModal(false);
+          setNewStatus('');
+        }}
+        title="Change Status"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm font-medium leading-relaxed text-ink-500">
+            Update status for{' '}
+            <span className="font-extrabold text-ink-800">
+              "{item?.title}"
+            </span>
+          </p>
+
+          <div className="space-y-2">
+            {statusOptions.map((status) => {
+              const isSelected = newStatus === status.value;
+              const isCurrent = formData.status === status.value;
+              const StatusIcon = status.icon;
+
+              return (
+                <button
+                  key={status.value}
+                  type="button"
+                  onClick={() => setNewStatus(status.value)}
+                  className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${
+                    isSelected
+                      ? 'border-primary-200 bg-primary-50 text-primary-700'
+                      : isCurrent
+                      ? 'border-ink-100 bg-ink-50/60 text-ink-600'
+                      : 'border-transparent text-ink-700 hover:bg-ink-50'
+                  }`}
+                >
+                  <span
+                    className={`flex h-9 w-9 items-center justify-center rounded-xl ${
+                      isSelected
+                        ? 'bg-white text-primary-600 shadow-sm'
+                        : 'bg-white text-ink-400'
+                    }`}
+                  >
+                    <StatusIcon size={15} />
+                  </span>
+
+                  <span className="text-sm font-extrabold">
+                    {status.label}
+                    {isCurrent && !isSelected && (
+                      <span className="ml-2 text-[10px] font-bold text-ink-400">
+                        (current)
+                      </span>
+                    )}
+                  </span>
+
+                  {isSelected && (
+                    <CheckCircle2
+                      size={15}
+                      className="ml-auto text-primary-600"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setShowStatusModal(false);
+                setNewStatus('');
+              }}
+              disabled={statusChanging}
+              className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              onClick={confirmStatusChange}
+              disabled={statusChanging || !newStatus}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 text-sm font-extrabold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {statusChanging ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Updating...
+                </>
+              ) : newStatus === formData.status ? (
+                'Close'
+              ) : (
+                <>
+                  <Check size={16} />
+                  Update Status
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
-      <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Delete Item" size="sm">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center flex-shrink-0">
-            <i className="bi bi-exclamation-triangle text-rose-600 text-2xl"></i>
+      {/* =================================================
+          DELETE MODAL
+      ================================================= */}
+
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete Item"
+        size="sm"
+      >
+        <div className="space-y-6">
+          <div className="flex items-start gap-4 rounded-2xl border border-danger-100 bg-danger-50 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-danger-100 text-danger-600">
+              <AlertTriangle size={18} />
+            </div>
+
+            <div className="min-w-0">
+              <p className="text-sm font-extrabold text-danger-900">
+                Delete this item?
+              </p>
+
+              <p className="mt-1 text-xs font-medium leading-5 text-danger-700">
+                Are you sure you want to delete{' '}
+                <strong>"{item?.title}"</strong>? This action cannot be undone.
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm text-ink-600">Are you sure you want to delete "<span className="font-extrabold text-ink-900">{item?.title}</span>"?</p>
-            <p className="text-sm text-ink-500 mt-1">This action cannot be undone.</p>
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setShowDeleteModal(false)}
+              className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-danger-600 px-4 text-sm font-extrabold text-white transition hover:bg-danger-700"
+            >
+              <Trash2 size={16} />
+              Delete Item
+            </button>
           </div>
-        </div>
-        <div className="flex gap-3 mt-6">
-          <button onClick={() => setShowDeleteModal(false)} className="flex-1 px-4 py-2 bg-ink-100 hover:bg-ink-200 text-ink-700 rounded-xl font-bold transition">Cancel</button>
-          <button onClick={handleDelete} className="flex-1 px-4 py-2 bg-gradient-to-r from-rose-500 to-red-600 hover:shadow-md text-white rounded-xl font-bold transition">Delete</button>
         </div>
       </Modal>
     </div>

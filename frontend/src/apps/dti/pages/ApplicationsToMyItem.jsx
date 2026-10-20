@@ -1,68 +1,241 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { DTI_BASE, makePaths } from "@/utils/routeBases";
+
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Search,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  RefreshCw,
+  FileText,
+  Clock,
+  CheckCircle2,
+  MinusCircle,
+  XCircle,
+  Inbox,
+  MapPin,
+  Repeat,
+  MessageCircle,
+  Package,
+  Flag,
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  X,
+  Users,
+  Calendar,
+  User,
+  ArrowUpRight,
+  Check,
+  CircleSlash,
+  Ban,
+} from 'lucide-react';
+
 import { useAuth } from '@/context/AuthContext';
-import { itemsAPI, applicationsAPI, chatAPI } from '@/services/api/dtiApi';
+
+// ── chatAPI comes from shared, not dtiApi ──
+import { itemsAPI, applicationsAPI } from '@/services/api/dtiApi';
+import { chatAPI } from '@/services/api/sharedApi';
+
 import Modal from '@/reusables/Modal';
-import Select from '@/reusables/Select';
-import { PageNavigation, PageNavigationSkeleton } from '@/reusables/PageNavigation';
-import { APPLICATION_STATUSES, getApplicationStatusDisplay } from '@/utils/constants';
+import ActionMenu from '@/reusables/ActionMenu';
 import SupportModal from '../components/common/SupportModal';
-import ChatDrawer from '../components/chat/ChatDrawer';
-import ApplicantProfileCard from './ApplicantProfileCard';
+import ChatModal from '@/pages/chat/ChatModal';
+import ApplicantProfileCard from '../components/common/ApplicantProfileCardModal';
+import ReinterestHistoryModal from '../components/common/ReinterestHistoryModal';
 
+import Select from '@/reusables/Select';
+import FilterBar, {
+  ColumnStepper,
+  useResponsiveGrid,
+} from '@/reusables/FilterBar';
 
-// ============================================================
-// Skeleton (Unified design)
-// ============================================================
-const ApplicationSkeleton = () => (
-  <div className="bg-white rounded-2xl border border-ink-100/80 shadow-sm p-4 animate-pulse">
-    <div className="flex items-start justify-between">
-      <div className="flex items-center gap-3 flex-1">
-        <div className="w-10 h-10 rounded-full bg-ink-200"></div>
-        <div className="flex-1 space-y-2">
-          <div className="h-4 bg-ink-200 rounded w-1/3"></div>
-          <div className="h-3 bg-ink-200 rounded w-1/4"></div>
-        </div>
-      </div>
-      <div className="w-16 h-6 bg-ink-200 rounded-full"></div>
-    </div>
-    <div className="mt-3 space-y-2">
-      <div className="h-3 bg-ink-200 rounded w-2/3"></div>
-      <div className="h-3 bg-ink-200 rounded w-1/2"></div>
-    </div>
-  </div>
-);
+import {
+  APPLICATION_STATUSES,
+  getApplicationStatusDisplay,
+} from '@/utils/constants';
+
+/* -------------------------------------------------------------------------- */
+/* LOCATION HELPERS                                                           */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * `location` is a JSONB column: { city, state, country }.
+ * Both helpers are module-scope so ApplicationCardBody (a sibling
+ * component) can also use them.
+ */
+
+const emptyLocation = { city: '', state: '', country: '' };
+
+const normalizeLocation = (raw) => {
+  if (!raw || typeof raw !== 'object') return { ...emptyLocation };
+  return {
+    city: raw.city || '',
+    state: raw.state || '',
+    country: raw.country || '',
+  };
+};
+
+const formatLocation = (raw) => {
+  const loc = normalizeLocation(raw);
+  const parts = [loc.city, loc.state, loc.country].filter(Boolean);
+  return parts.join(', ');
+};
+
+/* -------------------------------------------------------------------------- */
+/* SKELETON                                                                   */
+/* -------------------------------------------------------------------------- */
 
 const ApplicationsSkeleton = () => (
-  <div className="min-h-screen bg-ink-50/30">
-    <div className="mx-auto max-w-7xl px-2 py-8 sm:px-6 lg:px-8 mt-10">
-      <PageNavigation />
-      <div className="mt-10">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 bg-ink-200 rounded-xl animate-pulse"></div>
-          <div>
-            <div className="h-8 w-48 bg-ink-200 rounded animate-pulse"></div>
-            <div className="h-4 w-64 bg-ink-200 rounded mt-1 animate-pulse"></div>
+  <div className="min-h-full bg-transparent">
+    <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+
+
+      <div className="space-y-7">
+        {/* HEADER */}
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <div className="mb-2 flex items-center gap-2">
+              <div className="h-3.5 w-3.5 animate-pulse rounded bg-ink-200" />
+              <div className="h-3 w-40 animate-pulse rounded bg-ink-200" />
+            </div>
+            <div className="h-8 w-56 animate-pulse rounded bg-ink-200" />
+            <div className="mt-3 h-4 w-80 max-w-full animate-pulse rounded bg-ink-200" />
+          </div>
+          <div className="h-12 w-36 animate-pulse rounded-2xl bg-ink-200" />
+        </div>
+
+        {/* STATS */}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="h-3 w-20 animate-pulse rounded-full bg-ink-100" />
+                <div className="h-9 w-9 animate-pulse rounded-xl bg-ink-100" />
+              </div>
+              <div className="mt-2 h-8 w-12 animate-pulse rounded bg-ink-100" />
+            </div>
+          ))}
+        </div>
+
+        {/* FILTER BAR */}
+        <div className="rounded-3xl border border-ink-100 bg-white p-3 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="h-12 flex-1 animate-pulse rounded-2xl bg-ink-100" />
+            <div className="flex gap-2">
+              <div className="h-12 w-32 animate-pulse rounded-2xl bg-ink-100" />
+              <div className="h-12 w-12 animate-pulse rounded-2xl bg-ink-100" />
+            </div>
           </div>
         </div>
-        <div className="space-y-4">
-          {[1, 2, 3].map(i => <ApplicationSkeleton key={i} />)}
+
+        {/* CARDS */}
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-[26px] border border-ink-100 bg-white p-4 shadow-sm"
+            >
+              <div className="flex items-start gap-3">
+                <div className="h-12 w-12 animate-pulse rounded-2xl bg-ink-100" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3.5 w-32 animate-pulse rounded-full bg-ink-100" />
+                  <div className="h-2.5 w-24 animate-pulse rounded-full bg-ink-100" />
+                </div>
+                <div className="h-6 w-20 animate-pulse rounded-full bg-ink-100" />
+              </div>
+              <div className="mt-4 h-4 w-3/4 animate-pulse rounded bg-ink-100" />
+              <div className="mt-3 flex gap-2">
+                <div className="h-5 w-24 animate-pulse rounded-full bg-ink-100" />
+              </div>
+              <div className="mt-4 flex items-center justify-between border-t border-ink-100 pt-3">
+                <div className="flex gap-1">
+                  <div className="h-9 w-9 animate-pulse rounded-xl bg-ink-100" />
+                  <div className="h-9 w-9 animate-pulse rounded-xl bg-ink-100" />
+                </div>
+                <div className="h-9 w-20 animate-pulse rounded-xl bg-ink-100" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   </div>
 );
 
-// ============================================================
-// Main Component
-// ============================================================
+/* -------------------------------------------------------------------------- */
+/* STATUS HELPERS                                                             */
+/* -------------------------------------------------------------------------- */
+
+const getStatusIconComponent = (status) => {
+  switch (status) {
+    case APPLICATION_STATUSES.PENDING:
+      return Clock;
+    case APPLICATION_STATUSES.ACCEPTED:
+      return CheckCircle2;
+    case APPLICATION_STATUSES.NOT_SELECTED:
+      return MinusCircle;
+    case APPLICATION_STATUSES.REJECTED:
+      return XCircle;
+    case APPLICATION_STATUSES.CANCELLED:
+      return CircleSlash;
+    default:
+      return CircleSlash;
+  }
+};
+
+const getApplicationStatusStyle = (status) => {
+  const key = String(status || '').toLowerCase();
+
+  const map = {
+    [String(APPLICATION_STATUSES.PENDING).toLowerCase()]: {
+      wrapper: 'border-warning-200 bg-warning-50 text-warning-700',
+      dot: 'bg-warning-500',
+    },
+    [String(APPLICATION_STATUSES.ACCEPTED).toLowerCase()]: {
+      wrapper: 'border-success-200 bg-success-50 text-success-700',
+      dot: 'bg-success-500',
+    },
+    [String(APPLICATION_STATUSES.REJECTED).toLowerCase()]: {
+      wrapper: 'border-danger-200 bg-danger-50 text-danger-700',
+      dot: 'bg-danger-500',
+    },
+    [String(APPLICATION_STATUSES.NOT_SELECTED).toLowerCase()]: {
+      wrapper: 'border-ink-200 bg-ink-50 text-ink-600',
+      dot: 'bg-ink-400',
+    },
+    [String(APPLICATION_STATUSES.CANCELLED).toLowerCase()]: {
+      wrapper: 'border-ink-200 bg-ink-50 text-ink-600',
+      dot: 'bg-ink-400',
+    },
+  };
+
+  const fallback = {
+    wrapper: 'border-ink-200 bg-ink-50 text-ink-600',
+    dot: 'bg-ink-400',
+  };
+
+  return map[key] || fallback;
+};
+
+/* -------------------------------------------------------------------------- */
+/* MAIN COMPONENT                                                             */
+/* -------------------------------------------------------------------------- */
+
 const ApplicationsToMyItem = () => {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const itemIdFromUrl = searchParams.get('itemId');
-
+  const { to } = makePaths(DTI_BASE);
   const [applications, setApplications] = useState([]);
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -73,62 +246,86 @@ const ApplicationsToMyItem = () => {
   const [confirmAction, setConfirmAction] = useState(null);
   const [selectedAppData, setSelectedAppData] = useState(null);
 
-  // Re-interest modal states
-  const [showReinterestModal, setShowReinterestModal] = useState(false);
-  const [selectedReinterestApp, setSelectedReinterestApp] = useState(null);
-  const [reinterestHistory, setReinterestHistory] = useState(null);
-  const [loadingReinterest, setLoadingReinterest] = useState(false);
+  // Re-interest history modal — only the target application ID lives here.
+  // Fetch / loading / error all happen inside ReinterestHistoryModal.
+  const [reinterestAppId, setReinterestAppId] = useState(null);
 
-  // Applicant profile modal states
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedApplicantId, setSelectedApplicantId] = useState(null);
 
-  // Chat states
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatConversation, setChatConversation] = useState(null);
   const [chatLoading, setChatLoading] = useState(false);
+  const [openingChatFor, setOpeningChatFor] = useState(null);
   const [conversationData, setConversationData] = useState({});
 
-  // Support modal states
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [supportApp, setSupportApp] = useState(null);
 
-  // Mark as given states
   const [showMarkGivenModal, setShowMarkGivenModal] = useState(false);
   const [markGivenApp, setMarkGivenApp] = useState(null);
   const [markGivenLoading, setMarkGivenLoading] = useState(null);
   const [givenApps, setGivenApps] = useState(new Set());
 
-  // Filter states
   const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'newest');
-  const [countryFilter, setCountryFilter] = useState(searchParams.get('country') || '');
-  const [showOnlyWithMessage, setShowOnlyWithMessage] = useState(searchParams.get('hasMessage') === 'true');
-  const [showOnlyReinterest, setShowOnlyReinterest] = useState(searchParams.get('hasReinterest') === 'true');
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
-  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
+  const [countryFilter, setCountryFilter] = useState(
+    searchParams.get('country') || ''
+  );
+  const [showOnlyWithMessage, setShowOnlyWithMessage] = useState(
+    searchParams.get('hasMessage') === 'true'
+  );
+  const [showOnlyReinterest, setShowOnlyReinterest] = useState(
+    searchParams.get('hasReinterest') === 'true'
+  );
+  const [searchQuery, setSearchQuery] = useState(
+    searchParams.get('search') || ''
+  );
+  const [statusFilter, setStatusFilter] = useState(
+    searchParams.get('status') || ''
+  );
 
-  // Collapsible filters state
+  const { gridCols, setGridCols, gridStyle } = useResponsiveGrid({
+    min: 1,
+    max: 4,
+  });
   const [filtersExpanded, setFiltersExpanded] = useState(false);
 
-  // Sort options
-  const sortOptions = [
-    { value: 'newest', label: 'Newest First', icon: 'bi-sort-down' },
-    { value: 'oldest', label: 'Oldest First', icon: 'bi-sort-up' },
-    { value: 'reinterest', label: 'Most Re-Interest', icon: 'bi-arrow-repeat' },
-    { value: 'latest_reinterest', label: 'Latest Re-Interest', icon: 'bi-clock-history' },
-  ];
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
 
-  // Status filter options – updated: removed SELECTED, added NOT_SELECTED
-  const statusOptions = [
-    { value: '', label: 'All Statuses', icon: 'bi-funnel' },
-    { value: APPLICATION_STATUSES.PENDING, label: 'Pending', icon: 'bi-clock', color: 'yellow' },
-    { value: APPLICATION_STATUSES.ACCEPTED, label: 'Accepted', icon: 'bi-check-circle', color: 'green' },
-    { value: APPLICATION_STATUSES.NOT_SELECTED, label: 'Not Selected', icon: 'bi-dash-circle', color: 'gray' },
-    { value: APPLICATION_STATUSES.REJECTED, label: 'Rejected', icon: 'bi-x-circle', color: 'red' },
-    { value: APPLICATION_STATUSES.CANCELLED, label: 'Cancelled', icon: 'bi-slash-circle', color: 'gray' },
-  ];
+  /* ---------------------------------------------------------------------- */
+  /* Filter options                                                         */
+  /* ---------------------------------------------------------------------- */
 
-  // Update URL when filters change
+  const sortOptions = useMemo(
+    () => [
+      { value: 'newest', label: 'Newest First', icon: ArrowDown },
+      { value: 'oldest', label: 'Oldest First', icon: ArrowUp },
+      { value: 'reinterest', label: 'Most Re-Interest', icon: Repeat },
+      { value: 'latest_reinterest', label: 'Latest Re-Interest', icon: Clock },
+    ],
+    []
+  );
+
+  const statusOptions = useMemo(
+    () => [
+      { value: '', label: 'All Statuses', icon: SlidersHorizontal },
+      ...Object.values(APPLICATION_STATUSES).map((statusValue) => {
+        const display = getApplicationStatusDisplay(statusValue);
+        return {
+          value: statusValue,
+          label: display.label || statusValue,
+          icon: getStatusIconComponent(statusValue),
+        };
+      }),
+    ],
+    []
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /* URL sync                                                               */
+  /* ---------------------------------------------------------------------- */
+
   useEffect(() => {
     const params = new URLSearchParams();
     if (itemIdFromUrl) params.set('itemId', itemIdFromUrl);
@@ -139,10 +336,22 @@ const ApplicationsToMyItem = () => {
     if (searchQuery) params.set('search', searchQuery);
     if (statusFilter) params.set('status', statusFilter);
     setSearchParams(params, { replace: true });
-  }, [sortBy, countryFilter, showOnlyWithMessage, showOnlyReinterest, searchQuery, statusFilter, itemIdFromUrl]);
+  }, [
+    sortBy,
+    countryFilter,
+    showOnlyWithMessage,
+    showOnlyReinterest,
+    searchQuery,
+    statusFilter,
+    itemIdFromUrl,
+    setSearchParams,
+  ]);
 
-  // Fetch item and its applications
-  const fetchData = async () => {
+  /* ---------------------------------------------------------------------- */
+  /* Fetch                                                                  */
+  /* ---------------------------------------------------------------------- */
+
+  const fetchData = useCallback(async () => {
     if (!user || !itemIdFromUrl) {
       setLoading(false);
       return;
@@ -157,7 +366,9 @@ const ApplicationsToMyItem = () => {
         return;
       }
       if (itemData.donor_id !== user.id) {
-        toast.error('You do not have permission to view applications for this item');
+        toast.error(
+          'You do not have permission to view applications for this item'
+        );
         setLoading(false);
         return;
       }
@@ -165,9 +376,10 @@ const ApplicationsToMyItem = () => {
 
       try {
         const appsResponse = await applicationsAPI.getByItem(itemIdFromUrl);
-        const itemApps = appsResponse.data?.applications || appsResponse.data || [];
+        const itemApps =
+          appsResponse.data?.applications || appsResponse.data || [];
         const appsArray = Array.isArray(itemApps) ? itemApps : [];
-        const appsWithItem = appsArray.map(app => ({
+        const appsWithItem = appsArray.map((app) => ({
           ...app,
           item_title: itemData.title,
           item_id: itemData.id,
@@ -189,14 +401,16 @@ const ApplicationsToMyItem = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, itemIdFromUrl]);
 
-  // Fetch conversation data for each applicant
   const fetchConversationData = async (apps) => {
     const convData = {};
     for (const app of apps) {
       try {
-        const response = await chatAPI.getOrCreateConversationWithApplicant(itemIdFromUrl, app.applicant_id);
+        const response = await chatAPI.getOrCreateConversationWithApplicant(
+          itemIdFromUrl,
+          app.applicant_id
+        );
         const data = response.data;
         const conversationId = data.conversation?.id;
         if (conversationId) {
@@ -221,7 +435,10 @@ const ApplicationsToMyItem = () => {
           };
         }
       } catch (error) {
-        console.error(`Error fetching conversation for applicant ${app.applicant_id}:`, error);
+        console.error(
+          `Error fetching conversation for applicant ${app.applicant_id}:`,
+          error
+        );
         convData[app.applicant_id] = {
           conversationId: null,
           messageCount: 0,
@@ -237,42 +454,101 @@ const ApplicationsToMyItem = () => {
 
   useEffect(() => {
     fetchData();
-  }, [user, itemIdFromUrl]);
+  }, [fetchData]);
 
-  // Get unique countries from applicants
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    countryFilter,
+    statusFilter,
+    showOnlyWithMessage,
+    showOnlyReinterest,
+    searchQuery,
+    sortBy,
+  ]);
+
+  /* ---------------------------------------------------------------------- */
+  /* Helpers                                                                */
+  /* ---------------------------------------------------------------------- */
+
   const getAvailableCountries = () => {
     const countries = new Set();
-    applications.forEach(app => {
-      if (app.applicant?.country) {
-        countries.add(app.applicant.country);
+    applications.forEach((app) => {
+      const country =
+        app.applicant?.country || app.applicant?.location?.country || '';
+      if (country) {
+        countries.add(country);
       }
     });
     return Array.from(countries).sort();
   };
 
-  // Active filter count
+  const formatDate = (date) => {
+    if (!date) return 'N/A';
+    const parsed = new Date(date);
+    if (Number.isNaN(parsed.getTime())) return 'N/A';
+    return parsed.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const formatDateTime = (date) => {
+    if (!date) return 'N/A';
+    const parsed = new Date(date);
+    if (Number.isNaN(parsed.getTime())) return 'N/A';
+    return parsed.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (countryFilter) count++;
-    if (statusFilter) count++;
-    if (showOnlyWithMessage) count++;
-    if (showOnlyReinterest) count++;
-    if (searchQuery) count++;
-    if (sortBy && sortBy !== 'newest') count++;
+    if (countryFilter) count += 1;
+    if (statusFilter) count += 1;
+    if (showOnlyWithMessage) count += 1;
+    if (showOnlyReinterest) count += 1;
+    if (sortBy && sortBy !== 'newest') count += 1;
     return count;
-  }, [countryFilter, statusFilter, showOnlyWithMessage, showOnlyReinterest, searchQuery, sortBy]);
+  }, [
+    countryFilter,
+    statusFilter,
+    showOnlyWithMessage,
+    showOnlyReinterest,
+    sortBy,
+  ]);
 
-  // Filter and sort applications
-  const filteredAndSortedApplications = useMemo(() => {
+  const hasActiveFilters =
+    Boolean(countryFilter) ||
+    Boolean(statusFilter) ||
+    Boolean(searchQuery) ||
+    showOnlyWithMessage ||
+    showOnlyReinterest ||
+    sortBy !== 'newest';
+
+  /* ---------------------------------------------------------------------- */
+  /* Filter / sort                                                          */
+  /* ---------------------------------------------------------------------- */
+
+  const filteredApplications = useMemo(() => {
     let filtered = [...applications];
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(app => {
+      filtered = filtered.filter((app) => {
         const fullName = app.applicant?.full_name?.toLowerCase() || '';
         const email = app.applicant?.email?.toLowerCase() || '';
         const message = app.message?.toLowerCase() || '';
-        const country = app.applicant?.country?.toLowerCase() || '';
+        const country = (
+          app.applicant?.country ||
+          app.applicant?.location?.country ||
+          ''
+        ).toLowerCase();
         const username = app.applicant?.username?.toLowerCase() || '';
         return (
           fullName.includes(query) ||
@@ -285,59 +561,107 @@ const ApplicationsToMyItem = () => {
     }
 
     if (countryFilter.trim()) {
-      const countries = countryFilter.split(',').map(c => c.trim().toLowerCase());
-      filtered = filtered.filter(app => {
-        const appCountry = app.applicant?.country?.toLowerCase() || '';
-        return countries.some(c => appCountry.includes(c));
+      const countries = countryFilter
+        .split(',')
+        .map((c) => c.trim().toLowerCase());
+      filtered = filtered.filter((app) => {
+        const appCountry = (
+          app.applicant?.country ||
+          app.applicant?.location?.country ||
+          ''
+        ).toLowerCase();
+        return countries.some((c) => appCountry.includes(c));
       });
     }
 
     if (statusFilter) {
-      filtered = filtered.filter(app => app.status === statusFilter);
+      filtered = filtered.filter((app) => app.status === statusFilter);
     }
 
     if (showOnlyWithMessage) {
-      filtered = filtered.filter(app => {
+      filtered = filtered.filter((app) => {
         const hasMessage = app.message && app.message.trim().length > 0;
         const convInfo = conversationData[app.applicant_id];
-        return hasMessage || (convInfo?.hasMessages);
+        return hasMessage || convInfo?.hasMessages;
       });
     }
 
     if (showOnlyReinterest) {
-      filtered = filtered.filter(app => app.reinterest_count > 0);
+      filtered = filtered.filter((app) => app.reinterest_count > 0);
     }
 
     switch (sortBy) {
       case 'newest':
-        filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        filtered.sort(
+          (a, b) => new Date(b.created_at) - new Date(a.created_at)
+        );
         break;
       case 'oldest':
-        filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        filtered.sort(
+          (a, b) => new Date(a.created_at) - new Date(b.created_at)
+        );
         break;
       case 'reinterest':
         filtered.sort((a, b) => b.reinterest_count - a.reinterest_count);
         break;
       case 'latest_reinterest':
-        filtered.sort((a, b) => new Date(b.last_reinterest_date) - new Date(a.last_reinterest_date));
+        filtered.sort(
+          (a, b) =>
+            new Date(b.last_reinterest_date) -
+            new Date(a.last_reinterest_date)
+        );
         break;
+      default:
+        filtered.sort(
+          (a, b) => new Date(b.created_at) - new Date(a.created_at)
+        );
     }
     return filtered;
-  }, [applications, countryFilter, showOnlyWithMessage, showOnlyReinterest, sortBy, searchQuery, statusFilter, conversationData]);
+  }, [
+    applications,
+    countryFilter,
+    showOnlyWithMessage,
+    showOnlyReinterest,
+    sortBy,
+    searchQuery,
+    statusFilter,
+    conversationData,
+  ]);
 
-  const fetchReinterestHistory = async (appId) => {
-    setLoadingReinterest(true);
-    try {
-      const response = await applicationsAPI.getReinterestHistory(appId);
-      setReinterestHistory(response.data?.application || response.data);
-      setShowReinterestModal(true);
-    } catch (error) {
-      console.error('Error fetching re-interest history:', error);
-      toast.error(error.response?.data?.error || 'Failed to load re-interest history');
-    } finally {
-      setLoadingReinterest(false);
-    }
-  };
+  const totalItems = filteredApplications.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+  const paginatedApplications = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredApplications.slice(start, start + itemsPerPage);
+  }, [filteredApplications, currentPage]);
+
+  /* ---------------------------------------------------------------------- */
+  /* Stats                                                                  */
+  /* ---------------------------------------------------------------------- */
+
+  const stats = useMemo(
+    () => ({
+      total: applications.length,
+      pending: applications.filter(
+        (a) => a.status === APPLICATION_STATUSES.PENDING
+      ).length,
+      accepted: applications.filter(
+        (a) => a.status === APPLICATION_STATUSES.ACCEPTED
+      ).length,
+      rejected: applications.filter(
+        (a) => a.status === APPLICATION_STATUSES.REJECTED
+      ).length,
+      notSelected: applications.filter(
+        (a) => a.status === APPLICATION_STATUSES.NOT_SELECTED
+      ).length,
+    }),
+    [applications]
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /* Actions                                                                */
+  /* ---------------------------------------------------------------------- */
 
   const openApplicantProfile = (applicantId) => {
     if (applicantId) {
@@ -346,62 +670,86 @@ const ApplicationsToMyItem = () => {
     }
   };
 
+  /* ---------------------------------------------------------------------- */
+  /* OPEN CHAT                                                              */
+  /* ---------------------------------------------------------------------- */
+
   const handleOpenChat = async (app) => {
     const applicantId = app.applicant_id;
     const convInfo = conversationData[applicantId];
-    if (!convInfo || !convInfo.conversationId) {
-      setChatLoading(true);
-      try {
-        const response = await chatAPI.getOrCreateConversationWithApplicant(itemIdFromUrl, applicantId);
-        const data = response.data;
-        const conversationId = data.conversation?.id;
-        if (conversationId) {
-          const messagesResponse = await chatAPI.getMessages(conversationId);
-          const messages = messagesResponse.data?.messages || [];
-          const newConvData = {
-            ...conversationData,
-            [applicantId]: {
-              conversationId,
-              messageCount: messages.length,
-              isDonor: data.is_donor || false,
-              otherUser: data.other_user || app.applicant,
-              hasMessages: messages.length > 0,
-              messages,
-            },
-          };
-          setConversationData(newConvData);
-          setChatConversation({
-            conversationId,
-            otherUser: data.other_user || app.applicant,
-            item,
-            isDonor: data.is_donor || false,
-          });
-          setIsChatOpen(true);
-        } else {
-          toast.error('Unable to create conversation');
-        }
-      } catch (error) {
-        console.error('Error creating conversation:', error);
-        toast.error('Failed to start chat');
-      } finally {
-        setChatLoading(false);
-      }
+
+    if (openingChatFor === applicantId) {
       return;
     }
+
+    const toastId = toast.loading('Opening chat…');
+
+    setOpeningChatFor(applicantId);
     setChatLoading(true);
+
     try {
-      setChatConversation({
-        conversationId: convInfo.conversationId,
-        otherUser: convInfo.otherUser || app.applicant,
-        item,
-        isDonor: convInfo.isDonor || false,
-      });
-      setIsChatOpen(true);
+      if (!convInfo || !convInfo.conversationId) {
+        const response = await chatAPI.getOrCreateConversationWithApplicant(
+          itemIdFromUrl,
+          applicantId
+        );
+        const data = response.data;
+        const conversationId = data.conversation?.id;
+
+        if (!conversationId) {
+          throw new Error('Unable to create conversation');
+        }
+
+        const messagesResponse = await chatAPI.getMessages(conversationId);
+        const messages = messagesResponse.data?.messages || [];
+
+        const newConvData = {
+          ...conversationData,
+          [applicantId]: {
+            conversationId,
+            messageCount: messages.length,
+            isDonor: data.is_donor || false,
+            otherUser: data.other_user || app.applicant,
+            hasMessages: messages.length > 0,
+            messages,
+          },
+        };
+
+        setConversationData(newConvData);
+        setChatConversation({
+          conversationId,
+          otherUser: data.other_user || app.applicant,
+          item,
+          isDonor: data.is_donor || false,
+        });
+        setIsChatOpen(true);
+
+        toast.success('Chat ready', { id: toastId, duration: 1200 });
+      } else {
+        setChatConversation({
+          conversationId: convInfo.conversationId,
+          otherUser: convInfo.otherUser || app.applicant,
+          item,
+          isDonor: convInfo.isDonor || false,
+        });
+        setIsChatOpen(true);
+
+        toast.success('Chat ready', { id: toastId, duration: 1200 });
+      }
     } catch (error) {
       console.error('Error opening chat:', error);
-      toast.error('Failed to open chat');
+
+      toast.error('Failed to open chat', {
+        id: toastId,
+        description:
+          error?.response?.data?.error ||
+          error?.response?.data?.message ||
+          error?.message ||
+          'Please try again.',
+      });
     } finally {
       setChatLoading(false);
+      setOpeningChatFor(null);
     }
   };
 
@@ -414,9 +762,11 @@ const ApplicationsToMyItem = () => {
     setMarkGivenLoading(app.id);
     try {
       await itemsAPI.confirmReceived(item.id);
-      toast.success('🎉 Item marked as given! Waiting for winner to confirm receipt.');
-      setGivenApps(prev => new Set(prev).add(app.id));
-      setItem(prev => prev ? { ...prev, status: 'pending' } : null);
+      toast.success(
+        '🎉 Item marked as given! Waiting for winner to confirm receipt.'
+      );
+      setGivenApps((prev) => new Set(prev).add(app.id));
+      setItem((prev) => (prev ? { ...prev, status: 'pending' } : null));
       await fetchData();
       setShowMarkGivenModal(false);
       setMarkGivenApp(null);
@@ -433,37 +783,6 @@ const ApplicationsToMyItem = () => {
     setShowSupportModal(true);
   };
 
-  const getStatusBadge = (status) => {
-    const display = getApplicationStatusDisplay(status);
-    const colorMap = {
-      green: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      yellow: 'bg-amber-50 text-amber-700 border-amber-200',
-      red: 'bg-rose-50 text-rose-700 border-rose-200',
-      gray: 'bg-ink-50 text-ink-600 border-ink-200',
-    };
-    return {
-      classes: colorMap[display?.color] || colorMap.gray,
-      label: display?.label || status,
-      icon: display?.icon || 'bi-circle',
-    };
-  };
-
-  const formatDate = (date) => {
-    if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const formatDateShort = (date) => {
-    if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
   const handleAction = async () => {
     if (!selectedApplication || !confirmAction) return;
     setActionLoading(selectedApplication);
@@ -478,7 +797,9 @@ const ApplicationsToMyItem = () => {
       await fetchData();
     } catch (err) {
       console.error('Error updating application:', err);
-      toast.error(err.response?.data?.error || `Failed to ${confirmAction} application`);
+      toast.error(
+        err.response?.data?.error || `Failed to ${confirmAction} application`
+      );
     } finally {
       setActionLoading(null);
       setShowConfirmModal(false);
@@ -502,22 +823,40 @@ const ApplicationsToMyItem = () => {
     setSortBy('newest');
     setSearchQuery('');
     setStatusFilter('');
+    setCurrentPage(1);
   };
 
   const availableCountries = getAvailableCountries();
 
-  // Loading skeleton
+  /* ---------------------------------------------------------------------- */
+  /* Loading                                                                */
+  /* ---------------------------------------------------------------------- */
+
   if (loading) return <ApplicationsSkeleton />;
+
+  /* ---------------------------------------------------------------------- */
+  /* No item / item not found                                               */
+  /* ---------------------------------------------------------------------- */
 
   if (!itemIdFromUrl) {
     return (
-      <div className="min-h-screen bg-ink-50/30 mt-10">
-        <div className="mx-auto max-w-7xl px-2 py-8 sm:px-6 lg:px-8">
-          <PageNavigation />
-          <div className="mt-10 bg-white rounded-2xl border border-ink-100/80 shadow-sm p-12 text-center">
-            <i className="bi bi-exclamation-triangle text-5xl text-ink-300 block mb-3"></i>
-            <h3 className="text-lg font-extrabold text-ink-600">No Item Selected</h3>
-            <p className="text-ink-400 text-sm mt-1">Please provide an item ID in the URL.</p>
+      <div className="min-h-full bg-transparent">
+
+        <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+          <div className="flex min-h-[420px] items-center justify-center rounded-[28px] border border-dashed border-ink-200 bg-white px-6 py-12">
+            <div className="mx-auto max-w-md text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-warning-50 text-warning-600">
+                <AlertTriangle size={27} />
+              </div>
+
+              <h2 className="mt-5 text-lg font-black text-ink-950">
+                No item selected
+              </h2>
+
+              <p className="mt-2 text-sm font-medium leading-6 text-ink-500">
+                Please provide an item ID in the URL.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -526,516 +865,393 @@ const ApplicationsToMyItem = () => {
 
   if (!item) {
     return (
-      <div className="min-h-screen bg-ink-50/30 mt-10">
-        <div className="mx-auto max-w-7xl px-2 py-8 sm:px-6 lg:px-8">
-          <PageNavigation />
-          <div className="mt-10 bg-white rounded-2xl border border-ink-100/80 shadow-sm p-12 text-center">
-            <i className="bi bi-box-seam text-5xl text-ink-300 block mb-3"></i>
-            <h3 className="text-lg font-extrabold text-ink-600">Item Not Found</h3>
-            <p className="text-ink-400 text-sm mt-1">The item doesn't exist or you lack permission.</p>
-            <button
-              onClick={() => window.history.back()}
-              className="mt-4 px-6 py-2 bg-gradient-to-r from-primary-500 to-brand-600 hover:shadow-md text-white rounded-xl font-bold transition"
-            >
-              Go Back
-            </button>
+      <div className="min-h-full bg-transparent">
+
+
+        <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+          <div className="flex min-h-[420px] items-center justify-center rounded-[28px] border border-dashed border-ink-200 bg-white px-6 py-12">
+            <div className="mx-auto max-w-md text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-primary-50 text-primary-600">
+                <Package size={27} />
+              </div>
+
+              <h2 className="mt-5 text-lg font-black text-ink-950">
+                Item not found
+              </h2>
+
+              <p className="mt-2 text-sm font-medium leading-6 text-ink-500">
+                The item doesn't exist or you lack permission.
+              </p>
+
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => window.history.back()}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 text-sm font-extrabold text-white transition hover:bg-primary-700"
+                >
+                  Go back
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-ink-50/30 pb-20 mt-10">
-      <div className="mx-auto max-w-7xl px-2 py-8 sm:px-6 lg:px-8">
-        <PageNavigation />
+  /* ---------------------------------------------------------------------- */
+  /* Active filter chips                                                    */
+  /* ---------------------------------------------------------------------- */
 
-        <div className="mt-10">
-          {/* Header with Item Info */}
-          <div className="flex items-center gap-3 mb-6">
-            <div className="bg-primary-50 border border-primary-100 p-2.5 rounded-xl">
-              <i className="bi bi-people text-primary-600 text-xl"></i>
-            </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-extrabold tracking-[-0.03em] text-ink-900">Applications</h1>
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="text-ink-600">
-                  <span className="font-semibold text-ink-800">{item.title}</span>
-                </p>
-                <span className="text-xs text-ink-400">
-                  {applications.length} application{applications.length !== 1 ? 's' : ''}
-                </span>
+  const activeFilterChips = [
+    statusFilter && {
+      key: 'status',
+      label: getApplicationStatusDisplay(statusFilter).label || statusFilter,
+      onRemove: () => setStatusFilter(''),
+    },
+    countryFilter && {
+      key: 'country',
+      label: `Country: ${countryFilter}`,
+      onRemove: () => setCountryFilter(''),
+    },
+    showOnlyWithMessage && {
+      key: 'hasMessage',
+      label: 'Has Message',
+      onRemove: () => setShowOnlyWithMessage(false),
+    },
+    showOnlyReinterest && {
+      key: 'hasReinterest',
+      label: 'Has Re-Interest',
+      onRemove: () => setShowOnlyReinterest(false),
+    },
+    searchQuery && {
+      key: 'search',
+      label: `Search: ${searchQuery}`,
+      onRemove: () => setSearchQuery(''),
+    },
+    sortBy !== 'newest' && {
+      key: 'sort',
+      label: sortOptions.find((o) => o.value === sortBy)?.label || sortBy,
+      onRemove: () => setSortBy('newest'),
+    },
+  ].filter(Boolean);
+
+  /* ---------------------------------------------------------------------- */
+  /* Render                                                                 */
+  /* ---------------------------------------------------------------------- */
+
+  return (
+    <div className="min-h-full bg-transparent">
+
+      <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+        {/* HEADER */}
+        <div className="mb-7">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+              <div className="mb-2 flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary-600">
+                <Users size={14} />
+                <span>Applications received</span>
               </div>
+
+              <h1 className="text-2xl font-black tracking-tight text-ink-950 sm:text-3xl">
+                Applications
+              </h1>
+
+              <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-ink-500">
+                Review and respond to applicants for{' '}
+                <span className="font-extrabold text-ink-700">
+                  {item.title}
+                </span>
+                .
+              </p>
             </div>
+
+            <Link
+              to={to(`/item/${item.id}`)}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-primary-600 px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
+            >
+              <Package size={17} strokeWidth={2.5} />
+              <span>View Item</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* STATS */}
+        <div className="mb-7 grid grid-cols-2 gap-3 md:grid-cols-5">
+          <StatCard
+            label="Total Applications"
+            value={stats.total}
+            icon={FileText}
+            tone="ink"
+          />
+          <StatCard
+            label="Pending Review"
+            value={stats.pending}
+            icon={Clock}
+            tone="warning"
+          />
+          <StatCard
+            label="Accepted"
+            value={stats.accepted}
+            icon={CheckCircle2}
+            tone="success"
+          />
+          <StatCard
+            label="Rejected"
+            value={stats.rejected}
+            icon={XCircle}
+            tone="danger"
+          />
+          <StatCard
+            label="Not Selected"
+            value={stats.notSelected}
+            icon={MinusCircle}
+            tone="ink"
+          />
+        </div>
+
+        {/* SEARCH + FILTER BAR */}
+        <FilterBar
+          className="mb-6"
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search by applicant name, email, message, or country..."
+          filtersOpen={filtersExpanded}
+          onToggleFilters={() => setFiltersExpanded((v) => !v)}
+          activeFilterCount={activeFilterCount}
+          onRefresh={fetchData}
+          refreshing={loading}
+          activeFilters={activeFilterChips}
+          onClearAll={clearAllFilters}
+        >
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Select
+              options={sortOptions}
+              value={sortBy}
+              onChange={setSortBy}
+              placeholder="Sort By"
+              showIcon
+            />
+
+            <Select
+              options={statusOptions}
+              value={statusFilter}
+              onChange={setStatusFilter}
+              placeholder="Filter by Status"
+              showIcon
+            />
+
+            <div>
+              <label className="mb-1.5 block text-xs font-extrabold text-ink-700">
+                Country Filter
+              </label>
+
+              <input
+                type="text"
+                value={countryFilter}
+                onChange={(e) => setCountryFilter(e.target.value)}
+                placeholder="e.g. Nigeria, USA"
+                list="country-list"
+                className="input-field text-sm font-medium"
+              />
+
+              <datalist id="country-list">
+                {availableCountries.map((country) => (
+                  <option key={country} value={country} />
+                ))}
+              </datalist>
+            </div>
+
+            <ColumnStepper
+              label="Grid columns"
+              value={gridCols}
+              onChange={setGridCols}
+              min={1}
+              max={4}
+            />
           </div>
 
-          {/* Collapsible Filters (Unified) */}
-          <div className="overflow-visible rounded-2xl border border-ink-100/80 bg-white shadow-sm mb-6">
+          {/* Quick filters */}
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => setFiltersExpanded(!filtersExpanded)}
-              className="w-full px-5 py-3 flex items-center justify-between hover:bg-ink-50/50 transition"
+              type="button"
+              onClick={() => setShowOnlyWithMessage(!showOnlyWithMessage)}
+              className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-extrabold transition ${
+                showOnlyWithMessage
+                  ? 'border-primary-200 bg-primary-50 text-primary-700'
+                  : 'border-ink-200 bg-ink-100 text-ink-600 hover:bg-ink-200'
+              }`}
             >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-primary-50 flex items-center justify-center border border-primary-100">
-                  <i className="bi bi-funnel text-primary-600"></i>
-                </div>
-                <div className="text-left">
-                  <p className="text-sm font-extrabold text-ink-700">Filters & Search</p>
-                  <p className="text-xs text-ink-400">
-                    {activeFilterCount > 0
-                      ? `${activeFilterCount} active filter${activeFilterCount > 1 ? 's' : ''}`
-                      : 'No active filters'}
-                    {searchQuery && ' · Search active'}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {activeFilterCount > 0 && (
-                  <span className="w-5 h-5 bg-gradient-to-r from-primary-500 to-brand-600 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
-                    {activeFilterCount}
-                  </span>
-                )}
-                <i className={`bi bi-chevron-${filtersExpanded ? 'up' : 'down'} text-ink-400 transition-transform`}></i>
-              </div>
+              <MessageCircle size={12} />
+              Has Message
             </button>
 
-            <AnimatePresence>
-              {filtersExpanded && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.25, ease: 'easeInOut' }}
-                  className="overflow-visible"
-                >
-                  <div className="px-5 pb-5 border-t border-ink-100 pt-4 space-y-3">
-                    {/* Search */}
-                    <div className="relative">
-                      <i className="bi bi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400"></i>
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search by applicant name, email, message, or country..."
-                        className="w-full pl-10 pr-4 py-2.5 bg-ink-50/60 border border-ink-200 rounded-xl focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 outline-none transition text-sm text-ink-900 placeholder:text-ink-400"
-                      />
-                      {searchQuery && (
-                        <button
-                          onClick={() => setSearchQuery('')}
-                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600"
-                        >
-                          <i className="bi bi-x-circle-fill"></i>
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Sort + Status + Country */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <Select
-                        options={sortOptions}
-                        value={sortBy}
-                        onChange={setSortBy}
-                        placeholder="Sort By"
-                        showIcon
-                        className="w-full"
-                      />
-                      <Select
-                        options={statusOptions}
-                        value={statusFilter}
-                        onChange={setStatusFilter}
-                        placeholder="Filter by Status"
-                        showIcon
-                        className="w-full"
-                      />
-                      <div>
-                        <label className="text-xs font-medium text-ink-500 block mb-1">Country Filter</label>
-                        <input
-                          type="text"
-                          value={countryFilter}
-                          onChange={(e) => setCountryFilter(e.target.value)}
-                          placeholder="e.g. Nigeria, USA"
-                          className="w-full px-3 py-2 border border-ink-200 rounded-xl focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 outline-none text-sm text-ink-900"
-                          list="country-list"
-                        />
-                        <datalist id="country-list">
-                          {availableCountries.map(country => (
-                            <option key={country} value={country} />
-                          ))}
-                        </datalist>
-                      </div>
-                    </div>
-
-                    {/* Quick Filters */}
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setShowOnlyWithMessage(!showOnlyWithMessage)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-bold transition ${
-                            showOnlyWithMessage
-                              ? 'bg-gradient-to-r from-primary-500 to-brand-600 text-white shadow-sm'
-                              : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
-                          }`}
-                        >
-                          <i className="bi bi-chat mr-1"></i>
-                          Has Message
-                        </button>
-                        <button
-                          onClick={() => setShowOnlyReinterest(!showOnlyReinterest)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-bold transition ${
-                            showOnlyReinterest
-                              ? 'bg-gradient-to-r from-primary-500 to-brand-600 text-white shadow-sm'
-                              : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
-                          }`}
-                        >
-                          <i className="bi bi-arrow-repeat mr-1"></i>
-                          Has Re-Interest
-                        </button>
-                      </div>
-                      {(activeFilterCount > 0 || searchQuery) && (
-                        <button
-                          onClick={clearAllFilters}
-                          className="px-4 py-2 text-sm text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition font-bold flex items-center gap-1.5"
-                        >
-                          <i className="bi bi-x-circle"></i>
-                          Clear All
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <button
+              type="button"
+              onClick={() => setShowOnlyReinterest(!showOnlyReinterest)}
+              className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-extrabold transition ${
+                showOnlyReinterest
+                  ? 'border-primary-200 bg-primary-50 text-primary-700'
+                  : 'border-ink-200 bg-ink-100 text-ink-600 hover:bg-ink-200'
+              }`}
+            >
+              <Repeat size={12} />
+              Has Re-Interest
+            </button>
           </div>
+        </FilterBar>
 
-          {/* No Applications */}
-          {applications.length === 0 && (
-            <div className="bg-white rounded-2xl border border-ink-100/80 shadow-sm p-12 text-center">
-              <i className="bi bi-inbox text-5xl text-ink-300 block mb-3"></i>
-              <h3 className="text-lg font-extrabold text-ink-600">No Applications</h3>
-              <p className="text-ink-400 text-sm mt-1">No one has applied for this item yet. Check back later!</p>
-            </div>
+        {/* RESULT SUMMARY */}
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <p className="text-xs font-bold text-ink-500">
+            {filteredApplications.length === 1
+              ? '1 application'
+              : `${filteredApplications.length} applications`}
+          </p>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="text-xs font-extrabold text-primary-600 hover:text-primary-700"
+            >
+              Reset filters
+            </button>
           )}
+        </div>
 
-          {/* No filtered results */}
-          {applications.length > 0 && filteredAndSortedApplications.length === 0 && (
-            <div className="bg-white rounded-2xl border border-ink-100/80 shadow-sm p-12 text-center">
-              <i className="bi bi-funnel text-5xl text-ink-300 block mb-3"></i>
-              <h3 className="text-lg font-extrabold text-ink-600">No Matching Applications</h3>
-              <p className="text-ink-400 text-sm mt-1">Try adjusting your filters.</p>
-              <button
-                onClick={clearAllFilters}
-                className="mt-4 px-6 py-2 bg-gradient-to-r from-primary-500 to-brand-600 hover:shadow-md text-white rounded-xl font-bold transition"
-              >
-                Clear All Filters
-              </button>
-            </div>
-          )}
+        {/* EMPTY */}
+        {filteredApplications.length === 0 ? (
+          <EmptyState filtered={hasActiveFilters} onReset={clearAllFilters} />
+        ) : (
+          <>
+            {/* GRID */}
+            <motion.div
+              className="grid gap-4"
+              animate={gridStyle}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            >
+              {paginatedApplications.map((app) => {
+                const isExpanded = expandedApp === app.id;
+                const isPending = app.status === APPLICATION_STATUSES.PENDING;
+                const isAccepted =
+                  app.status === APPLICATION_STATUSES.ACCEPTED;
+                const isGiven =
+                  givenApps.has(app.id) ||
+                  item?.donor_confirmed_at !== null;
 
-          {/* Applications List */}
-          {filteredAndSortedApplications.length > 0 && (
-            <div className="space-y-4">
-              {filteredAndSortedApplications.map(app => {
                 const convInfo = conversationData[app.applicant_id];
                 const hasConversation = convInfo?.conversationId;
                 const messageCount = convInfo?.messageCount || 0;
-                const hasMessages = convInfo?.hasMessages || messageCount > 0;
-                const isAccepted = app.status === APPLICATION_STATUSES.ACCEPTED;
-                const isPending = app.status === APPLICATION_STATUSES.PENDING;
-                const isGiven = givenApps.has(app.id) || item?.donor_confirmed_at !== null;
+                const hasMessages =
+                  convInfo?.hasMessages || messageCount > 0;
 
-                const highlightText = (text, query) => {
-                  if (!query || !text) return text;
-                  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-                  const parts = text.split(regex);
-                  return parts.map((part, i) =>
-                    regex.test(part) ? (
-                      <span key={i} className="bg-primary-100 px-0.5 rounded">{part}</span>
-                    ) : (
-                      part
-                    )
-                  );
-                };
+                const canChat = isPending || isAccepted;
+
+                const isOpeningChat = openingChatFor === app.applicant_id;
+
+                const menuItems = [
+                  {
+                    key: 'profile',
+                    icon: User,
+                    label: 'View Profile',
+                    onClick: () => openApplicantProfile(app.applicant?.id),
+                  },
+                  {
+                    key: 'history',
+                    icon: Clock,
+                    label: 'Re-Interest History',
+                    onClick: () => setReinterestAppId(app.id),
+                  },
+                  { key: 'divider-1', divider: true },
+                  {
+                    key: 'report',
+                    icon: Flag,
+                    label: 'Report Issue',
+                    onClick: () => openSupportModal(app),
+                  },
+                ];
 
                 return (
-                  <div
+                  <motion.article
                     key={app.id}
-                    className="bg-white rounded-2xl border border-ink-100/80 shadow-sm hover:shadow-md transition-all overflow-hidden"
+                    layout
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                      type: 'spring',
+                      stiffness: 300,
+                      damping: 30,
+                    }}
+                    className="group relative flex flex-col justify-between rounded-[26px] border border-ink-100 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-ink-200 hover:shadow-md"
                   >
-                    {/* Card Header */}
-                    <div
-                      className="p-4 cursor-pointer hover:bg-ink-50/50 transition"
-                      onClick={() => setExpandedApp(expandedApp === app.id ? null : app.id)}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          {/* Avatar */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (app.applicant?.id) openApplicantProfile(app.applicant.id);
-                            }}
-                            className="flex-shrink-0 hover:ring-2 hover:ring-primary-500 rounded-full transition"
-                          >
-                            {app.applicant?.avatar_url ? (
-                              <img
-                                src={app.applicant.avatar_url}
-                                alt={app.applicant.full_name}
-                                className="w-10 h-10 rounded-full border border-ink-100 shadow-sm object-cover"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 rounded-full bg-ink-100 flex items-center justify-center border border-ink-200">
-                                <i className="bi bi-person text-ink-400"></i>
-                              </div>
-                            )}
-                          </button>
-                          <div className="min-w-0 flex-1">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (app.applicant?.id) openApplicantProfile(app.applicant.id);
-                              }}
-                              className="text-sm font-extrabold text-ink-900 hover:text-primary-600 transition text-left flex items-center gap-2"
-                            >
-                              {searchQuery
-                                ? highlightText(app.applicant?.full_name || 'Unknown User', searchQuery)
-                                : app.applicant?.full_name || 'Unknown User'}
-                              <i className="bi bi-arrow-up-right-square text-xs text-ink-400"></i>
-                            </button>
-                            <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                              <span className="text-xs text-ink-400 flex items-center gap-1">
-                                <i className="bi bi-geo-alt"></i>
-                                {searchQuery
-                                  ? highlightText(app.applicant?.country || 'Location not specified', searchQuery)
-                                  : app.applicant?.country || 'Location not specified'}
-                              </span>
-                              {app.reinterest_count > 0 && (
-                                <span className="text-xs text-primary-600 font-bold">
-                                  <i className="bi bi-arrow-repeat mr-1"></i>
-                                  {app.reinterest_count}x
-                                </span>
-                              )}
-                              {hasConversation && (
-                                <span className="text-xs text-primary-600 font-bold">
-                                  <i className="bi bi-chat mr-1"></i>
-                                  {hasMessages ? `${messageCount} messages` : 'No messages yet'}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 flex-shrink-0 ml-2">
-                          <span className="text-xs text-ink-400 hidden sm:inline">
-                            {formatDateShort(app.created_at)}
-                          </span>
-                          <i className={`bi bi-chevron-${expandedApp === app.id ? 'up' : 'down'} text-ink-400`}></i>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-ink-400 flex-wrap">
-                        <span><i className="bi bi-calendar3 mr-1"></i>Applied {formatDate(app.created_at)}</span>
-                        {app.shipping_estimate && (
-                          <span><i className="bi bi-wallet mr-1"></i>Est. shipping: ${app.shipping_estimate}</span>
-                        )}
-                        {app.reinterest_count > 0 && (
-                          <span className="text-primary-600"><i className="bi bi-arrow-repeat mr-1"></i>Last re-interest: {formatDate(app.last_reinterest_date)}</span>
-                        )}
-                      </div>
-                      <div className='mt-2'>
-                        {(() => {
-                            const badge = getStatusBadge(app.status);
-                            return (
-                              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border whitespace-nowrap ${badge.classes}`}>
-                                <i className={`bi ${badge.icon} text-[10px]`}></i>
-                                {badge.label}
-                              </span>
-                            );
-                          })()}
-                        </div>
-                    </div>
-
-                    {/* Expanded Content */}
-                    <AnimatePresence>
-                      {expandedApp === app.id && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="border-t border-ink-100 p-4 bg-ink-50/30 space-y-4">
-                            {/* Message */}
-                            <div>
-                              <p className="text-xs font-bold text-ink-500 uppercase tracking-wider mb-1.5">Message from applicant:</p>
-                              <p className="text-sm text-ink-700 bg-white p-3 rounded-xl border border-ink-100/60">
-                                {searchQuery && app.message
-                                  ? highlightText(app.message, searchQuery)
-                                  : app.message || 'No message provided'}
-                              </p>
-                            </div>
-
-                            {/* Re-Interest Info */}
-                            <div className="bg-primary-50 p-3 rounded-xl border border-primary-200/60">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="text-sm font-bold text-primary-700">
-                                    <i className="bi bi-arrow-repeat mr-1"></i> Re-Interest History
-                                  </p>
-                                  <p className="text-sm text-primary-600">
-                                    {app.reinterest_count} time{app.reinterest_count > 1 ? 's' : ''} re-declared
-                                  </p>
-                                  {app.reinterest_count > 0 && (
-                                    <p className="text-xs text-primary-500">Last: {formatDate(app.last_reinterest_date)}</p>
-                                  )}
-                                </div>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    fetchReinterestHistory(app.id);
-                                  }}
-                                  className="px-3 py-1.5 bg-gradient-to-r from-primary-500 to-brand-600 hover:shadow-md text-white rounded-xl text-xs font-bold transition flex items-center gap-1"
-                                >
-                                  {loadingReinterest ? (
-                                    <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></span>
-                                  ) : (
-                                    <>
-                                      <i className="bi bi-clock-history"></i>
-                                      View History
-                                    </>
-                                  )}
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Chat Button */}
-                            {['pending', 'accepted'].includes(app.status) && (
-                               <button
-                                 onClick={() => handleOpenChat(app)}
-                                 disabled={chatLoading}
-                                 className="w-full py-2.5 bg-gradient-to-r from-primary-500 to-brand-600 hover:shadow-md text-white rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                                   >
-                                 {chatLoading ? (
-                                <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                                  ) : (
-                                     <>
-                                       <i className="bi bi-chat"></i>
-                                      {hasConversation && hasMessages
-                                      ? `Open Chat (${messageCount})`
-                                      : 'Start Conversation'}
-                                   </>
-                                  )}
-                               </button>
-                                  )}
-
-                            {/* Action buttons based on status */}
-                            {isPending && (
-                              <div className="flex gap-3">
-                                <button
-                                  onClick={() => openConfirmModal(app.id, 'accept', app)}
-                                  disabled={actionLoading === app.id}
-                                  className="flex-1 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:shadow-md text-white py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold"
-                                >
-                                  {actionLoading === app.id ? (
-                                    <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
-                                  ) : (
-                                    <>
-                                      <i className="bi bi-check-lg"></i> Accept
-                                    </>
-                                  )}
-                                </button>
-                                <button
-                                  onClick={() => openConfirmModal(app.id, 'reject', app)}
-                                  disabled={actionLoading === app.id}
-                                  className="flex-1 bg-gradient-to-r from-rose-500 to-rose-600 hover:shadow-md text-white py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold"
-                                >
-                                  {actionLoading === app.id ? (
-                                    <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
-                                  ) : (
-                                    <>
-                                      <i className="bi bi-x-lg"></i> Reject
-                                    </>
-                                  )}
-                                </button>
-                              </div>
-                            )}
-
-                            {isAccepted && (
-                              <div className="space-y-2">
-                                <div className="p-3 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-sm flex items-center gap-2">
-                                  <i className="bi bi-check-circle-fill"></i>
-                                  You accepted this application. Coordinate handoff, then confirm below.
-                                </div>
-                                <div className="flex gap-3">
-                                  <button
-                                    onClick={() => openMarkGivenModal(app)}
-                                    disabled={markGivenLoading === app.id || isGiven}
-                                    className={`flex-1 py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold ${
-                                      isGiven
-                                        ? 'bg-ink-100 text-ink-400 cursor-not-allowed'
-                                        : 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:shadow-md text-white'
-                                    }`}
-                                  >
-                                    {markGivenLoading === app.id ? (
-                                      <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
-                                    ) : isGiven ? (
-                                      <>
-                                        <i className="bi bi-check-circle-fill"></i> Marked as Given
-                                      </>
-                                    ) : (
-                                      <>
-                                        <i className="bi bi-box-seam"></i> Mark as Given
-                                      </>
-                                    )}
-                                  </button>
-                                  <button
-                                    onClick={() => openSupportModal(app)}
-                                    className="flex-1 bg-ink-100 hover:bg-ink-200 text-ink-700 py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold"
-                                  >
-                                    <i className="bi bi-flag"></i> Report Issue
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Closed / Not Selected / Cancelled / Rejected */}
-                            {(app.status === APPLICATION_STATUSES.REJECTED ||
-                              app.status === APPLICATION_STATUSES.CANCELLED ||
-                              app.status === APPLICATION_STATUSES.NOT_SELECTED) && (
-                              <div
-                                className={`p-3 rounded-xl text-sm flex items-center gap-2 ${
-                                  app.status === APPLICATION_STATUSES.REJECTED
-                                    ? 'bg-rose-50 text-rose-700 border border-rose-200/60'
-                                    : app.status === APPLICATION_STATUSES.NOT_SELECTED
-                                    ? 'bg-ink-50 text-ink-600 border border-ink-200/60'
-                                    : 'bg-ink-50 text-ink-600 border border-ink-200/60'
-                                }`}
-                              >
-                                <i
-                                  className={`bi ${
-                                    app.status === APPLICATION_STATUSES.REJECTED
-                                      ? 'bi-x-circle-fill'
-                                      : app.status === APPLICATION_STATUSES.NOT_SELECTED
-                                      ? 'bi-dash-circle'
-                                      : 'bi-ban'
-                                  }`}
-                                ></i>
-                                {app.status === APPLICATION_STATUSES.REJECTED
-                                  ? 'You rejected this application.'
-                                  : app.status === APPLICATION_STATUSES.NOT_SELECTED
-                                  ? 'This item was awarded to another applicant.'
-                                  : 'The applicant cancelled their application.'}
-                              </div>
-                            )}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
+                    <ApplicationCardBody
+                      app={app}
+                      item={item}
+                      isExpanded={isExpanded}
+                      onToggle={() =>
+                        setExpandedApp(isExpanded ? null : app.id)
+                      }
+                      onOpenChat={() => handleOpenChat(app)}
+                      onOpenProfile={() =>
+                        openApplicantProfile(app.applicant?.id)
+                      }
+                      onAccept={() =>
+                        openConfirmModal(app.id, 'accept', app)
+                      }
+                      onReject={() =>
+                        openConfirmModal(app.id, 'reject', app)
+                      }
+                      onMarkGiven={() => openMarkGivenModal(app)}
+                      onViewHistory={() => setReinterestAppId(app.id)}
+                      onReport={() => openSupportModal(app)}
+                      isOpeningChat={isOpeningChat}
+                      isPending={isPending}
+                      isAccepted={isAccepted}
+                      isGiven={isGiven}
+                      actionLoading={actionLoading === app.id}
+                      markGivenLoading={markGivenLoading === app.id}
+                      canChat={canChat}
+                      hasConversation={hasConversation}
+                      hasMessages={hasMessages}
+                      messageCount={messageCount}
+                      menuItems={menuItems}
+                      formatDate={formatDate}
+                      formatDateTime={formatDateTime}
+                    />
+                  </motion.article>
                 );
               })}
-            </div>
-          )}
-        </div>
+            </motion.div>
+
+            {/* PAGINATION */}
+            {totalPages > 1 && (
+              <div className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs font-bold text-ink-500">
+                  Showing{' '}
+                  <span className="font-extrabold text-ink-700">
+                    {(currentPage - 1) * itemsPerPage + 1}
+                  </span>
+                  –
+                  <span className="font-extrabold text-ink-700">
+                    {Math.min(currentPage * itemsPerPage, totalItems)}
+                  </span>{' '}
+                  of{' '}
+                  <span className="font-extrabold text-ink-700">
+                    {totalItems}
+                  </span>{' '}
+                  applications
+                </p>
+
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* CONFIRM MODAL */}
@@ -1047,68 +1263,106 @@ const ApplicationsToMyItem = () => {
           setConfirmAction(null);
           setSelectedAppData(null);
         }}
-        title={confirmAction === 'accept' ? 'Accept Application' : 'Reject Application'}
+        title={
+          confirmAction === 'accept'
+            ? 'Accept Application'
+            : 'Reject Application'
+        }
         size="sm"
       >
         {selectedAppData && (
-          <>
-            <div className="flex items-center gap-3 mb-4">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                confirmAction === 'accept' ? 'bg-emerald-100' : 'bg-rose-100'
-              }`}>
-                <i className={`text-2xl ${
-                  confirmAction === 'accept' ? 'bi-check-circle text-emerald-600' : 'bi-x-circle text-rose-600'
-                }`}></i>
+          <div className="space-y-6">
+            <div
+              className={`flex items-start gap-4 rounded-2xl border p-4 ${
+                confirmAction === 'accept'
+                  ? 'border-success-200 bg-success-50'
+                  : 'border-danger-100 bg-danger-50'
+              }`}
+            >
+              <div
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                  confirmAction === 'accept'
+                    ? 'bg-success-100 text-success-700'
+                    : 'bg-danger-100 text-danger-600'
+                }`}
+              >
+                {confirmAction === 'accept' ? (
+                  <CheckCircle2 size={18} />
+                ) : (
+                  <XCircle size={18} />
+                )}
               </div>
-              <div>
-                <p className="text-sm text-ink-600">
-                  {confirmAction === 'accept' ? (
-                    <>Accept <span className="font-extrabold text-ink-900">{selectedAppData.applicant?.full_name}</span>'s application?</>
-                  ) : (
-                    <>Reject <span className="font-extrabold text-ink-900">{selectedAppData.applicant?.full_name}</span>'s application?</>
-                  )}
+
+              <div className="min-w-0">
+                <p
+                  className={`text-sm font-extrabold ${
+                    confirmAction === 'accept'
+                      ? 'text-success-900'
+                      : 'text-danger-900'
+                  }`}
+                >
+                  {confirmAction === 'accept'
+                    ? `Accept ${selectedAppData.applicant?.full_name}'s application?`
+                    : `Reject ${selectedAppData.applicant?.full_name}'s application?`}
                 </p>
+
                 {confirmAction === 'accept' && (
-                  <p className="text-xs text-amber-600 mt-1">
-                    <i className="bi bi-exclamation-circle mr-1"></i>
-                    This will close all other pending applications for this item.
+                  <p className="mt-1 flex items-start gap-1.5 text-xs font-medium leading-5 text-warning-700">
+                    <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                    This will close all other pending applications for this
+                    item.
                   </p>
                 )}
               </div>
             </div>
-            <div className="flex gap-3 mt-6">
+
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
+                type="button"
                 onClick={() => {
                   setShowConfirmModal(false);
                   setSelectedApplication(null);
                   setConfirmAction(null);
                   setSelectedAppData(null);
                 }}
-                className="flex-1 px-4 py-2 bg-ink-100 hover:bg-ink-200 text-ink-700 rounded-xl font-bold transition"
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50"
               >
                 Cancel
               </button>
+
               <button
+                type="button"
                 onClick={handleAction}
                 disabled={actionLoading === selectedApplication}
-                className={`flex-1 px-4 py-2 rounded-xl transition font-bold flex items-center justify-center gap-2 ${
+                className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-extrabold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
                   confirmAction === 'accept'
-                    ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:shadow-md text-white'
-                    : 'bg-gradient-to-r from-rose-500 to-rose-600 hover:shadow-md text-white'
+                    ? 'bg-success-600 hover:bg-success-700'
+                    : 'bg-danger-600 hover:bg-danger-700'
                 }`}
               >
                 {actionLoading === selectedApplication ? (
-                  <span className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></span>
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Processing...
+                  </>
+                ) : confirmAction === 'accept' ? (
+                  <>
+                    <Check size={16} />
+                    Accept
+                  </>
                 ) : (
-                  confirmAction === 'accept' ? 'Accept' : 'Reject'
+                  <>
+                    <X size={16} />
+                    Reject
+                  </>
                 )}
               </button>
             </div>
-          </>
+          </div>
         )}
       </Modal>
 
-      {/* MARK AS GIVEN CONFIRM MODAL */}
+      {/* MARK AS GIVEN MODAL */}
       <Modal
         isOpen={showMarkGivenModal}
         onClose={() => {
@@ -1119,154 +1373,69 @@ const ApplicationsToMyItem = () => {
         size="sm"
       >
         {markGivenApp && (
-          <>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                <i className="bi bi-box-seam text-2xl text-emerald-600"></i>
+          <div className="space-y-6">
+            <div className="flex items-start gap-4 rounded-2xl border border-success-200 bg-success-50 p-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-success-100 text-success-700">
+                <Package size={18} />
               </div>
-              <div>
-                <p className="text-sm text-ink-600">
-                  Mark this item as given to <span className="font-extrabold text-ink-900">{markGivenApp.applicant?.full_name}</span>?
+
+              <div className="min-w-0">
+                <p className="text-sm font-extrabold text-success-900">
+                  Mark this item as given to{' '}
+                  {markGivenApp.applicant?.full_name}?
                 </p>
-                <p className="text-xs text-ink-400 mt-1">The winner will also need to confirm receipt.</p>
+
+                <p className="mt-1 text-xs font-medium leading-5 text-success-700">
+                  The winner will also need to confirm receipt.
+                </p>
               </div>
             </div>
-            <div className="flex gap-3 mt-6">
+
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
+                type="button"
                 onClick={() => {
                   setShowMarkGivenModal(false);
                   setMarkGivenApp(null);
                 }}
-                className="flex-1 px-4 py-2 bg-ink-100 hover:bg-ink-200 text-ink-700 rounded-xl font-bold transition"
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50"
               >
                 Cancel
               </button>
+
               <button
+                type="button"
                 onClick={() => handleMarkAsGiven(markGivenApp)}
                 disabled={markGivenLoading === markGivenApp.id}
-                className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:shadow-md disabled:opacity-50 text-white rounded-xl font-bold transition flex items-center justify-center gap-2"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-success-600 px-4 text-sm font-extrabold text-white transition hover:bg-success-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {markGivenLoading === markGivenApp.id ? (
-                  <span className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></span>
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Marking...
+                  </>
                 ) : (
                   <>
-                    <i className="bi bi-check-lg"></i> Yes, Mark as Given
+                    <Check size={16} />
+                    Yes, Mark as Given
                   </>
                 )}
               </button>
             </div>
-          </>
+          </div>
         )}
       </Modal>
 
       {/* RE-INTEREST HISTORY MODAL */}
-      <Modal
-        isOpen={showReinterestModal}
-        onClose={() => {
-          setShowReinterestModal(false);
-          setSelectedReinterestApp(null);
-          setReinterestHistory(null);
+      <ReinterestHistoryModal
+        isOpen={Boolean(reinterestAppId)}
+        onClose={() => setReinterestAppId(null)}
+        applicationId={reinterestAppId}
+        onViewApplicant={(applicantId) => {
+          setReinterestAppId(null);
+          openApplicantProfile(applicantId);
         }}
-        title="Re-Interest History"
-        size="lg"
-      >
-        {loadingReinterest ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary-600 border-t-transparent"></div>
-          </div>
-        ) : reinterestHistory ? (
-          <div className="space-y-6">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="bg-ink-50/50 rounded-xl p-4 text-center border border-ink-100/60">
-                <div className="flex items-center justify-center gap-2 text-primary-600 mb-1">
-                  <i className="bi bi-arrow-repeat text-xl"></i>
-                  <span className="text-2xl font-bold">{reinterestHistory.reinterest_count || 0}</span>
-                </div>
-                <p className="text-xs text-ink-500 font-medium">Total Re-Interests</p>
-              </div>
-              <div className="bg-ink-50/50 rounded-xl p-4 text-center border border-ink-100/60">
-                <div className="flex items-center justify-center gap-2 text-primary-600 mb-1">
-                  <i className="bi bi-calendar-check text-xl"></i>
-                  <span className="text-2xl font-bold">
-                    {reinterestHistory.days_until_next_reinterest === 0
-                      ? 'Yes'
-                      : reinterestHistory.days_until_next_reinterest}
-                  </span>
-                </div>
-                <p className="text-xs text-ink-500 font-medium">
-                  {reinterestHistory.can_redeclare ? 'Ready to Re-Declare' : 'Days Until Next'}
-                </p>
-              </div>
-              <div className="bg-ink-50/50 rounded-xl p-4 text-center border border-ink-100/60">
-                <div className="flex items-center justify-center gap-2 text-primary-600 mb-1">
-                  <i className="bi bi-clock-history text-xl"></i>
-                  <span className="text-2xl font-bold">
-                    {formatDate(reinterestHistory.last_reinterest_date || reinterestHistory.initial_application_date)}
-                  </span>
-                </div>
-                <p className="text-xs text-ink-500 font-medium">Last Activity</p>
-              </div>
-            </div>
-
-            {/* Timeline */}
-            <div>
-              <h4 className="text-sm font-bold text-ink-700 mb-4 flex items-center gap-2">
-                <i className="bi bi-list-ul text-primary-600"></i>
-                Timeline
-              </h4>
-              <div className="space-y-0 relative pl-4 border-l-2 border-ink-200">
-                {reinterestHistory.timeline?.map((event, index) => (
-                  <div key={index} className="relative pl-6 pb-6 last:pb-0">
-                    {/* Dot */}
-                    <div className="absolute left-[-9px] top-1 w-4 h-4 rounded-full bg-primary-500 border-2 border-white shadow-sm"></div>
-                    <div>
-                      <p className="text-sm text-ink-800">{event.description}</p>
-                      <p className="text-xs text-ink-400 mt-0.5">{formatDate(event.date)}</p>
-                    </div>
-                  </div>
-                ))}
-                {(!reinterestHistory.timeline || reinterestHistory.timeline.length === 0) && (
-                  <div className="text-sm text-ink-400 py-2">No timeline events</div>
-                )}
-              </div>
-            </div>
-
-            {/* Applicant & Item Info */}
-            <div className="pt-4 border-t border-ink-100 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs font-bold text-ink-500 uppercase tracking-wider">Applicant</p>
-                <button
-                  onClick={() => {
-                    if (reinterestHistory.applicant?.id) {
-                      openApplicantProfile(reinterestHistory.applicant.id);
-                      setShowReinterestModal(false);
-                    }
-                  }}
-                  className="text-sm font-bold text-primary-600 hover:text-primary-700 hover:underline transition flex items-center gap-1 mt-1"
-                >
-                  {reinterestHistory.applicant?.full_name || 'Unknown'}
-                  <i className="bi bi-arrow-up-right-square text-xs"></i>
-                </button>
-                <p className="text-xs text-ink-400 mt-0.5">
-                  {reinterestHistory.applicant?.location && `${reinterestHistory.applicant.location}, `}
-                  {reinterestHistory.applicant?.country || 'Location not specified'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-bold text-ink-500 uppercase tracking-wider">Item</p>
-                <p className="text-sm font-bold text-ink-800 mt-1">{reinterestHistory.item?.title || 'Unknown item'}</p>
-                <p className="text-xs text-ink-400">Donor: {reinterestHistory.item?.donor?.full_name || 'N/A'}</p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="text-center py-12 text-ink-400">
-            <i className="bi bi-inbox text-4xl block mb-2"></i>
-            <p>No re-interest history available</p>
-          </div>
-        )}
-      </Modal>
+      />
 
       {/* APPLICANT PROFILE MODAL */}
       <Modal
@@ -1281,7 +1450,9 @@ const ApplicationsToMyItem = () => {
         {selectedApplicantId ? (
           <ApplicantProfileCard userId={selectedApplicantId} />
         ) : (
-          <div className="text-center py-8 text-ink-400">No applicant selected</div>
+          <div className="py-8 text-center text-sm font-bold text-ink-400">
+            No applicant selected
+          </div>
         )}
       </Modal>
 
@@ -1298,17 +1469,599 @@ const ApplicationsToMyItem = () => {
         reporterType="donor"
       />
 
-      {/* CHAT DRAWER */}
-      <ChatDrawer
+      {/* CHAT MODAL */}
+      <ChatModal
         isOpen={isChatOpen}
         onClose={() => {
           setIsChatOpen(false);
           setChatConversation(null);
         }}
-        initialConversation={chatConversation}
+        conversationId={
+          chatConversation?.id ||
+          chatConversation?.conversation_id ||
+          chatConversation?.conversationId ||
+          null
+        }
+        currentUserId={user?.id}
+        currentUserName={user?.full_name || user?.fullName}
+        otherParticipant={
+          chatConversation?.otherParticipant ||
+          chatConversation?.other_participant ||
+          chatConversation?.other_user ||
+          chatConversation?.otherUser ||
+          null
+        }
       />
+						
+						
     </div>
   );
 };
+
+/* -------------------------------------------------------------------------- */
+/* APPLICATION CARD BODY                                                      */
+/* -------------------------------------------------------------------------- */
+
+function ApplicationCardBody({
+  app,
+  item,
+  isExpanded,
+  onToggle,
+  onOpenChat,
+  onOpenProfile,
+  onAccept,
+  onReject,
+  onMarkGiven,
+  onViewHistory,
+  onReport,
+  isOpeningChat,
+  isPending,
+  isAccepted,
+  isGiven,
+  actionLoading,
+  markGivenLoading,
+  canChat,
+  hasConversation,
+  hasMessages,
+  messageCount,
+  menuItems,
+  formatDate,
+  formatDateTime,
+}) {
+  const status = getApplicationStatusStyle(app.status);
+  const display = getApplicationStatusDisplay(app.status);
+  const StatusIcon = getStatusIconComponent(app.status);
+
+  const applicant = app.applicant || {};
+
+  /* location is JSONB { city, state, country } */
+  const location =
+    formatLocation(applicant.location) || 'Location not specified';
+
+  return (
+    <>
+      <div className="p-4">
+        {/* HEADER */}
+        <div className="flex items-start justify-between gap-3">
+          <button
+            type="button"
+            onClick={onOpenProfile}
+            className="flex min-w-0 flex-1 items-center gap-3 text-left"
+          >
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ink-100 bg-ink-50">
+              {applicant.avatar_url ? (
+                <img
+                  src={applicant.avatar_url}
+                  alt={applicant.full_name || 'Applicant'}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center text-ink-300">
+                  <Users size={18} />
+                </span>
+              )}
+            </span>
+
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-black text-ink-950 transition group-hover:text-primary-600">
+                {applicant.full_name || 'Unknown User'}
+              </span>
+              <span className="mt-1 block truncate text-[11px] font-bold text-ink-400">
+                Applied {formatDate(app.created_at)}
+              </span>
+            </span>
+          </button>
+
+          <span
+            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[10px] font-extrabold ${status.wrapper}`}
+          >
+            <StatusIcon size={11} />
+            {display.label}
+          </span>
+        </div>
+
+        {/* MESSAGE */}
+        {app.message && (
+          <p className="mt-3 line-clamp-2 text-xs font-medium leading-5 text-ink-500">
+            <span className="font-extrabold text-ink-700">Note:</span>{' '}
+            {app.message}
+          </p>
+        )}
+
+        {/* LOCATION + REINTEREST */}
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] font-bold text-ink-500">
+            <MapPin size={12} className="shrink-0" />
+            <span className="truncate">{location}</span>
+          </span>
+
+          <div className="flex shrink-0 items-center gap-1.5">
+            {hasConversation && hasMessages && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-ink-200 bg-ink-50 px-2 py-0.5 text-[10px] font-extrabold text-ink-600">
+                <MessageCircle size={10} />
+                {messageCount}
+              </span>
+            )}
+
+            {app.reinterest_count > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-primary-200 bg-primary-50 px-2 py-0.5 text-[10px] font-extrabold text-primary-700">
+                <Repeat size={11} />
+                {app.reinterest_count}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ACTION BAR */}
+      <div className="flex items-center justify-between gap-2 border-t border-ink-100 px-3 py-3">
+        <div className="flex items-center gap-1">
+          {canChat && (
+            <button
+              type="button"
+              onClick={onOpenChat}
+              disabled={isOpeningChat || markGivenLoading}
+              className={`
+                flex h-9 items-center justify-center gap-1.5 rounded-xl
+                text-ink-400 transition
+                hover:bg-primary-50 hover:text-primary-600
+                disabled:cursor-wait disabled:opacity-70
+                ${
+                  isOpeningChat
+                    ? 'bg-primary-50 px-3 text-primary-600'
+                    : 'w-9'
+                }
+              `}
+              title={isOpeningChat ? 'Opening chat…' : 'Open chat'}
+              aria-label={isOpeningChat ? 'Opening chat' : 'Open chat'}
+              aria-busy={isOpeningChat}
+            >
+              {isOpeningChat ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  <span className="text-[11px] font-extrabold">
+                    Opening…
+                  </span>
+                </>
+              ) : (
+                <MessageCircle size={15} />
+              )}
+            </button>
+          )}
+
+          {isAccepted && !isGiven && (
+            <button
+              type="button"
+              onClick={onMarkGiven}
+              disabled={markGivenLoading}
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-success-600 transition hover:bg-success-50 disabled:cursor-wait disabled:opacity-60"
+              title="Mark as given"
+              aria-label="Mark as given"
+            >
+              {markGivenLoading ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                <Package size={15} />
+              )}
+            </button>
+          )}
+
+          <ActionMenu items={menuItems} placement="top" align="right" />
+        </div>
+
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-extrabold text-ink-500 transition hover:bg-ink-50 hover:text-ink-900"
+          aria-label="Toggle details"
+        >
+          <span>{isExpanded ? 'Hide' : 'Details'}</span>
+          {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        </button>
+      </div>
+
+      {/* EXPANDED DETAILS */}
+      <AnimatePresence initial={false}>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden border-t border-ink-100 bg-ink-50/40"
+          >
+            <div className="space-y-3 p-4">
+              {/* MESSAGE */}
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-ink-500">
+                  Message from applicant
+                </span>
+                <p className="mt-1 rounded-2xl border border-ink-100 bg-white p-3 text-xs font-medium leading-relaxed text-ink-700">
+                  {app.message || 'No message provided.'}
+                </p>
+              </div>
+
+              {/* APPLICANT / ITEM CARDS */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-ink-100 bg-white p-3">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-ink-500">
+                    Applicant
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={onOpenProfile}
+                    className="mt-1.5 flex w-full items-center gap-2 text-left"
+                  >
+                    {applicant.avatar_url ? (
+                      <img
+                        src={applicant.avatar_url}
+                        alt=""
+                        className="h-7 w-7 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-ink-100 text-xs font-black text-ink-600">
+                        {applicant.full_name?.charAt(0) || 'U'}
+                      </span>
+                    )}
+
+                    <span className="truncate text-xs font-extrabold text-ink-800 transition hover:text-primary-600">
+                      {applicant.full_name || 'Unknown User'}
+                    </span>
+                  </button>
+                </div>
+
+                <div className="rounded-2xl border border-ink-100 bg-white p-3">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-ink-500">
+                    Application
+                  </span>
+                  <div className="mt-1.5 text-[11px] font-medium text-ink-500">
+                    <span className="font-extrabold text-ink-800">
+                      Applied:
+                    </span>{' '}
+                    {formatDate(app.created_at)}
+                    {app.shipping_estimate && (
+                      <>
+                        <br />
+                        <span className="font-extrabold text-ink-800">
+                          Est. shipping:
+                        </span>{' '}
+                        ${app.shipping_estimate}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* RE-INTEREST INFO */}
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-primary-100 bg-primary-50 p-3">
+                <div className="min-w-0">
+                  <p className="flex items-center gap-1.5 text-xs font-extrabold text-primary-900">
+                    <Repeat size={13} />
+                    Re-Interest History
+                  </p>
+
+                  <p className="mt-0.5 text-[11px] font-bold text-primary-700">
+                    {app.reinterest_count} time
+                    {app.reinterest_count > 1 ? 's' : ''} re-declared
+                  </p>
+
+                  {app.reinterest_count > 0 && (
+                    <p className="mt-0.5 text-[10px] font-bold text-primary-600">
+                      Last: {formatDateTime(app.last_reinterest_date)}
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={onViewHistory}
+                  className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-primary-600 px-2.5 text-[11px] font-extrabold text-white transition hover:bg-primary-700"
+                >
+                  <Clock size={11} />
+                  View
+                </button>
+              </div>
+
+              {/* STATUS CTAs */}
+              {isPending && (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={onAccept}
+                    disabled={actionLoading}
+                    className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-success-600 text-xs font-extrabold text-white transition hover:bg-success-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {actionLoading ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <>
+                        <Check size={14} />
+                        Accept
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={onReject}
+                    disabled={actionLoading}
+                    className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-danger-600 text-xs font-extrabold text-white transition hover:bg-danger-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {actionLoading ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <>
+                        <X size={14} />
+                        Reject
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {isAccepted && (
+                <div className="space-y-2">
+                  {!isGiven && (
+                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-success-200 bg-success-50 p-3 text-xs font-semibold text-success-800">
+                      <div className="flex items-center gap-2">
+                        <Package
+                          size={14}
+                          className="shrink-0 text-success-600"
+                        />
+                        <span>Ready to mark this item as given?</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={onMarkGiven}
+                        disabled={markGivenLoading}
+                        className="shrink-0 rounded-lg bg-success-600 px-3 py-1.5 text-xs font-extrabold text-white transition hover:bg-success-700 disabled:cursor-wait disabled:opacity-60"
+                      >
+                        {markGivenLoading ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          'Mark Given'
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {isGiven && (
+                    <div className="flex items-center gap-2 rounded-2xl border border-primary-200 bg-primary-50 p-3 text-xs font-semibold text-primary-800">
+                      <CheckCircle2
+                        size={14}
+                        className="shrink-0 text-primary-600"
+                      />
+                      <span>
+                        You marked this item as given. Waiting for winner to
+                        confirm receipt.
+                      </span>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={onReport}
+                    className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white text-xs font-extrabold text-ink-700 transition hover:bg-ink-50"
+                  >
+                    <Flag size={13} />
+                    Report Issue
+                  </button>
+                </div>
+              )}
+
+              {(app.status === APPLICATION_STATUSES.REJECTED ||
+                app.status === APPLICATION_STATUSES.CANCELLED ||
+                app.status === APPLICATION_STATUSES.NOT_SELECTED) && (
+                <div
+                  className={`flex items-center gap-2 rounded-2xl border p-3 text-xs font-bold ${
+                    app.status === APPLICATION_STATUSES.REJECTED
+                      ? 'border-danger-200 bg-danger-50 text-danger-700'
+                      : 'border-ink-200 bg-ink-50 text-ink-600'
+                  }`}
+                >
+                  {app.status === APPLICATION_STATUSES.REJECTED ? (
+                    <XCircle size={13} className="shrink-0" />
+                  ) : app.status === APPLICATION_STATUSES.NOT_SELECTED ? (
+                    <MinusCircle size={13} className="shrink-0" />
+                  ) : (
+                    <Ban size={13} className="shrink-0" />
+                  )}
+
+                  {app.status === APPLICATION_STATUSES.REJECTED
+                    ? 'You rejected this application.'
+                    : app.status === APPLICATION_STATUSES.NOT_SELECTED
+                    ? 'This item was awarded to another applicant.'
+                    : 'The applicant cancelled their application.'}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* STAT CARD                                                                  */
+/* -------------------------------------------------------------------------- */
+
+function StatCard({ label, value, icon: Icon, tone = 'ink' }) {
+  const tones = {
+    ink: { color: 'text-ink-900', bg: 'bg-ink-50' },
+    warning: { color: 'text-warning-600', bg: 'bg-warning-50' },
+    success: { color: 'text-success-600', bg: 'bg-success-50' },
+    danger: { color: 'text-danger-600', bg: 'bg-danger-50' },
+    primary: { color: 'text-primary-600', bg: 'bg-primary-50' },
+  };
+  const style = tones[tone] || tones.ink;
+
+  return (
+    <div className="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-center justify-between gap-3">
+        <p className="truncate text-xs font-bold text-ink-500">{label}</p>
+
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${style.bg}`}
+        >
+          <Icon size={15} className={style.color} />
+        </span>
+      </div>
+
+      <p className={`mt-2 text-2xl font-black tracking-tight ${style.color}`}>
+        {typeof value === 'number' ? value.toLocaleString() : value}
+      </p>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* EMPTY STATE                                                                */
+/* -------------------------------------------------------------------------- */
+
+function EmptyState({ filtered, onReset }) {
+  return (
+    <div className="flex min-h-[420px] items-center justify-center rounded-[28px] border border-dashed border-ink-200 bg-white px-6 py-12">
+      <div className="mx-auto max-w-md text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-primary-50 text-primary-600">
+          {filtered ? <Search size={27} /> : <Inbox size={27} />}
+        </div>
+
+        <h2 className="mt-5 text-lg font-black text-ink-950">
+          {filtered ? 'No matching applications' : 'No applications yet'}
+        </h2>
+
+        <p className="mt-2 text-sm font-medium leading-6 text-ink-500">
+          {filtered
+            ? 'Try adjusting your search or filters to find the application you are looking for.'
+            : "No one has applied for this item yet. Check back later!"}
+        </p>
+
+        {filtered && (
+          <div className="mt-6 flex justify-center">
+            <button
+              type="button"
+              onClick={onReset}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50"
+            >
+              <RefreshCw size={15} />
+              Clear filters
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* PAGINATION                                                                 */
+/* -------------------------------------------------------------------------- */
+
+function Pagination({ currentPage, totalPages, onPageChange }) {
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+
+      if (currentPage > 3) pages.push('...');
+
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+
+      for (let i = start; i <= end; i++) pages.push(i);
+
+      if (currentPage < totalPages - 2) pages.push('...');
+
+      pages.push(totalPages);
+    }
+
+    return pages;
+  };
+
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="flex items-center gap-1 rounded-2xl border border-ink-100 bg-white p-1 shadow-sm">
+      <button
+        type="button"
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        aria-label="Previous page"
+        className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${
+          currentPage === 1
+            ? 'cursor-not-allowed text-ink-200'
+            : 'text-ink-500 hover:bg-primary-50 hover:text-primary-600'
+        }`}
+      >
+        <ChevronLeft size={14} />
+      </button>
+
+      {getPageNumbers().map((page, index) =>
+        page === '...' ? (
+          <span
+            key={`dots-${index}`}
+            className="flex h-8 w-8 items-center justify-center text-xs font-bold text-ink-300"
+          >
+            …
+          </span>
+        ) : (
+          <button
+            type="button"
+            key={page}
+            onClick={() => onPageChange(page)}
+            className={`flex h-8 w-8 items-center justify-center rounded-xl text-xs font-extrabold transition ${
+              currentPage === page
+                ? 'bg-primary-600 text-white shadow-sm'
+                : 'text-ink-500 hover:bg-ink-50 hover:text-primary-600'
+            }`}
+          >
+            {page}
+          </button>
+        )
+      )}
+
+      <button
+        type="button"
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        aria-label="Next page"
+        className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${
+          currentPage === totalPages
+            ? 'cursor-not-allowed text-ink-200'
+            : 'text-ink-500 hover:bg-primary-50 hover:text-primary-600'
+        }`}
+      >
+        <ChevronRight size={14} />
+      </button>
+    </div>
+  );
+}
 
 export default ApplicationsToMyItem;

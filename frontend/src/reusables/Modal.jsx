@@ -27,6 +27,17 @@ const SIZES = {
   full: "max-w-none",
 };
 
+// 👇 NEW: height presets — mainly used for size="full" & size="md"
+//    All values subtract the safe area used by the container's padding/margins
+const HEIGHTS = {
+  auto: "",
+  sm: "h-[40dvh] sm:h-[42dvh]",
+  medium: "h-[60dvh] sm:h-[65dvh]",
+  lg: "h-[80dvh] sm:h-[82dvh]",
+  full: "h-[calc(100dvh-2.75rem)] sm:h-[calc(100dvh-3rem)]",
+  screen: "h-dvh",
+};
+
 const POSITIONS = {
   bottom: {
     container:
@@ -116,6 +127,7 @@ const Modal = ({
 
   size = "md",
   position = "bottom",
+  height = "auto", // 👈 NEW: "auto" | "sm" | "medium" | "lg" | "full" | "screen"
 
   showCloseButton = true,
   showHandle = true,
@@ -129,7 +141,7 @@ const Modal = ({
   className = "",
   zIndex = 50,
 
-  // 👇 NEW: portal to document.body by default
+  // 👇 portal to document.body by default
   portal = true,
 }) => {
   const prefersReducedMotion = useReducedMotion();
@@ -150,7 +162,7 @@ const Modal = ({
   const descriptionId = useId();
   const dialogId = useId();
 
-  // 👇 NEW: SSR-safe mount guard
+  // SSR-safe mount guard
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -159,6 +171,7 @@ const Modal = ({
 
   const config = POSITIONS[position] || POSITIONS.bottom;
   const modalSize = SIZES[size] || SIZES.md;
+  const modalHeight = HEIGHTS[height] ?? HEIGHTS.auto; // 👈 NEW
 
   /* -------------------------------------------------------
      Keep callbacks current without causing effect churn
@@ -449,13 +462,14 @@ const Modal = ({
               tabIndex={-1}
               className={`
                 ${modalSize}
+                ${modalHeight}
 
                 relative
                 flex
                 w-full
                 min-h-0
                 flex-col
-																mx-4
+                mx-4
                 overflow-hidden
 
                 pointer-events-auto

@@ -16,6 +16,7 @@ const extract = (response) => {
 export default function useConversations({
   currentUserId,
   filter = null,
+  contextType = null,
   includeItemChats = false,
   enabled = true,
 } = {}) {
@@ -28,7 +29,7 @@ export default function useConversations({
   const channelRef = useRef(null);
 
   // ----------------------------------------------------------
-  // LOAD — no currentUserId gate; server uses JWT
+  // LOAD
   // ----------------------------------------------------------
   const load = useCallback(async () => {
     if (!enabled) return;
@@ -40,11 +41,11 @@ export default function useConversations({
         page: 1,
         limit: PAGE_SIZE,
         filter: filter || undefined,
+        context_type: contextType || undefined,
         includeItemChats: includeItemChats ? 'true' : undefined,
       });
 
       const { conversations: rows, totalUnread: tu, pagination: p } = extract(res);
-     // console.log('[useConversations] loaded', rows.length, 'conversations');
 
       setConversations(rows);
       setTotalUnread(tu);
@@ -59,14 +60,14 @@ export default function useConversations({
     } finally {
       setLoading(false);
     }
-  }, [filter, includeItemChats, enabled]);
+  }, [filter, contextType, includeItemChats, enabled]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   // ----------------------------------------------------------
-  // REALTIME — skip subscription if we don't know who we are
+  // REALTIME
   // ----------------------------------------------------------
   useEffect(() => {
     if (!enabled || !currentUserId) return;

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/services/api/supabase';
+import { DTI_BASE, POP_BASE } from '@/utils/routeBases';
 
 const AuthCallback = () => {
   const [searchParams] = useSearchParams();
@@ -11,10 +12,17 @@ const AuthCallback = () => {
   const [message, setMessage] = useState('');
 
   // Determine app from current URL path
-  const isPopApp = window.location.pathname.startsWith('/app/pop');
+  const isPopApp =
+    window.location.pathname === POP_BASE ||
+    window.location.pathname.startsWith(`${POP_BASE}/`);
   const appName = isPopApp ? 'POP' : 'DTI';
 
+  // The router has no basename, so every destination needs the app prefix.
+  const base = isPopApp ? POP_BASE : DTI_BASE;
+
   useEffect(() => {
+    const go = (path) => navigate(`${base}${path}`, { replace: true });
+
     const handleCallback = async () => {
       const accessToken = searchParams.get('access_token');
       const refreshToken = searchParams.get('refresh_token');
@@ -25,7 +33,7 @@ const AuthCallback = () => {
         toast.error(`Authentication failed: ${error}`);
         setStatus('error');
         setMessage(error);
-        setTimeout(() => navigate('/login'), 3000);
+        setTimeout(() => go('/login'), 3000);
         return;
       }
 
@@ -72,7 +80,7 @@ const AuthCallback = () => {
               toast.success('Login successful! 🎉');
               setStatus('success');
               setMessage(`Welcome to ${isPopApp ? 'Proof of Purchase' : "Don't Trash It"}!`);
-              setTimeout(() => navigate(redirectPath, { replace: true }), 1000);
+              setTimeout(() => go(redirectPath), 1000);
               return;
             } else {
               console.warn('⚠️ Profile fetch returned:', response.status);
@@ -81,7 +89,7 @@ const AuthCallback = () => {
               toast.success('Login successful! 🎉');
               setStatus('success');
               setMessage(`Welcome to ${isPopApp ? 'Proof of Purchase' : "Don't Trash It"}!`);
-              setTimeout(() => navigate(redirectPath, { replace: true }), 1000);
+              setTimeout(() => go(redirectPath), 1000);
               return;
             }
           } catch (fetchError) {
@@ -91,7 +99,7 @@ const AuthCallback = () => {
             toast.success('Login successful! 🎉');
             setStatus('success');
             setMessage(`Welcome to ${isPopApp ? 'Proof of Purchase' : "Don't Trash It"}!`);
-            setTimeout(() => navigate(redirectPath, { replace: true }), 1000);
+            setTimeout(() => go(redirectPath), 1000);
             return;
           }
         }
@@ -124,7 +132,7 @@ const AuthCallback = () => {
 
             toast.success('Login successful! 🎉');
             setStatus('success');
-            setTimeout(() => navigate(redirectPath, { replace: true }), 1000);
+            setTimeout(() => go(redirectPath), 1000);
             return;
           } else {
             console.error('❌ Failed to fetch user:', response.status);
@@ -138,11 +146,11 @@ const AuthCallback = () => {
       toast.error('Authentication failed. Please try again.');
       setStatus('error');
       setMessage('No authentication data received');
-      setTimeout(() => navigate('/login'), 3000);
+      setTimeout(() => go('/login'), 3000);
     };
 
     handleCallback();
-  }, [searchParams, navigate, isPopApp]);
+  }, [searchParams, navigate, isPopApp, base]);
 
   if (status === 'loading') {
     return (
@@ -179,7 +187,7 @@ const AuthCallback = () => {
         <h2 className="text-2xl font-extrabold text-ink-900 mb-2">Authentication Failed</h2>
         <p className="text-ink-600 font-medium mb-2">{message || 'Please try again'}</p>
         <button
-          onClick={() => navigate('/login')}
+          onClick={() => navigate(`${base}/login`)}
           className="w-full py-3 bg-gradient-to-r from-primary-500 to-brand-600 hover:shadow-md text-white rounded-xl font-extrabold transition"
         >
           Go to Login

@@ -9,28 +9,22 @@ import React, {
 
 import { createPortal } from "react-dom";
 
-import { Check, ChevronDown, Search, X } from "lucide-react";
+import { Check, ChevronDown, Search, X, Loader2 } from "lucide-react";
 
 import { renderIcon } from "@/utils/constantHelpers";
 import Modal from "@/reusables/Modal";
 
 const cn = (...classes) => classes.filter(Boolean).join(" ");
 
-// --------------------------------------------------
-// Option accessors
-// --------------------------------------------------
+/* --------------------------------------------------
+   Option accessors
+-------------------------------------------------- */
 
 const getRawValue = (option, valueKey) => {
   if (option == null) return "";
   if (typeof option !== "object") return option;
 
-  return (
-    option[valueKey] ??
-    option.value ??
-    option.id ??
-    option.label ??
-    ""
-  );
+  return option[valueKey] ?? option.value ?? option.id ?? option.label ?? "";
 };
 
 const getLabel = (option, labelKey) => {
@@ -51,12 +45,13 @@ const getDescription = (option, descriptionKey) => {
   if (!option || typeof option !== "object") return "";
 
   return String(
-    option[descriptionKey] ??
-      option.description ??
-      option.subtitle ??
-      ""
+    option[descriptionKey] ?? option.description ?? option.subtitle ?? ""
   );
 };
+
+/* --------------------------------------------------
+   Component
+-------------------------------------------------- */
 
 function Select({
   options = [],
@@ -67,7 +62,7 @@ function Select({
   label,
   description,
   placeholder = "Choose an option",
-  searchPlaceholder = "Type to search...",
+  searchPlaceholder = "Search",
   emptyMessage = "No matching options",
 
   error,
@@ -114,8 +109,6 @@ function Select({
   const menuRef = useRef(null);
   const optionRefs = useRef([]);
 
-  // Keep latest callbacks in refs so inline functions from the parent
-  // never retrigger effects.
   const onSearchRef = useRef(onSearch);
   const onOpenRef = useRef(onOpen);
   const onCloseRef = useRef(onClose);
@@ -140,13 +133,12 @@ function Select({
   const [position, setPosition] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
 
-  // --------------------------------------------------
-  // Mobile detection
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     Mobile detection
+  -------------------------------------------------- */
 
   useEffect(() => {
-    const check = () =>
-      setIsMobile(window.innerWidth < mobileBreakpoint);
+    const check = () => setIsMobile(window.innerWidth < mobileBreakpoint);
 
     check();
     window.addEventListener("resize", check);
@@ -154,9 +146,9 @@ function Select({
     return () => window.removeEventListener("resize", check);
   }, [mobileBreakpoint]);
 
-  // --------------------------------------------------
-  // Normalised items
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     Normalised items
+  -------------------------------------------------- */
 
   const items = useMemo(() => {
     return (Array.isArray(options) ? options : [])
@@ -179,9 +171,7 @@ function Select({
               ? original.color
               : undefined,
           disabled: Boolean(
-            original &&
-              typeof original === "object" &&
-              original.disabled
+            original && typeof original === "object" && original.disabled
           ),
         };
       });
@@ -217,9 +207,7 @@ function Select({
   const selectedItems = useMemo(
     () =>
       selectedValues
-        .map((selected) =>
-          items.find((item) => item.value === selected)
-        )
+        .map((selected) => items.find((item) => item.value === selected))
         .filter(Boolean),
     [selectedValues, items]
   );
@@ -236,7 +224,6 @@ function Select({
     );
   }, [items, query]);
 
-  // Emit original value types (numbers stay numbers), not stringified ones.
   const toRaw = useCallback(
     (str) => items.find((item) => item.value === str)?.raw ?? str,
     [items]
@@ -251,9 +238,9 @@ function Select({
     [controlled, onChange]
   );
 
-  // --------------------------------------------------
-  // Open / close
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     Open / close
+  -------------------------------------------------- */
 
   const close = useCallback((restoreFocus = false) => {
     setOpen(false);
@@ -280,9 +267,9 @@ function Select({
     onOpenRef.current?.();
   }, [disabled, loading]);
 
-  // --------------------------------------------------
-  // Desktop positioning
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     Desktop positioning
+  -------------------------------------------------- */
 
   const updatePosition = useCallback(() => {
     const trigger = triggerRef.current;
@@ -338,15 +325,14 @@ function Select({
     };
   }, [open, isMobile, updatePosition, close]);
 
-  // If the viewport crosses the breakpoint while open, reset cleanly.
   useEffect(() => {
     if (open) close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile]);
 
-  // --------------------------------------------------
-  // Focus handling
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     Focus handling
+  -------------------------------------------------- */
 
   useEffect(() => {
     if (!open) return;
@@ -370,9 +356,9 @@ function Select({
     });
   }, [activeIndex]);
 
-  // --------------------------------------------------
-  // Selection
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     Selection
+  -------------------------------------------------- */
 
   const selectItem = useCallback(
     (item) => {
@@ -430,9 +416,9 @@ function Select({
     );
   };
 
-  // --------------------------------------------------
-  // Keyboard
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     Keyboard
+  -------------------------------------------------- */
 
   const moveActive = useCallback(
     (direction) => {
@@ -445,9 +431,7 @@ function Select({
         return;
       }
 
-      const current = enabled.findIndex(
-        ({ index }) => index === activeIndex
-      );
+      const current = enabled.findIndex(({ index }) => index === activeIndex);
 
       const next =
         current === -1
@@ -565,7 +549,6 @@ function Select({
 
       case "Home":
       case "End":
-        // Let Home/End move the text cursor while typing.
         break;
 
       case "Enter":
@@ -587,9 +570,9 @@ function Select({
     }
   };
 
-  // --------------------------------------------------
-  // Display value
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     Display value
+  -------------------------------------------------- */
 
   const displayValue = renderValue
     ? renderValue(
@@ -603,9 +586,9 @@ function Select({
 
   const singleSelected = !multiple ? selectedItems[0] : null;
 
-  // --------------------------------------------------
-  // Option row (plain function, not a component, so rows never remount)
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     Option row
+  -------------------------------------------------- */
 
   const renderRow = (item, index) => {
     const selected = selectedSet.has(item.value);
@@ -628,50 +611,45 @@ function Select({
         onMouseEnter={() => setActiveIndex(index)}
         onClick={() => selectItem(item)}
         className={cn(
-          "flex w-full items-center gap-3 rounded-lg px-2.5 text-left",
-          isMobile ? "py-3" : "py-2.5",
+          "flex w-full items-center gap-3 rounded-xl px-3 text-left",
           "transition-colors duration-100",
-          active ? "bg-ink-100" : "bg-transparent",
-          selected && "text-primary-700",
+          isMobile ? "min-h-[52px] py-2.5" : "min-h-[44px] py-2",
+          selected
+            ? active
+              ? "bg-primary-100"
+              : "bg-primary-50"
+            : active
+              ? "bg-ink-100"
+              : "bg-transparent",
           item.disabled && "cursor-not-allowed opacity-40"
         )}
       >
-        {multiple ? (
+        {multiple && (
           <span
             className={cn(
-              "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+              "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-md border transition-colors",
               selected
                 ? "border-primary-600 bg-primary-600 text-white"
-                : "border-ink-300"
+                : "border-ink-300 bg-transparent"
             )}
           >
-            {selected && <Check size={11} strokeWidth={3} />}
-          </span>
-        ) : (
-          <span className="w-4 shrink-0">
-            {selected && (
-              <Check
-                size={15}
-                strokeWidth={2}
-                className="text-primary-600"
-              />
-            )}
+            {selected && <Check size={12} strokeWidth={3} />}
           </span>
         )}
 
         {hasIcon && (
           <span
             className={cn(
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
               selected
-                ? "bg-primary-500/10 text-primary-600"
-                : "bg-ink-100 text-ink-500"
+                ? "bg-primary-100 text-primary-700"
+                : "bg-ink-100 text-ink-600"
             )}
           >
             {renderIcon(
               item.icon,
-              "h-4 w-4",
-              selected ? "text-primary-600" : item.color || "text-ink-500"
+              "h-[18px] w-[18px]",
+              selected ? "text-primary-700" : item.color || "text-ink-600"
             )}
           </span>
         )}
@@ -687,36 +665,49 @@ function Select({
             <>
               <span
                 className={cn(
-                  "block truncate text-[13px]",
+                  "block truncate text-sm",
                   selected
-                    ? "font-medium text-primary-700"
-                    : "font-normal text-ink-900"
+                    ? "font-black text-primary-700"
+                    : "font-bold text-ink-900"
                 )}
               >
                 {item.label}
               </span>
 
               {item.description && (
-                <span className="mt-0.5 block truncate text-[11px] text-ink-600">
+                <span className="mt-0.5 block truncate text-xs font-medium text-ink-500">
                   {item.description}
                 </span>
               )}
             </>
           )}
         </span>
+
+        {!multiple && selected && (
+          <Check
+            size={16}
+            strokeWidth={2.5}
+            className="shrink-0 text-primary-600"
+          />
+        )}
       </button>
     );
   };
 
-  // --------------------------------------------------
-  // Shared panel content (desktop popover + mobile sheet)
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     Shared panel body
+  -------------------------------------------------- */
 
   const renderPanelBody = () => (
     <>
       {searchable && (
-        <div className="shrink-0 border-b border-ink-200/70 p-2">
-          <div className="flex items-center gap-2.5 px-2.5">
+        <div className="shrink-0 p-2.5 pb-1.5">
+          <div
+            className={cn(
+              "flex items-center gap-2 rounded-xl border border-ink-300 bg-ink-50 px-3",
+              "transition-colors focus-within:border-primary-400"
+            )}
+          >
             <Search size={15} className="shrink-0 text-ink-500" />
 
             <input
@@ -737,9 +728,8 @@ function Select({
                 activeIndex >= 0 ? optionId(activeIndex) : undefined
               }
               className={cn(
-                "min-w-0 flex-1 bg-transparent text-ink-900 outline-none placeholder:text-ink-500",
-                // 16px on mobile prevents iOS zoom-on-focus
-                isMobile ? "h-11 text-base" : "h-9 text-[13px]"
+                "min-w-0 flex-1 bg-transparent font-bold text-ink-900 outline-none placeholder:font-medium placeholder:text-ink-400",
+                isMobile ? "h-11 text-base" : "h-10 text-sm"
               )}
             />
 
@@ -753,7 +743,7 @@ function Select({
                   searchRef.current?.focus();
                 }}
                 aria-label="Clear search"
-                className="text-ink-500 hover:text-ink-900"
+                className="flex h-6 w-6 items-center justify-center rounded-md text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-900"
               >
                 <X size={14} />
               </button>
@@ -763,17 +753,17 @@ function Select({
       )}
 
       {multiple && selectedValues.length > 0 && (
-        <div className="flex shrink-0 items-center justify-between border-b border-ink-200/70 px-3.5 py-2">
-          <span className="text-[11px] text-ink-600">
+        <div className="flex shrink-0 items-center justify-between px-4 pb-1 pt-2">
+          <span className="text-xs font-extrabold text-ink-500">
             {selectedValues.length} selected
           </span>
 
           <button
             type="button"
             onClick={clear}
-            className="text-[11px] font-medium text-primary-600 hover:text-primary-700"
+            className="text-xs font-extrabold text-primary-600 transition-colors hover:text-primary-700"
           >
-            Clear selection
+            Clear all
           </button>
         </div>
       )}
@@ -783,29 +773,31 @@ function Select({
         role="listbox"
         aria-label={label || placeholder}
         aria-multiselectable={multiple || undefined}
-        className="min-h-0 flex-1 overflow-y-auto p-1.5"
+        className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-2"
         style={
           isMobile
             ? undefined
             : {
                 maxHeight:
                   (position?.maxHeight ?? maxHeight) -
-                  (searchable ? 54 : 0),
+                  (searchable ? 58 : 0),
               }
         }
       >
         {loading ? (
-          <div className="flex items-center justify-center gap-2 px-4 py-8 text-xs text-ink-600">
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-ink-300 border-t-primary-600" />
+          <div className="flex items-center justify-center gap-2.5 px-4 py-9 text-sm font-bold text-ink-500">
+            <Loader2 size={16} className="animate-spin text-primary-600" />
             Loading options
           </div>
         ) : filteredItems.length === 0 ? (
-          <div className="px-4 py-9 text-center">
-            <p className="text-[13px] font-medium text-ink-900">
-              {emptyMessage}
-            </p>
+          <div className="flex flex-col items-center px-4 py-9 text-center">
+            <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-ink-100 text-ink-500">
+              <Search size={18} />
+            </span>
 
-            <p className="mt-1 text-xs text-ink-600">
+            <p className="text-sm font-black text-ink-950">{emptyMessage}</p>
+
+            <p className="mt-1 text-xs font-medium text-ink-500">
               {query
                 ? "Try a different search term."
                 : "There are no options to display."}
@@ -818,9 +810,9 @@ function Select({
     </>
   );
 
-  // --------------------------------------------------
-  // Desktop popover
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     Desktop popover
+  -------------------------------------------------- */
 
   const desktopMenu =
     !isMobile && open && position
@@ -829,11 +821,9 @@ function Select({
             ref={menuRef}
             className={cn(
               "fixed z-[1000] flex flex-col overflow-hidden",
-              "rounded-xl border border-ink-200",
-              "bg-ink-50 text-ink-900",
-              "shadow-xl shadow-black/[0.08]",
-              "ring-1 ring-black/[0.02]",
-              "animate-in fade-in-0 zoom-in-[0.99] duration-100"
+              "rounded-2xl border border-ink-300",
+              "bg-white text-ink-900 shadow-large",
+              "animate-in fade-in-0 zoom-in-[0.98] duration-100"
             )}
             style={{
               left: position.left,
@@ -856,9 +846,9 @@ function Select({
         )
       : null;
 
-  // --------------------------------------------------
-  // Mobile bottom sheet
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     Mobile bottom sheet
+  -------------------------------------------------- */
 
   const mobileSheet = isMobile ? (
     <Modal
@@ -868,21 +858,21 @@ function Select({
       size="full"
       closeOnOutsideClick
       showCloseButton={false}
-      className="!mb-0 !max-h-[85vh] !max-w-[calc(100vw-24px)] !overflow-hidden !rounded-2xl !border !border-ink-200 !bg-ink-50 !shadow-actionMenu"
+      className="!mb-0 !max-h-[85vh] !max-w-[calc(100vw-24px)] !overflow-hidden !rounded-3xl !border !border-ink-300  !shadow-actionMenu"
     >
       <div
         ref={menuRef}
-        className="flex max-h-[85vh] flex-col bg-ink-50 text-ink-900"
+        className="flex max-h-[85vh] flex-col bg-white text-ink-900"
       >
-        <div className="flex shrink-0 items-center gap-3 border-b border-ink-200/70 px-4 py-3.5">
+        <div className="flex shrink-0 items-center gap-3 px-5 pb-2 pt-3">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-ink-900">
+            <p className="truncate text-base font-black text-ink-950">
               {label || placeholder}
             </p>
 
-            {multiple && (
-              <p className="mt-0.5 text-xs text-ink-600">
-                {selectedValues.length} selected
+            {description && (
+              <p className="mt-0.5 truncate text-xs font-medium text-ink-500">
+                {description}
               </p>
             )}
           </div>
@@ -891,7 +881,7 @@ function Select({
             type="button"
             onClick={() => close(true)}
             aria-label="Close"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-900"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ink-100 text-ink-600 transition-colors hover:bg-ink-200 hover:text-ink-900"
           >
             <X size={16} />
           </button>
@@ -900,13 +890,15 @@ function Select({
         {renderPanelBody()}
 
         {multiple && (
-          <div className="shrink-0 border-t border-ink-200/70 p-3">
+          <div className="shrink-0 border-t border-ink-300 p-3">
             <button
               type="button"
               onClick={() => close(true)}
-              className="h-11 w-full rounded-lg bg-primary-600 text-sm font-medium text-white transition-colors hover:bg-primary-700"
+              className="btn-primary h-12 w-full"
             >
-              Done
+              {selectedValues.length > 0
+                ? `Done (${selectedValues.length})`
+                : "Done"}
             </button>
           </div>
         )}
@@ -914,9 +906,9 @@ function Select({
     </Modal>
   ) : null;
 
-  // --------------------------------------------------
-  // Trigger
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     Trigger
+  -------------------------------------------------- */
 
   return (
     <div ref={rootRef} className={cn("w-full min-w-0", className)}>
@@ -924,19 +916,19 @@ function Select({
         <div className="mb-1.5">
           <label
             htmlFor={selectId}
-            className="text-[13px] font-medium text-ink-900"
+            className="text-sm font-extrabold text-ink-700"
           >
             {label}
 
             {required && (
-              <span className="ml-1 text-primary-600" aria-hidden="true">
+              <span className="ml-1 text-danger-500" aria-hidden="true">
                 *
               </span>
             )}
           </label>
 
           {description && (
-            <p className="mt-1 text-xs leading-5 text-ink-600">
+            <p className="mt-0.5 text-xs font-medium leading-5 text-ink-500">
               {description}
             </p>
           )}
@@ -963,25 +955,25 @@ function Select({
         onClick={() => (open ? close() : show())}
         onKeyDown={handleTriggerKeyDown}
         className={cn(
-          "group flex min-h-[44px] w-full items-center gap-3",
-          "rounded-lg border bg-ink-50 px-3",
-          "text-left transition-colors duration-150",
-          "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30",
+          "group flex min-h-[46px] w-full items-center gap-2.5",
+          "rounded-xl border bg-white pl-3.5 pr-2.5",
+          "text-left outline-none transition",
+          "focus-visible:ring-2",
           error
-            ? "border-red-500"
+            ? "border-danger-400 focus-visible:ring-danger-200"
             : open
-              ? "border-primary-500"
-              : "border-ink-200 hover:border-ink-300",
+              ? "border-primary-400 ring-2 ring-primary-200"
+              : "border-ink-300 hover:border-primary-300 focus-visible:border-primary-400 focus-visible:ring-primary-200",
           (disabled || loading) && "cursor-not-allowed opacity-50"
         )}
       >
-        <span className="flex min-w-0 flex-1 items-center gap-2.5 py-2">
+        <span className="flex min-w-0 flex-1 items-center gap-2.5 py-1.5">
           {multiple && selectedItems.length > 0 ? (
             <span className="flex flex-wrap items-center gap-1.5">
               {selectedItems.slice(0, maxDisplayed).map((item) => (
                 <span
                   key={item.value}
-                  className="inline-flex max-w-full items-center gap-1 rounded-md bg-primary-500/10 px-2 py-1 text-xs text-primary-700"
+                  className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-primary-200 bg-primary-50 py-1 pl-2 pr-1 text-xs font-extrabold text-primary-700"
                 >
                   {showIcon && item.icon && (
                     <span className="shrink-0">
@@ -993,31 +985,29 @@ function Select({
                     </span>
                   )}
 
-                  <span className="max-w-[110px] truncate">
-                    {item.label}
-                  </span>
+                  <span className="max-w-[110px] truncate">{item.label}</span>
 
                   <span
                     role="button"
                     aria-label={`Remove ${item.label}`}
                     onClick={(event) => removeItem(event, item)}
-                    className="cursor-pointer opacity-70 hover:opacity-100"
+                    className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-md text-primary-600 transition-colors hover:bg-primary-100"
                   >
-                    <X size={12} />
+                    <X size={12} strokeWidth={2.5} />
                   </span>
                 </span>
               ))}
 
               {selectedItems.length > maxDisplayed && (
-                <span className="text-xs text-ink-600">
-                  +{selectedItems.length - maxDisplayed} more
+                <span className="rounded-lg bg-ink-100 px-2 py-1 text-xs font-extrabold text-ink-600">
+                  +{selectedItems.length - maxDisplayed}
                 </span>
               )}
             </span>
           ) : displayValue ? (
             <>
               {showIcon && singleSelected?.icon && !renderValue && (
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary-500/10 text-primary-600">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
                   {renderIcon(
                     singleSelected.icon,
                     "h-4 w-4",
@@ -1026,12 +1016,12 @@ function Select({
                 </span>
               )}
 
-              <span className="block min-w-0 flex-1 truncate text-[13px] text-ink-900">
+              <span className="block min-w-0 flex-1 truncate text-sm font-bold text-ink-900">
                 {displayValue}
               </span>
             </>
           ) : (
-            <span className="block truncate text-[13px] text-ink-500">
+            <span className="block truncate text-sm font-medium text-ink-400">
               {placeholder}
             </span>
           )}
@@ -1042,7 +1032,7 @@ function Select({
             role="button"
             aria-label="Clear selection"
             onClick={clear}
-            className="rounded p-1 text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-900"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-900"
           >
             <X size={14} />
           </span>
@@ -1055,7 +1045,7 @@ function Select({
             open && "rotate-180 text-primary-600"
           )}
         >
-          <ChevronDown size={16} strokeWidth={1.8} />
+          <ChevronDown size={16} strokeWidth={2} />
         </span>
       </button>
 
@@ -1064,7 +1054,9 @@ function Select({
           role={error ? "alert" : undefined}
           className={cn(
             "mt-1.5 text-xs leading-5",
-            error ? "text-red-500" : "text-ink-500"
+            error
+              ? "font-bold text-danger-500"
+              : "font-medium text-ink-500"
           )}
         >
           {error || hint}

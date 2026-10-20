@@ -6,33 +6,70 @@ import { sendVerificationEmail } from '../../utils/email.js';
 // HELPER FUNCTIONS
 // ============================================
 
+const getErrorMessage = (error, fallback = 'An unexpected error occurred. Please try again.') => {
+  if (!error) return fallback;
+
+  const message = String(error.message || '').trim();
+
+  return message || fallback;
+};
+
+const normalizeEmail = (email) => {
+  return typeof email === 'string' ? email.trim().toLowerCase() : '';
+};
+
+const isMissingRecord = (error) => {
+  return error?.code === 'PGRST116';
+};
+
+const isDuplicateEmailError = (error) => {
+  const message = String(error?.message || '').toLowerCase();
+
+  return (
+    message.includes('user already registered') ||
+    message.includes('already been registered') ||
+    message.includes('email address is already registered') ||
+    message.includes('duplicate key value') ||
+    error?.code === '23505'
+  );
+};
+
 /**
- * Ensure profile exists for a user
+ * Ensure a profile exists for an authenticated user.
  */
-async function ensureProfileExists(userId, email, fullName, avatarUrl = null, email_verified = false) {
-  console.log('🔍 Checking profile for user:', userId);
-  
-  const { data: existingProfile } = await supabaseAdmin
-    .from('profiles')
-    .select('id')
-    .eq('id', userId)
-    .maybeSingle();
+async function ensureProfileExists(
+  userId,
+  email,
+  fullName,
+  avatarUrl = null,
+  emailVerified = false
+) {
+  const { data: existingProfile, error: lookupError } =
+    await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+
+  if (lookupError) {
+    console.error('Profile lookup failed:', lookupError);
+    throw new Error(
+      `Unable to check your profile: ${getErrorMessage(lookupError)}`
+    );
+  }
 
   if (existingProfile) {
-    console.log('✅ Profile already exists for:', userId);
     return true;
   }
 
-  console.log('📝 Creating profile for user:', userId);
-  
   const { error: createError } = await supabaseAdmin
     .from('profiles')
     .insert({
       id: userId,
       full_name: fullName || email?.split('@')[0] || 'User',
-      email: email,
-      avatar_url: avatarUrl || null,
-      email_verified: email_verified, // ✅ Fixed: Added colon
+      email,
+      avatar_url: avatarUrl,
+      email_verified: emailVerified,
       role: 'user',
       is_admin: false,
       created_at: new Date().toISOString(),
@@ -40,42 +77,90 @@ async function ensureProfileExists(userId, email, fullName, avatarUrl = null, em
     });
 
   if (createError) {
-    console.error('❌ Profile creation error:', createError);
-    return false;
+    console.error('Profile creation failed:', createError);
+
+    // Another process may have created the profile concurrently.
+    if (createError.code === '23505') {
+      const { data: profileAfterConflict, error: retryError } =
+        await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (!retryError && profileAfterConflict) {
+        return true;
+      }
+    }
+
+    throw new Error(
+      `Unable to create your profile: ${getErrorMessage(createError)}`
+    );
   }
 
-  console.log('✅ Profile created for:', userId);
   return true;
+}
+
+/**
+ * Return a useful authentication error without hiding
+ * the actual Supabase authentication message.
+ */
+function getLoginErrorMessage(error) {
+  const message = String(error?.message || '').trim();
+  const normalized = message.toLowerCase();
+
+  if (
+    normalized.includes('invalid login credentials') ||
+    normalized.includes('invalid email or password')
+  ) {
+    return 'Incorrect email or password. Please check your details and try again.';
+  }
+
+  if (normalized.includes('email not confirmed')) {
+    return 'Your email address has not been verified. Please check your inbox for the verification link.';
+  }
+
+  if (
+    normalized.includes('too many requests') ||
+    normalized.includes('rate limit')
+  ) {
+    return 'Too many login attempts. Please wait a moment before trying again.';
+  }
+
+  if (normalized.includes('user not found')) {
+    return 'No account was found with these login details.';
+  }
+
+  if (normalized.includes('network') || normalized.includes('fetch failed')) {
+    return 'Unable to connect to the authentication service. Check your internet connection and try again.';
+  }
+
+  return message || 'Login failed. Please try again.';
 }
 
 // ============================================
 // REGISTER
 // ============================================
 
-
-
 export const register = async (req, res) => {
   try {
     const {
-      email,
+      email: rawEmail,
       password,
       fullName,
       full_name,
       location,
       phone,
       agree_to_terms,
-    } = req.body;
+    } = req.body || {};
 
-    // Handle both fullName and full_name
-    const name = fullName || full_name;
-
-    console.log('📝 Registration attempt:', {
-      email,
-      name,
-      location,
-      phone,
-      agree_to_terms,
-    });
+    const email = normalizeEmail(rawEmail);
+    const name =
+      typeof fullName === 'string'
+        ? fullName.trim()
+        : typeof full_name === 'string'
+          ? full_name.trim()
+          : '';
 
     // ============================================
     // VALIDATION
@@ -84,20 +169,48 @@ export const register = async (req, res) => {
     if (!email || !password || !name) {
       return res.status(400).json({
         success: false,
-        error: 'Email, password, and full name are required',
+        error: 'Email, password, and full name are required.',
       });
     }
 
-    if (password.length < 6) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({
         success: false,
-        error: 'Password must be at least 6 characters',
+        error: 'Please enter a valid email address.',
       });
     }
 
-    // Normalize location for JSONB
-    // The database now stores all location information
-    // inside profiles.location as JSONB.
+    if (typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password must be at least 6 characters long.',
+      });
+    }
+
+    if (name.length > 150) {
+      return res.status(400).json({
+        success: false,
+        error: 'Full name must not exceed 150 characters.',
+      });
+    }
+
+    if (
+      agree_to_terms !== undefined &&
+      typeof agree_to_terms !== 'boolean'
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid terms acceptance value.',
+      });
+    }
+
+    if (agree_to_terms === false) {
+      return res.status(400).json({
+        success: false,
+        error: 'You must agree to the terms before registering.',
+      });
+    }
+
     const profileLocation =
       location &&
       typeof location === 'object' &&
@@ -115,34 +228,32 @@ export const register = async (req, res) => {
     } = await supabaseAdmin
       .from('profiles')
       .select('id, email')
-      .eq('email', email)
+      .ilike('email', email)
       .maybeSingle();
 
     if (checkError) {
-      console.error(
-        '❌ Error checking existing profile:',
-        checkError
-      );
+      console.error('Existing profile lookup failed:', checkError);
+
+      return res.status(500).json({
+        success: false,
+        error: `Unable to check whether this email is registered: ${getErrorMessage(checkError)}`,
+      });
     }
 
     if (existingProfile) {
-      return res.status(400).json({
+      return res.status(409).json({
         success: false,
-        error:
-          'This email is already registered. Please login instead.',
+        error: 'This email is already registered. Please log in instead.',
+        code: 'EMAIL_ALREADY_REGISTERED',
       });
     }
 
     // ============================================
-    // STEP 1: CREATE USER IN SUPABASE AUTH
+    // CREATE AUTH USER
     // ============================================
 
-    // The database trigger should automatically create
-    // the corresponding profile.
-    //
-    // Location is included in user_metadata so the
-    // trigger can store it in profiles.location.
-    console.log('🔄 Creating auth user...');
+    const frontendUrl =
+      process.env.FRONTEND_URL || 'http://localhost:5173';
 
     const { data: authData, error: authError } =
       await supabase.auth.signUp({
@@ -153,291 +264,257 @@ export const register = async (req, res) => {
             full_name: name,
             location: profileLocation,
           },
-          emailRedirectTo: `${
-            process.env.FRONTEND_URL ||
-            'http://localhost:5173'
-          }/verify-email`,
+          emailRedirectTo: `${frontendUrl}/verify-email`,
         },
       });
 
     if (authError) {
-      console.error('❌ Auth error:', authError);
+      console.error('Registration authentication error:', authError);
 
-      if (
-        authError.message
-          ?.toLowerCase()
-          .includes('user already registered')
-      ) {
-        return res.status(400).json({
+      if (isDuplicateEmailError(authError)) {
+        return res.status(409).json({
           success: false,
-          error:
-            'This email is already registered. Please login instead.',
+          error: 'This email is already registered. Please log in instead.',
+          code: 'EMAIL_ALREADY_REGISTERED',
         });
       }
 
       return res.status(400).json({
         success: false,
-        error:
-          authError.message ||
-          'Failed to create user',
+        error: getErrorMessage(
+          authError,
+          'Unable to create your account. Please try again.'
+        ),
       });
     }
 
-    if (!authData.user) {
-      console.error('❌ No user returned from auth');
-
-      return res.status(400).json({
+    if (!authData?.user) {
+      return res.status(500).json({
         success: false,
-        error: 'Failed to create user',
+        error: 'The authentication service did not return a user. Please try again.',
       });
     }
 
-    console.log(
-      '✅ Auth user created for:',
-      authData.user.id
-    );
+    const userId = authData.user.id;
+
+    // Supabase may return an existing user without an error
+    // when email confirmations are enabled.
+    if (
+      !authData.session &&
+      authData.user.identities?.length === 0
+    ) {
+      return res.status(409).json({
+        success: false,
+        error: 'This email may already be registered. Please log in or use another email address.',
+        code: 'EMAIL_ALREADY_REGISTERED',
+      });
+    }
 
     // ============================================
-    // STEP 2: WAIT FOR PROFILE TRIGGER
+    // FETCH PROFILE CREATED BY DATABASE TRIGGER
     // ============================================
 
-    console.log(
-      '⏳ Waiting for trigger to create profile...'
-    );
+    let profile = null;
+    let profileError = null;
 
-    await new Promise((resolve) =>
-      setTimeout(resolve, 1000)
-    );
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const result = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
 
-    // ============================================
-    // STEP 3: FETCH PROFILE CREATED BY TRIGGER
-    // ============================================
+      profile = result.data;
+      profileError = result.error;
 
-    console.log(
-      '🔄 Fetching profile for user:',
-      authData.user.id
-    );
+      if (profile || profileError) {
+        break;
+      }
 
-    let {
-      data: profile,
-      error: profileError,
-    } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .eq('id', authData.user.id)
-      .single();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
 
     if (profileError) {
-      console.error(
-        '⚠️ Profile fetch error:',
-        profileError
-      );
+      console.error('Profile fetch failed:', profileError);
 
-      // ============================================
-      // FALLBACK: CREATE PROFILE MANUALLY
-      // ============================================
+      return res.status(500).json({
+        success: false,
+        error: `Your authentication account was created, but your profile could not be loaded: ${getErrorMessage(profileError)}`,
+        accountCreated: true,
+      });
+    }
 
-      if (profileError.code === 'PGRST116') {
-        console.log(
-          '📝 Profile not found, creating manually...'
-        );
+    // ============================================
+    // CREATE PROFILE IF THE DATABASE TRIGGER DID NOT
+    // ============================================
 
-        const {
-          data: createdProfile,
-          error: createError,
-        } = await supabaseAdmin
+    if (!profile) {
+      const { data: createdProfile, error: createError } =
+        await supabaseAdmin
           .from('profiles')
           .insert({
-            id: authData.user.id,
+            id: userId,
             full_name: name,
-            email: email,
+            email,
             avatar_url:
-              authData.user.user_metadata
-                ?.avatar_url ||
-              null,
+              authData.user.user_metadata?.avatar_url || null,
             location: profileLocation,
             phone: phone || null,
             email_verified: false,
             role: 'user',
             is_admin: false,
-            agree_to_terms:
-              agree_to_terms ?? false,
+            agree_to_terms: agree_to_terms ?? false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
           .select('*')
           .single();
 
-        if (createError) {
-          console.error(
-            '❌ Manual profile creation error:',
-            createError
-          );
+      if (createError) {
+        console.error('Manual profile creation failed:', createError);
 
-          // Don't delete the Auth user.
-          // They can try logging in again.
-          return res.status(500).json({
-            success: false,
-            error:
-              'Account created but profile setup failed. Please try logging in.',
-          });
+        // Handle the possibility that the trigger created the
+        // profile between the previous lookup and this insert.
+        if (createError.code === '23505') {
+          const { data: concurrentProfile, error: retryError } =
+            await supabaseAdmin
+              .from('profiles')
+              .select('*')
+              .eq('id', userId)
+              .maybeSingle();
+
+          if (retryError) {
+            console.error('Profile retry failed:', retryError);
+          } else if (concurrentProfile) {
+            profile = concurrentProfile;
+          }
         }
 
-        profile = createdProfile;
-
-        console.log(
-          '✅ Manual profile created for:',
-          authData.user.id
-        );
+        if (!profile) {
+          return res.status(500).json({
+            success: false,
+            error: `Your authentication account was created, but profile creation failed: ${getErrorMessage(createError)}`,
+            accountCreated: true,
+          });
+        }
       } else {
-        return res.status(500).json({
-          success: false,
-          error: 'Failed to fetch profile',
-        });
+        profile = createdProfile;
       }
     }
 
     // ============================================
-    // STEP 4: ENSURE PROFILE LOCATION / PHONE
+    // UPDATE OPTIONAL PROFILE FIELDS
     // ============================================
 
-    // Normally the trigger should already have created
-    // the profile with location from user_metadata.
-    //
-    // This small update also ensures registration data
-    // is retained if the trigger created the profile
-    // without those optional fields.
+    const profileUpdates = {};
 
-    if (profile) {
-      const profileUpdates = {};
+    const existingLocation =
+      profile.location &&
+      typeof profile.location === 'object' &&
+      !Array.isArray(profile.location)
+        ? profile.location
+        : {};
 
-      // Only update location if the registration supplied
-      // an actual location and the profile does not already
-      // contain one.
-      const existingLocation =
-        profile.location &&
-        typeof profile.location === 'object' &&
-        !Array.isArray(profile.location)
-          ? profile.location
-          : {};
+    if (
+      Object.keys(profileLocation).length > 0 &&
+      Object.keys(existingLocation).length === 0
+    ) {
+      profileUpdates.location = profileLocation;
+    }
 
-      if (
-        Object.keys(profileLocation).length > 0 &&
-        Object.keys(existingLocation).length === 0
-      ) {
-        profileUpdates.location = profileLocation;
-      }
+    if (phone && !profile.phone) {
+      profileUpdates.phone = phone;
+    }
 
-      if (phone && !profile.phone) {
-        profileUpdates.phone = phone;
-      }
+    if (
+      agree_to_terms !== undefined &&
+      profile.agree_to_terms !== agree_to_terms
+    ) {
+      profileUpdates.agree_to_terms = agree_to_terms;
+    }
 
-      if (
-        agree_to_terms !== undefined &&
-        profile.agree_to_terms !== agree_to_terms
-      ) {
-        profileUpdates.agree_to_terms =
-          agree_to_terms;
-      }
+    if (!profile.full_name && name) {
+      profileUpdates.full_name = name;
+    }
 
-      if (Object.keys(profileUpdates).length > 0) {
-        profileUpdates.updated_at =
-          new Date().toISOString();
+    if (!profile.email && email) {
+      profileUpdates.email = email;
+    }
 
-        const {
-          data: updatedProfile,
-          error: updateError,
-        } = await supabaseAdmin
+    if (Object.keys(profileUpdates).length > 0) {
+      profileUpdates.updated_at = new Date().toISOString();
+
+      const { data: updatedProfile, error: updateError } =
+        await supabaseAdmin
           .from('profiles')
           .update(profileUpdates)
-          .eq('id', authData.user.id)
+          .eq('id', userId)
           .select('*')
           .single();
 
-        if (updateError) {
-          console.error(
-            '⚠️ Profile update after registration failed:',
-            updateError
-          );
-        } else {
-          profile = updatedProfile;
-        }
+      if (updateError) {
+        console.error('Profile update after registration failed:', updateError);
+
+        return res.status(500).json({
+          success: false,
+          error: `Your account was created, but your profile could not be fully updated: ${getErrorMessage(updateError)}`,
+          accountCreated: true,
+        });
       }
+
+      profile = updatedProfile;
     }
 
-    console.log(
-      '✅ Profile found for:',
-      authData.user.id
-    );
-
     // ============================================
-    // STEP 5: GENERATE VERIFICATION TOKEN
+    // GENERATE VERIFICATION TOKEN
     // ============================================
 
-    console.log(
-      '🔄 Creating verification token...'
-    );
-
-    const token = crypto
-      .randomBytes(32)
-      .toString('hex');
+    const token = crypto.randomBytes(32).toString('hex');
 
     const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
 
-    expiresAt.setHours(
-      expiresAt.getHours() + 24
-    );
-
-    const { error: tokenError } =
-      await supabaseAdmin
-        .from('verification_tokens')
-        .insert({
-          user_id: authData.user.id,
-          email: email,
-          token: token,
-          expires_at: expiresAt.toISOString(),
-          used: false,
-        });
+    const { error: tokenError } = await supabaseAdmin
+      .from('verification_tokens')
+      .insert({
+        user_id: userId,
+        email,
+        token,
+        expires_at: expiresAt.toISOString(),
+        used: false,
+      });
 
     if (tokenError) {
-      console.error(
-        '⚠️ Token creation error (non-fatal):',
-        tokenError
-      );
+      console.error('Verification token creation failed:', tokenError);
+
+      return res.status(500).json({
+        success: false,
+        error: `Your account was created, but the verification token could not be saved: ${getErrorMessage(tokenError)}`,
+        accountCreated: true,
+      });
     }
 
     // ============================================
-    // STEP 6: SEND VERIFICATION EMAIL
+    // SEND VERIFICATION EMAIL
     // ============================================
-
-    console.log(
-      '🔄 Sending verification email...'
-    );
 
     let emailSent = false;
+    let emailErrorMessage = null;
 
     try {
-      await sendVerificationEmail(
-        email,
-        name,
-        token
-      );
-
+      await sendVerificationEmail(email, name, token);
       emailSent = true;
-
-      console.log(
-        '✅ Verification email sent to:',
-        email
-      );
     } catch (emailError) {
-      console.error(
-        '⚠️ Email sending error (non-fatal):',
-        emailError.message
+      console.error('Verification email sending failed:', emailError);
+
+      emailErrorMessage = getErrorMessage(
+        emailError,
+        'The email service returned an unknown error.'
       );
     }
 
     // ============================================
-    // STEP 7: GET FRESH PROFILE DATA
+    // FETCH FINAL PROFILE
     // ============================================
 
     const {
@@ -446,62 +523,48 @@ export const register = async (req, res) => {
     } = await supabaseAdmin
       .from('profiles')
       .select('*')
-      .eq('id', authData.user.id)
-      .single();
+      .eq('id', userId)
+      .maybeSingle();
 
     if (finalProfileError) {
-      console.error(
-        '⚠️ Final profile fetch error:',
-        finalProfileError
-      );
+      console.error('Final profile fetch failed:', finalProfileError);
     }
 
-    console.log(
-      '✅ Registration complete for:',
-      email
-    );
-
     // ============================================
-    // STEP 8: RETURN SUCCESS
+    // RETURN SUCCESS
     // ============================================
 
     return res.status(201).json({
       success: true,
-
       message: emailSent
         ? 'Registration successful! Please check your email to verify your account.'
-        : 'Registration successful! We could not send a verification email. You can resend it from your dashboard.',
-
+        : 'Your account was created, but the verification email could not be sent.',
+      ...(emailErrorMessage ? { emailError: emailErrorMessage } : {}),
       user: {
         id: authData.user.id,
         email: authData.user.email,
         full_name: name,
         ...(finalProfile || profile || {}),
       },
-
-      session: null,
-
+      session: authData.session
+        ? {
+            access_token: authData.session.access_token,
+            refresh_token: authData.session.refresh_token,
+            expires_at: authData.session.expires_at,
+          }
+        : null,
       requiresEmailVerification: true,
-
       emailSent,
     });
   } catch (error) {
-    console.error(
-      '❌ Registration error:',
-      error
-    );
+    console.error('Registration failed:', error);
 
     return res.status(500).json({
       success: false,
-      error:
-        error.message ||
-        'Registration failed. Please try again.',
+      error: getErrorMessage(error, 'Registration failed. Please try again.'),
     });
   }
 };
-
-
-
 
 // ============================================
 // LOGIN
@@ -509,12 +572,20 @@ export const register = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email: rawEmail, password } = req.body || {};
+    const email = normalizeEmail(rawEmail);
 
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        error: 'Email and password are required'
+        error: 'Email and password are required.',
+      });
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please enter a valid email address.',
       });
     }
 
@@ -524,76 +595,149 @@ export const login = async (req, res) => {
     });
 
     if (error) {
-      const { data: profile } = await supabaseAdmin
-        .from('profiles')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle();
+      console.error('Login authentication failed:', {
+        message: error.message,
+        code: error.code,
+        status: error.status,
+      });
 
-      if (profile) {
-        return res.status(401).json({
-          success: false,
-          error: 'This email is registered with Google. Please sign in with Google.',
-          useGoogle: true
-        });
+      // Check whether the account belongs to a social provider.
+      // Only offer Google sign-in when there is evidence that
+      // the account exists and Google authentication is applicable.
+      const { data: profile, error: profileError } =
+        await supabaseAdmin
+          .from('profiles')
+          .select('id, email')
+          .ilike('email', email)
+          .maybeSingle();
+
+      if (profileError) {
+        console.error('Profile lookup during login failed:', profileError);
       }
+
+      if (profile && error.code === 'invalid_credentials') {
+        const { data: authUserData, error: authUserError } =
+          await supabaseAdmin.auth.admin.getUserById(profile.id);
+
+        if (authUserError) {
+          console.error('Auth user lookup failed:', authUserError);
+        }
+
+        const identities = authUserData?.user?.identities || [];
+        const hasPasswordIdentity = identities.some(
+          (identity) => identity.provider === 'email'
+        );
+        const hasGoogleIdentity = identities.some(
+          (identity) => identity.provider === 'google'
+        );
+
+        if (hasGoogleIdentity && !hasPasswordIdentity) {
+          return res.status(401).json({
+            success: false,
+            error: 'This account uses Google sign-in. Please continue with Google.',
+            code: 'GOOGLE_SIGN_IN_REQUIRED',
+            useGoogle: true,
+          });
+        }
+      }
+
       return res.status(401).json({
         success: false,
-        error: error.message || 'Invalid email or password'
+        error: getLoginErrorMessage(error),
+        code: error.code || 'LOGIN_FAILED',
       });
     }
 
-    if (!data.user) {
+    if (!data?.user || !data?.session) {
       return res.status(401).json({
         success: false,
-        error: 'Authentication failed'
+        error: 'Authentication did not return a valid session. Please try again.',
       });
     }
 
-    console.log('✅ Login successful for:', data.user.email);
+    // ============================================
+    // ENSURE PROFILE EXISTS
+    // ============================================
 
-    // Ensure profile exists
-    await ensureProfileExists(
-      data.user.id,
-      data.user.email,
-      data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'User',
-      data.user.user_metadata?.avatar_url || null,
-      false
-    );
+    try {
+      await ensureProfileExists(
+        data.user.id,
+        data.user.email,
+        data.user.user_metadata?.full_name ||
+          data.user.email?.split('@')[0] ||
+          'User',
+        data.user.user_metadata?.avatar_url || null,
+        Boolean(data.user.email_confirmed_at)
+      );
+    } catch (profileError) {
+      console.error('Login profile setup failed:', profileError);
 
-    // Update last login
-    await supabase
+      return res.status(500).json({
+        success: false,
+        error: getErrorMessage(
+          profileError,
+          'Your credentials were accepted, but your profile could not be loaded.'
+        ),
+        authenticated: true,
+      });
+    }
+
+    // ============================================
+    // UPDATE PROFILE TIMESTAMP
+    // ============================================
+
+    const { error: updateError } = await supabaseAdmin
       .from('profiles')
-      .update({ updated_at: new Date().toISOString() })
+      .update({
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', data.user.id);
 
-    // Get fresh profile data
-    const { data: userProfile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', data.user.id)
-      .single();
+    if (updateError) {
+      console.error('Login profile timestamp update failed:', updateError);
+    }
 
-    res.json({
+    // ============================================
+    // FETCH PROFILE
+    // ============================================
+
+    const { data: userProfile, error: userProfileError } =
+      await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+
+    if (userProfileError) {
+      console.error('Login profile fetch failed:', userProfileError);
+
+      return res.status(500).json({
+        success: false,
+        error: `Login succeeded, but your profile could not be loaded: ${getErrorMessage(userProfileError)}`,
+        authenticated: true,
+      });
+    }
+
+    return res.status(200).json({
       success: true,
       message: 'Login successful!',
       user: {
         id: data.user.id,
         email: data.user.email,
-        ...userProfile
+        ...userProfile,
       },
       session: {
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
-        expires_at: data.session.expires_at
-      }
+        expires_at: data.session.expires_at,
+      },
     });
-
   } catch (error) {
-    console.error('❌ Login error:', error);
-    res.status(500).json({
+    console.error('Login request failed:', error);
+
+    return res.status(500).json({
       success: false,
-      error: 'Login failed. Please try again.'
+      error: getErrorMessage(error, 'Login failed. Please try again.'),
     });
   }
 };
@@ -604,164 +748,189 @@ export const login = async (req, res) => {
 
 export const googleSignIn = async (req, res) => {
   try {
-    const { token } = req.body;
+    const { token } = req.body || {};
 
     if (!token) {
       return res.status(400).json({
         success: false,
-        error: 'Google token is required'
+        error: 'Google token is required.',
       });
     }
-
-    console.log('🔄 Google Sign-In...');
 
     const { data, error } = await supabase.auth.signInWithIdToken({
       provider: 'google',
-      idToken: token,
+      token,
     });
 
     if (error) {
-      console.error('❌ Google auth error:', error);
-      return res.status(400).json({
+      console.error('Google authentication failed:', error);
+
+      return res.status(401).json({
         success: false,
-        error: error.message || 'Google authentication failed'
+        error: getErrorMessage(error, 'Google authentication failed.'),
+        code: error.code || 'GOOGLE_AUTH_FAILED',
       });
     }
 
-    if (!data.user) {
-      console.error('❌ No user from Supabase');
-      return res.status(400).json({
+    if (!data?.user || !data?.session) {
+      return res.status(401).json({
         success: false,
-        error: 'Failed to authenticate with Google'
+        error: 'Google authentication did not return a valid session.',
       });
     }
 
-    console.log('✅ Google auth successful for:', data.user.email);
-    console.log('📦 User ID:', data.user.id);
+    const user = data.user;
 
-    // Check if profile exists
-    const { data: existingProfile, error: checkError } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .eq('id', data.user.id)
-      .maybeSingle();
+    const { data: existingProfile, error: checkError } =
+      await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
 
     if (checkError) {
-      console.error('❌ Error checking profile:', checkError);
+      console.error('Google profile lookup failed:', checkError);
+
+      return res.status(500).json({
+        success: false,
+        error: `Google authentication succeeded, but your profile could not be checked: ${getErrorMessage(checkError)}`,
+        authenticated: true,
+      });
     }
 
-    // Create profile if it doesn't exist
-    if (!existingProfile) {
-      console.log('📝 Creating profile for:', data.user.id);
-      
-      const userEmail = data.user.email;
-      const userFullName = data.user.user_metadata?.full_name || 
-                           data.user.user_metadata?.name || 
-                           data.user.email?.split('@')[0] || 
-                           'User';
-      const userAvatar = data.user.user_metadata?.avatar_url || 
-                         data.user.user_metadata?.picture || 
-                         null;
+    let profile = existingProfile;
+    let isNewUser = false;
 
-      const { data: newProfile, error: createError } = await supabaseAdmin
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          full_name: userFullName,
-          email: userEmail,
-          avatar_url: userAvatar,
-          email_verified: true, // ✅ Fixed: Added colon
-          role: 'user',
-          is_admin: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
+    if (!profile) {
+      const userFullName =
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        user.email?.split('@')[0] ||
+        'User';
+
+      const userAvatar =
+        user.user_metadata?.avatar_url ||
+        user.user_metadata?.picture ||
+        null;
+
+      const { data: newProfile, error: createError } =
+        await supabaseAdmin
+          .from('profiles')
+          .insert({
+            id: user.id,
+            full_name: userFullName,
+            email: user.email,
+            avatar_url: userAvatar,
+            email_verified: true,
+            role: 'user',
+            is_admin: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .select('*')
+          .single();
 
       if (createError) {
-        console.error('❌ Profile creation error:', createError);
-        try {
-          await supabaseAdmin.auth.admin.deleteUser(data.user.id);
-          console.log('🗑️ Auth user deleted due to profile failure');
-        } catch (deleteError) {
-          console.error('❌ Failed to delete auth user:', deleteError);
+        console.error('Google profile creation failed:', createError);
+
+        if (createError.code === '23505') {
+          const { data: concurrentProfile, error: retryError } =
+            await supabaseAdmin
+              .from('profiles')
+              .select('*')
+              .eq('id', user.id)
+              .maybeSingle();
+
+          if (!retryError && concurrentProfile) {
+            profile = concurrentProfile;
+          } else {
+            return res.status(500).json({
+              success: false,
+              error: `Your Google account was authenticated, but profile creation failed: ${getErrorMessage(createError)}`,
+              authenticated: true,
+            });
+          }
+        } else {
+          return res.status(500).json({
+            success: false,
+            error: `Your Google account was authenticated, but profile creation failed: ${getErrorMessage(createError)}`,
+            authenticated: true,
+          });
         }
+      } else {
+        profile = newProfile;
+        isNewUser = true;
+      }
+    }
+
+    // Update profile details when Google provides new information.
+    const updates = {};
+
+    if (user.user_metadata?.avatar_url && !profile.avatar_url) {
+      updates.avatar_url = user.user_metadata.avatar_url;
+    }
+
+    if (
+      (user.user_metadata?.full_name || user.user_metadata?.name) &&
+      !profile.full_name
+    ) {
+      updates.full_name =
+        user.user_metadata.full_name || user.user_metadata.name;
+    }
+
+    if (user.email && !profile.email) {
+      updates.email = user.email;
+    }
+
+    if (!profile.email_verified) {
+      updates.email_verified = true;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      updates.updated_at = new Date().toISOString();
+
+      const { data: updatedProfile, error: updateError } =
+        await supabaseAdmin
+          .from('profiles')
+          .update(updates)
+          .eq('id', user.id)
+          .select('*')
+          .single();
+
+      if (updateError) {
+        console.error('Google profile update failed:', updateError);
+
         return res.status(500).json({
           success: false,
-          error: 'Failed to create user profile. Please try again.'
+          error: `Google authentication succeeded, but your profile could not be updated: ${getErrorMessage(updateError)}`,
+          authenticated: true,
         });
       }
 
-      console.log('✅ Profile created for:', data.user.id);
-      
-      return res.json({
-        success: true,
-        message: 'Google login successful!',
-        user: {
-          id: data.user.id,
-          email: data.user.email,
-          ...newProfile
-        },
-        session: {
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-          expires_at: data.session.expires_at
-        },
-        isNewUser: true
-      });
+      profile = updatedProfile;
     }
 
-    // Update existing profile if needed (e.g., avatar URL changed)
-    const updates = {};
-    if (data.user.user_metadata?.avatar_url && !existingProfile.avatar_url) {
-      updates.avatar_url = data.user.user_metadata.avatar_url;
-    }
-    if (data.user.user_metadata?.full_name && !existingProfile.full_name) {
-      updates.full_name = data.user.user_metadata.full_name;
-    }
-    updates.updated_at = new Date().toISOString();
-
-    if (Object.keys(updates).length > 0) {
-      await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', data.user.id);
-    }
-
-    console.log('✅ Profile already exists for:', data.user.id);
-    
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', data.user.id)
-      .single();
-
-    if (profileError) {
-      console.error('⚠️ Profile fetch error:', profileError);
-    }
-
-    res.json({
+    return res.status(200).json({
       success: true,
       message: 'Google login successful!',
       user: {
-        id: data.user.id,
-        email: data.user.email,
-        ...profile
+        id: user.id,
+        email: user.email,
+        ...profile,
       },
       session: {
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
-        expires_at: data.session.expires_at
+        expires_at: data.session.expires_at,
       },
-      isNewUser: false
+      isNewUser,
     });
-
   } catch (error) {
-    console.error('❌ Google sign-in error:', error);
-    res.status(500).json({
+    console.error('Google sign-in failed:', error);
+
+    return res.status(500).json({
       success: false,
-      error: 'Google login failed. Please try again.'
+      error: getErrorMessage(error, 'Google login failed. Please try again.'),
     });
   }
 };
@@ -772,40 +941,46 @@ export const googleSignIn = async (req, res) => {
 
 export const getGoogleAuthUrl = async (req, res) => {
   try {
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const redirectTo = `${frontendUrl}/auth/callback`;
-    
+    const frontendUrl =
+      process.env.FRONTEND_URL || 'http://localhost:5173';
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: redirectTo,
+        redirectTo: `${frontendUrl}/auth/callback`,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
-        }
-      }
+        },
+      },
     });
 
     if (error) {
-      console.error('❌ Google OAuth URL error:', error);
+      console.error('Google OAuth URL generation failed:', error);
+
       return res.status(400).json({
         success: false,
-        error: error.message
+        error: getErrorMessage(error, 'Unable to start Google sign-in.'),
       });
     }
 
-    console.log('✅ Google OAuth URL generated');
-    
-    res.json({
-      success: true,
-      url: data.url
-    });
+    if (!data?.url) {
+      return res.status(500).json({
+        success: false,
+        error: 'Google sign-in URL was not returned by the authentication service.',
+      });
+    }
 
+    return res.json({
+      success: true,
+      url: data.url,
+    });
   } catch (error) {
-    console.error('❌ Get Google auth URL error:', error);
-    res.status(500).json({
+    console.error('Google OAuth URL request failed:', error);
+
+    return res.status(500).json({
       success: false,
-      error: 'Failed to get Google auth URL'
+      error: getErrorMessage(error, 'Failed to get Google authentication URL.'),
     });
   }
 };
@@ -815,77 +990,125 @@ export const getGoogleAuthUrl = async (req, res) => {
 // ============================================
 
 export const googleAuthCallback = async (req, res) => {
+  const frontendUrl =
+    process.env.FRONTEND_URL || 'http://localhost:5173';
+
+  const callbackUrl = `${frontendUrl}/auth/callback`;
+
   try {
-    const { code } = req.query;
+    const { code } = req.query || {};
 
     if (!code) {
-      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth/callback?error=no_code`);
+      return res.redirect(
+        `${callbackUrl}?error=${encodeURIComponent('Google did not return an authorization code. Please try again.')}`
+      );
     }
 
-    console.log('🔄 Google callback...');
-
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } =
+      await supabase.auth.exchangeCodeForSession(code);
 
     if (error) {
-      console.error('❌ Exchange code error:', error);
-      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth/callback?error=${encodeURIComponent(error.message)}`);
+      console.error('Google OAuth code exchange failed:', error);
+
+      return res.redirect(
+        `${callbackUrl}?error=${encodeURIComponent(getErrorMessage(error, 'Google sign-in failed.'))}`
+      );
     }
 
-    if (!data.user) {
-      console.error('❌ No user from exchange');
-      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth/callback?error=no_user`);
+    if (!data?.user || !data?.session) {
+      return res.redirect(
+        `${callbackUrl}?error=${encodeURIComponent('Google sign-in did not return a valid session.')}`
+      );
     }
 
-    console.log('✅ Google auth successful for:', data.user.email);
+    const user = data.user;
 
-    // Check if profile exists
-    const { data: existingProfile } = await supabaseAdmin
-      .from('profiles')
-      .select('id')
-      .eq('id', data.user.id)
-      .maybeSingle();
+    const { data: existingProfile, error: lookupError } =
+      await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
 
-    // Create profile if it doesn't exist (fallback)
+    if (lookupError) {
+      console.error('Google callback profile lookup failed:', lookupError);
+
+      return res.redirect(
+        `${callbackUrl}?error=${encodeURIComponent(`Unable to check your profile: ${getErrorMessage(lookupError)}`)}`
+      );
+    }
+
     if (!existingProfile) {
-      console.log('📝 Creating profile for:', data.user.id);
-      
-      const userEmail = data.user.email;
-      const userFullName = data.user.user_metadata?.full_name || 
-                           data.user.user_metadata?.name || 
-                           data.user.email?.split('@')[0] || 
-                           'User';
-      const userAvatar = data.user.user_metadata?.avatar_url || 
-                         data.user.user_metadata?.picture || 
-                         null;
+      const userFullName =
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        user.email?.split('@')[0] ||
+        'User';
+
+      const userAvatar =
+        user.user_metadata?.avatar_url ||
+        user.user_metadata?.picture ||
+        null;
 
       const { error: createError } = await supabaseAdmin
         .from('profiles')
         .insert({
-          id: data.user.id,
+          id: user.id,
           full_name: userFullName,
-          email: userEmail,
+          email: user.email,
           avatar_url: userAvatar,
-          email_verified: true, // ✅ Fixed: Added colon
+          email_verified: true,
           role: 'user',
           is_admin: false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         });
 
-      if (createError) {
-        console.error('❌ Profile creation error:', createError);
-        return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth/callback?error=${encodeURIComponent('Failed to create profile')}`);
+      if (createError && createError.code !== '23505') {
+        console.error('Google callback profile creation failed:', createError);
+
+        return res.redirect(
+          `${callbackUrl}?error=${encodeURIComponent(`Google sign-in succeeded, but profile creation failed: ${getErrorMessage(createError)}`)}`
+        );
       }
-      
-      console.log('✅ Profile created for:', data.user.id);
+
+      if (createError?.code === '23505') {
+        const { data: concurrentProfile, error: retryError } =
+          await supabaseAdmin
+            .from('profiles')
+            .select('id')
+            .eq('id', user.id)
+            .maybeSingle();
+
+        if (retryError || !concurrentProfile) {
+          console.error('Google callback profile retry failed:', retryError);
+
+          return res.redirect(
+            `${callbackUrl}?error=${encodeURIComponent('Google sign-in succeeded, but your profile could not be created or loaded.')}`
+          );
+        }
+      }
     }
 
-    const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth/callback?access_token=${data.session.access_token}&refresh_token=${data.session.refresh_token}`;
-    res.redirect(redirectUrl);
+    const redirectUrl = new URL(callbackUrl);
 
+    redirectUrl.searchParams.set(
+      'access_token',
+      data.session.access_token
+    );
+
+    redirectUrl.searchParams.set(
+      'refresh_token',
+      data.session.refresh_token
+    );
+
+    return res.redirect(redirectUrl.toString());
   } catch (error) {
-    console.error('❌ Google callback error:', error);
-    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth/callback?error=${encodeURIComponent(error.message)}`);
+    console.error('Google OAuth callback failed:', error);
+
+    return res.redirect(
+      `${callbackUrl}?error=${encodeURIComponent(getErrorMessage(error, 'Google sign-in failed. Please try again.'))}`
+    );
   }
 };
 
@@ -895,83 +1118,110 @@ export const googleAuthCallback = async (req, res) => {
 
 export const verifyEmail = async (req, res) => {
   try {
-    const { token } = req.query;
+    const { token } = req.query || {};
 
     if (!token) {
       return res.status(400).json({
         success: false,
-        error: 'Verification token is required'
+        error: 'Verification token is required.',
       });
     }
 
-    const { data: tokenData, error: tokenError } = await supabaseAdmin
+    const {
+      data: tokenData,
+      error: tokenError,
+    } = await supabaseAdmin
       .from('verification_tokens')
       .select('*')
       .eq('token', token)
-      .single();
+      .maybeSingle();
 
-    if (tokenError || !tokenData) {
-      return res.status(400).json({
+    if (tokenError) {
+      console.error('Verification token lookup failed:', tokenError);
+
+      return res.status(500).json({
         success: false,
-        error: 'Invalid verification token'
+        error: `Unable to check the verification token: ${getErrorMessage(tokenError)}`,
       });
     }
 
-    if (new Date(tokenData.expires_at) < new Date()) {
-      await supabaseAdmin
-        .from('verification_tokens')
-        .delete()
-        .eq('id', tokenData.id);
-
+    if (!tokenData) {
       return res.status(400).json({
         success: false,
-        error: 'Verification token has expired. Please request a new one.',
-        expired: true
+        error: 'This verification link is invalid or no longer exists.',
       });
     }
 
     if (tokenData.used) {
       return res.status(400).json({
         success: false,
-        error: 'This verification link has already been used.'
+        error: 'This verification link has already been used.',
       });
     }
 
-    // Mark token as used
-    await supabaseAdmin
+    if (new Date(tokenData.expires_at) < new Date()) {
+      const { error: deleteError } = await supabaseAdmin
+        .from('verification_tokens')
+        .delete()
+        .eq('id', tokenData.id);
+
+      if (deleteError) {
+        console.error('Expired token cleanup failed:', deleteError);
+      }
+
+      return res.status(400).json({
+        success: false,
+        error: 'This verification link has expired. Please request a new one.',
+        expired: true,
+      });
+    }
+
+    const { data: profile, error: profileError } =
+      await supabaseAdmin
+        .from('profiles')
+        .update({
+          email_verified: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', tokenData.user_id)
+        .select('*')
+        .single();
+
+    if (profileError) {
+      console.error('Email verification profile update failed:', profileError);
+
+      return res.status(500).json({
+        success: false,
+        error: `The verification link was accepted, but your profile could not be updated: ${getErrorMessage(profileError)}`,
+      });
+    }
+
+    const { error: markUsedError } = await supabaseAdmin
       .from('verification_tokens')
       .update({ used: true })
       .eq('id', tokenData.id);
 
-    // Update profile email_verified to true
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .update({ 
-        email_verified: true, // ✅ Fixed: Added colon
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', tokenData.user_id)
-      .select()
-      .single();
+    if (markUsedError) {
+      console.error('Verification token update failed:', markUsedError);
 
-    if (profileError) {
       return res.status(500).json({
         success: false,
-        error: 'Failed to verify email. Please try again.'
+        error: `Your email was verified, but the verification token could not be updated: ${getErrorMessage(markUsedError)}`,
+        verified: true,
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
-      message: 'Email verified successfully! 🎉',
-      user: profile
+      message: 'Email verified successfully!',
+      user: profile,
     });
-
   } catch (error) {
-    console.error('❌ Email verification error:', error);
-    res.status(500).json({
+    console.error('Email verification failed:', error);
+
+    return res.status(500).json({
       success: false,
-      error: 'Failed to verify email. Please try again.'
+      error: getErrorMessage(error, 'Failed to verify email. Please try again.'),
     });
   }
 };
@@ -982,79 +1232,114 @@ export const verifyEmail = async (req, res) => {
 
 export const resendVerification = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email: rawEmail } = req.body || {};
+    const email = normalizeEmail(rawEmail);
 
     if (!email) {
       return res.status(400).json({
         success: false,
-        error: 'Email is required'
+        error: 'Email is required.',
       });
     }
 
-    const { data: profile, error: profileError } = await supabaseAdmin
+    const {
+      data: profile,
+      error: profileError,
+    } = await supabaseAdmin
       .from('profiles')
       .select('id, full_name, email_verified')
-      .eq('email', email)
-      .single();
+      .ilike('email', email)
+      .maybeSingle();
 
-    if (profileError || !profile) {
+    if (profileError) {
+      console.error('Resend verification profile lookup failed:', profileError);
+
+      return res.status(500).json({
+        success: false,
+        error: `Unable to find your account: ${getErrorMessage(profileError)}`,
+      });
+    }
+
+    if (!profile) {
       return res.status(404).json({
         success: false,
-        error: 'User not found'
+        error: 'No account was found with this email address.',
       });
     }
 
     if (profile.email_verified) {
       return res.status(400).json({
         success: false,
-        error: 'This email is already verified. Please login.'
+        error: 'This email is already verified. Please log in.',
       });
     }
 
-    // Delete old tokens
-    await supabaseAdmin
+    const { error: deleteError } = await supabaseAdmin
       .from('verification_tokens')
       .delete()
       .eq('user_id', profile.id)
       .eq('used', false);
 
-    // Create new token
+    if (deleteError) {
+      console.error('Old verification token deletion failed:', deleteError);
+
+      return res.status(500).json({
+        success: false,
+        error: `Unable to replace the previous verification token: ${getErrorMessage(deleteError)}`,
+      });
+    }
+
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date();
+
     expiresAt.setHours(expiresAt.getHours() + 24);
 
-    await supabaseAdmin
+    const { error: tokenError } = await supabaseAdmin
       .from('verification_tokens')
       .insert({
         user_id: profile.id,
-        email: email,
-        token: token,
+        email,
+        token,
         expires_at: expiresAt.toISOString(),
         used: false,
       });
 
-    // Send email
-    let emailSent = false;
-    try {
-      await sendVerificationEmail(email, profile.full_name, token);
-      emailSent = true;
-    } catch (emailError) {
-      console.error('❌ Email sending error:', emailError.message);
+    if (tokenError) {
+      console.error('New verification token creation failed:', tokenError);
+
+      return res.status(500).json({
+        success: false,
+        error: `Unable to create a new verification token: ${getErrorMessage(tokenError)}`,
+      });
     }
 
-    res.json({
-      success: true,
-      message: emailSent 
-        ? 'Verification email resent! Please check your inbox.'
-        : 'Failed to send email. Please try again later.',
-      emailSent: emailSent
-    });
+    try {
+      await sendVerificationEmail(
+        email,
+        profile.full_name || email.split('@')[0],
+        token
+      );
 
+      return res.json({
+        success: true,
+        message: 'Verification email sent. Please check your inbox.',
+        emailSent: true,
+      });
+    } catch (emailError) {
+      console.error('Resend verification email failed:', emailError);
+
+      return res.status(502).json({
+        success: false,
+        error: `Your verification token was created, but the email could not be sent: ${getErrorMessage(emailError)}`,
+        emailSent: false,
+      });
+    }
   } catch (error) {
-    console.error('❌ Resend verification error:', error);
-    res.status(500).json({
+    console.error('Resend verification request failed:', error);
+
+    return res.status(500).json({
       success: false,
-      error: 'Failed to resend verification email'
+      error: getErrorMessage(error, 'Failed to resend verification email.'),
     });
   }
 };
@@ -1065,48 +1350,50 @@ export const resendVerification = async (req, res) => {
 
 export const checkUserExists = async (req, res) => {
   try {
-    const { email } = req.query;
+    const email = normalizeEmail(req.query?.email);
 
     if (!email) {
       return res.status(400).json({
         success: false,
-        error: 'Email is required'
+        error: 'Email is required.',
       });
     }
 
     const { data: profile, error } = await supabaseAdmin
       .from('profiles')
       .select('id, email, email_verified, full_name')
-      .eq('email', email)
+      .ilike('email', email)
       .maybeSingle();
 
     if (error) {
+      console.error('Check user existence failed:', error);
+
       return res.status(500).json({
         success: false,
-        error: 'Failed to check user existence'
+        error: getErrorMessage(error, 'Unable to check user existence.'),
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
-      exists: !!profile,
-      user: profile ? {
-        email: profile.email,
-        email_verified: profile.email_verified,
-        full_name: profile.full_name
-      } : null
+      exists: Boolean(profile),
+      user: profile
+        ? {
+            email: profile.email,
+            email_verified: profile.email_verified,
+            full_name: profile.full_name,
+          }
+        : null,
     });
-
   } catch (error) {
-    console.error('Check user exists error:', error);
-    res.status(500).json({
+    console.error('Check user existence request failed:', error);
+
+    return res.status(500).json({
       success: false,
-      error: 'Failed to check user existence'
+      error: getErrorMessage(error, 'Unable to check user existence.'),
     });
   }
 };
-
-
 
 // ============================================
 // LOGOUT
@@ -1115,24 +1402,26 @@ export const checkUserExists = async (req, res) => {
 export const logout = async (req, res) => {
   try {
     const { error } = await supabase.auth.signOut();
-    
+
     if (error) {
+      console.error('Logout failed:', error);
+
       return res.status(400).json({
         success: false,
-        error: error.message
+        error: getErrorMessage(error, 'Logout failed.'),
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
-      message: 'Logout successful!'
+      message: 'Logout successful!',
     });
-
   } catch (error) {
-    console.error('Logout error:', error);
-    res.status(500).json({
+    console.error('Logout request failed:', error);
+
+    return res.status(500).json({
       success: false,
-      error: 'Logout failed. Please try again.'
+      error: getErrorMessage(error, 'Logout failed. Please try again.'),
     });
   }
 };
@@ -1146,33 +1435,46 @@ export const getCurrentUser = async (req, res) => {
     if (!req.user) {
       return res.status(401).json({
         success: false,
-        error: 'Not authenticated'
+        error: 'You are not authenticated. Please log in.',
       });
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', req.user.id)
-      .single();
+    const { data: profile, error: profileError } =
+      await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', req.user.id)
+        .maybeSingle();
 
-    if (profileError && profileError.code !== 'PGRST116') {
-      console.error('Profile fetch error:', profileError);
+    if (profileError) {
+      console.error('Current user profile lookup failed:', profileError);
+
+      return res.status(500).json({
+        success: false,
+        error: `Unable to load your profile: ${getErrorMessage(profileError)}`,
+      });
     }
 
-    res.json({
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        error: 'Your account exists, but its profile could not be found.',
+      });
+    }
+
+    return res.json({
       success: true,
       user: {
         ...req.user,
-        ...profile
-      }
+        ...profile,
+      },
     });
-
   } catch (error) {
-    console.error('Get user error:', error);
-    res.status(500).json({
+    console.error('Get current user failed:', error);
+
+    return res.status(500).json({
       success: false,
-      error: 'Failed to get user'
+      error: getErrorMessage(error, 'Failed to get your account details.'),
     });
   }
 };
@@ -1183,44 +1485,51 @@ export const getCurrentUser = async (req, res) => {
 
 export const checkEmailConfirmation = async (req, res) => {
   try {
-    const { email } = req.query;
+    const email = normalizeEmail(req.query?.email);
 
     if (!email) {
       return res.status(400).json({
         success: false,
-        error: 'Email is required'
+        error: 'Email is required.',
       });
     }
 
-    const { data: profile, error } = await supabase
+    const { data: profile, error } = await supabaseAdmin
       .from('profiles')
       .select('email_verified')
-      .eq('email', email)
-      .single();
+      .ilike('email', email)
+      .maybeSingle();
 
     if (error) {
-      return res.status(404).json({
+      console.error('Check email confirmation failed:', error);
+
+      return res.status(500).json({
         success: false,
-        error: 'User not found'
+        error: getErrorMessage(error, 'Unable to check email verification status.'),
       });
     }
 
-    res.json({
-      success: true,
-      email_verified: profile?.email_verified || false,
-      email: email
-    });
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        error: 'No account was found with this email address.',
+      });
+    }
 
+    return res.json({
+      success: true,
+      email_verified: Boolean(profile.email_verified),
+      email,
+    });
   } catch (error) {
-    console.error('Check confirmation error:', error);
-    res.status(500).json({
+    console.error('Check email confirmation request failed:', error);
+
+    return res.status(500).json({
       success: false,
-      error: 'Failed to check email status'
+      error: getErrorMessage(error, 'Unable to check email verification status.'),
     });
   }
 };
-
-
 
 // ============================================
 // GET PROFILE
@@ -1231,157 +1540,75 @@ export const getProfile = async (req, res) => {
     const { userId } = req.params;
     const currentUserId = req.user?.id;
 
-    // Get profile data with counts
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select(`
-        *,
-        items_given_count:items(count),
-        items_received_count:items?winner_id(count),
-        applications_count:applications(count),
-        won_items:winners(
-          id,
-          item:items(
-            id,
-            title,
-            images,
-            category,
-            description,
-            points,
-            status,
-            created_at
-          )
-        )
-      `)
-      .eq('id', userId)
-      .single();
-
-    if (profileError) {
-      if (profileError.code === 'PGRST116') {
-        return res.status(404).json({
-          success: false,
-          error: 'User not found'
-        });
-      }
+    if (!userId) {
       return res.status(400).json({
         success: false,
-        error: profileError.message
+        error: 'User ID is required.',
       });
     }
 
-    // If no profile exists, create one
-    if (!profileData) {
-      const { data: newProfile, error: createError } = await supabaseAdmin
+    const { data: profileData, error: profileError } =
+      await supabase
         .from('profiles')
-        .insert([
-          {
-            id: userId,
-            user_id: userId
-          }
-        ])
         .select(`
           *,
-          users:user_id(
+          items_given_count:items(count),
+          items_received_count:items!items_winner_id_fkey(count),
+          applications_count:applications(count),
+          won_items:winners(
             id,
-            email,
-            phone,
-            created_at,
-            updated_at,
-            last_sign_in_at,
-            email_confirmed_at
+            item:items(
+              id,
+              title,
+              images,
+              category,
+              description,
+              points,
+              status,
+              created_at
+            )
           )
         `)
-        .single();
+        .eq('id', userId)
+        .maybeSingle();
 
-      if (createError) {
-        console.error('Error creating profile:', createError);
-        return res.status(500).json({
-          success: false,
-          error: 'Failed to create user profile'
-        });
-      }
+    if (profileError) {
+      console.error('Get profile query failed:', profileError);
 
-      // Merge profile and user data
-      const mergedData = {
-        ...newProfile,
-        user: newProfile.users
-      };
-      delete mergedData.users;
-
-      // Don't return sensitive info if not the owner
-      if (currentUserId !== userId) {
-        delete mergedData.user?.email;
-        delete mergedData.user?.phone;
-        delete mergedData.phone;
-        delete mergedData.email;
-      }
-
-      return res.json({
-        success: true,
-        profile: mergedData
+      return res.status(400).json({
+        success: false,
+        error: getErrorMessage(profileError, 'Unable to load this profile.'),
       });
     }
 
-    // Get user data separately
-    const { data: userData, error: userError } = await supabase.auth.admin
-      .getUserById(userId);
-
-    if (userError) {
-      console.error('Error fetching user:', userError);
-      // Still return profile without user data
-      const result = {
-        ...profileData,
-        user: null
-      };
-
-      if (currentUserId !== userId) {
-        delete result.phone;
-        delete result.email;
-      }
-
-      return res.json({
-        success: true,
-        profile: result
+    if (!profileData) {
+      return res.status(404).json({
+        success: false,
+        error: 'User profile not found.',
       });
     }
 
-    // Merge profile and user data
-    const result = {
-      ...profileData,
-      user: {
-        id: userData.user.id,
-        email: userData.user.email,
-        phone: userData.user.phone,
-        created_at: userData.user.created_at,
-        updated_at: userData.user.updated_at,
-        last_sign_in_at: userData.user.last_sign_in_at,
-        email_confirmed_at: userData.user.email_confirmed_at
-      }
-    };
+    const result = { ...profileData };
 
-    // Don't return sensitive info if not the owner
+    // Only expose private contact information to the profile owner.
     if (currentUserId !== userId) {
-      delete result.user?.email;
-      delete result.user?.phone;
       delete result.phone;
       delete result.email;
     }
 
-    res.json({
+    return res.json({
       success: true,
-      profile: result
+      profile: result,
     });
-
   } catch (error) {
-    console.error('Get profile error:', error);
-    res.status(500).json({
+    console.error('Get profile request failed:', error);
+
+    return res.status(500).json({
       success: false,
-      error: 'Failed to fetch profile'
+      error: getErrorMessage(error, 'Failed to fetch profile.'),
     });
   }
 };
-
-
 
 // ============================================
 // EXPORT ALL CONTROLLERS

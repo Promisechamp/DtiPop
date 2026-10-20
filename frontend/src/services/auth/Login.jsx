@@ -1,263 +1,480 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { toast } from 'sonner';
-import { useAuth } from '@/context/AuthContext';
-import GoogleLogin from './GoogleLogin';
-import popLogo from '@/assets/popLogo3.png';
-import dtiLogo from '@/assets/dti.png';
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { toast } from "sonner";
+import {
+  Home,
+  AlertCircle,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  ArrowLeft,
+  CheckCircle2,
+  Check,
+  Loader2,
+} from "lucide-react";
 
-const Login = ({ app = 'dti' }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+import { useAuth } from "@/context/AuthContext";
+import { DTI_BASE, POP_BASE } from "@/utils/routeBases";
+import GoogleLogin from "./GoogleLogin";
+
+import popLogo from "@/assets/popLogo3.png";
+import dtiLogo from "@/assets/dti.png";
+
+/* ---------------------------------------------------------
+   Helpers
+--------------------------------------------------------- */
+
+const detectAppFromPath = () => {
+  if (typeof window === "undefined") return "dti";
+  const path = window.location.pathname || "";
+  if (path === POP_BASE || path.startsWith(`${POP_BASE}/`)) return "pop";
+  if (path === DTI_BASE || path.startsWith(`${DTI_BASE}/`)) return "dti";
+  return "dti";
+};
+
+const getErrorMessage = (error) => {
+  if (!error) return "";
+  if (typeof error === "string") return error.trim();
+  if (typeof error.message === "string" && error.message.trim())
+    return error.message.trim();
+  if (typeof error.error === "string" && error.error.trim())
+    return error.error.trim();
+  if (typeof error.details === "string" && error.details.trim())
+    return error.details.trim();
+  if (typeof error.hint === "string" && error.hint.trim())
+    return error.hint.trim();
+  return "";
+};
+
+/* ---------------------------------------------------------
+   Component
+--------------------------------------------------------- */
+
+const Login = ({ app }) => {
+  const resolvedApp = app || detectAppFromPath();
+  const currentApp = resolvedApp === "pop" ? "pop" : "dti";
+  const isPop = currentApp === "pop";
+  const basename = isPop ? POP_BASE : DTI_BASE;
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState({});
+  const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
   const [useGoogle, setUseGoogle] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [lastLoginMethod, setLastLoginMethod] = useState(null);
 
-  const { signIn, user, isAdmin, loading: authLoading } = useAuth();
+  const {
+    signIn,
+    user,
+    isAdmin,
+    profileReady,
+    loading: authLoading,
+  } = useAuth();
+
   const navigate = useNavigate();
   const location = useLocation();
 
-  const currentApp = app === 'pop' ? 'pop' : 'dti';
-  const basename = currentApp === 'pop' ? '/app/pop' : '/app/dti';
+  const getAppHomeUrl = () => "/";
 
-  /* ------------------------------------------------------------
-     App switcher
-     ------------------------------------------------------------ */
-  const switchApp = (targetApp) => {
-    const targetBase = targetApp === 'pop' ? '/app/pop' : '/app/dti';
-    window.location.assign(`${targetBase}/login`);
-  };
-
-  /* ------------------------------------------------------------
-     Last login method
-     ------------------------------------------------------------ */
+  /* ---- remember selected app ---- */
   useEffect(() => {
     try {
-      const savedMethod = localStorage.getItem('lastLoginMethod');
+      localStorage.setItem("selectedApp", currentApp);
+    } catch (err) {
+      console.warn("Unable to save selected app:", err);
+    }
+  }, [currentApp]);
 
-      if (savedMethod === 'email' || savedMethod === 'google') {
+  /* ---- remember last login method ---- */
+  useEffect(() => {
+    try {
+      const savedMethod = localStorage.getItem("lastLoginMethod");
+      if (savedMethod === "email" || savedMethod === "google") {
         setLastLoginMethod(savedMethod);
       }
     } catch (err) {
-      console.warn('Unable to read last login method:', err);
+      console.warn("Unable to read last login method:", err);
     }
   }, []);
 
   const rememberLoginMethod = (method) => {
     try {
-      localStorage.setItem('lastLoginMethod', method);
+      localStorage.setItem("lastLoginMethod", method);
       setLastLoginMethod(method);
     } catch (err) {
-      console.warn('Unable to save last login method:', err);
+      console.warn("Unable to save last login method:", err);
     }
   };
 
-  /* ------------------------------------------------------------
-     Redirect handling
-     ------------------------------------------------------------ */
-  const rawFrom =
-    location.state?.from ||
-    new URLSearchParams(location.search).get('redirect') ||
-    '/';
+  /* ---- app switching ---- */
+  const switchApp = (targetApp) => {
+    if (targetApp !== "pop" && targetApp !== "dti") return;
+    if (targetApp === currentApp) return;
 
-  const from = rawFrom.startsWith(basename)
-    ? rawFrom.slice(basename.length) || '/'
-    : rawFrom;
+    const targetBase = targetApp === "pop" ? POP_BASE : DTI_BASE;
+    const params = new URLSearchParams(location.search);
 
-  const searchParams = new URLSearchParams(location.search);
-  const showApplyModal = searchParams.get('show-apply-modal');
+    // Preserve only safe, app-independent context when switching apps.
+    const applyModal = params.get("show-apply-modal");
+    if (targetApp === "dti" && applyModal) {
+      params.set("show-apply-modal", applyModal);
+    } else {
+      params.delete("show-apply-modal");
+    }
 
-  const getDefaultRedirect = () => (
-    isAdmin ? '/admin' : '/dashboard'
-  );
+    // Never carry an arbitrary redirect across apps.
+    params.delete("redirect");
 
-  const getRedirectPath = () => {
-    if (isAdmin) return '/admin';
+    const query = params.toString();
+    navigate(`${targetBase}/login${query ? `?${query}` : ""}`);
+  };
+
+  /* ---- safe redirect resolver ---- */
+  const getSafeRedirect = () => {
+    const fallback = "/dashboard";
+    const params = new URLSearchParams(location.search);
+    const redirectParam = params.get("redirect");
+    const from = location.state?.from;
+
+    let pathname;
+    let search = "";
+    let hash = "";
+
+    const parseLocalUrl = (value) => {
+      const parsed = new URL(value, window.location.origin);
+      if (parsed.origin !== window.location.origin) return null;
+      return {
+        pathname: parsed.pathname,
+        search: parsed.search,
+        hash: parsed.hash,
+      };
+    };
+
+    if (typeof from === "string") {
+      const parsed = parseLocalUrl(from);
+      if (!parsed) return fallback;
+      ({ pathname, search, hash } = parsed);
+    } else if (from && typeof from === "object") {
+      pathname = from.pathname;
+      search = from.search || "";
+      hash = from.hash || "";
+    } else if (redirectParam) {
+      const parsed = parseLocalUrl(redirectParam);
+      if (!parsed) return fallback;
+      ({ pathname, search, hash } = parsed);
+    } else {
+      return fallback;
+    }
 
     if (
-      !from ||
-      from === '/' ||
-      from === '/login' ||
-      from === '/register'
+      typeof pathname !== "string" ||
+      !pathname.startsWith("/") ||
+      pathname.startsWith("//") ||
+      pathname.includes("\\")
     ) {
-      return getDefaultRedirect();
+      return fallback;
     }
 
-    return from;
+    if (pathname.startsWith("/app/")) {
+      if (pathname === basename || pathname.startsWith(`${basename}/`)) {
+        pathname = pathname.slice(basename.length) || "/";
+      } else {
+        return fallback;
+      }
+    }
+
+    if (
+      isPop &&
+      (pathname === "/admin" || pathname.startsWith("/admin/"))
+    ) {
+      return fallback;
+    }
+
+    if (
+      pathname === "/" ||
+      pathname === "/login" ||
+      pathname === "/register" ||
+      pathname === "/auth/callback" ||
+      pathname === "/forgot-password"
+    ) {
+      return fallback;
+    }
+
+    if (typeof search !== "string" || (search && !search.startsWith("?"))) {
+      search = "";
+    }
+    if (typeof hash !== "string" || (hash && !hash.startsWith("#"))) {
+      hash = "";
+    }
+
+    return `${pathname}${search}${hash}`;
   };
 
+  const googleRedirect = `${window.location.origin}${basename}/auth/callback`;
+
+  /* ---- already signed in? ---- */
   useEffect(() => {
-    if (authLoading || !user) return;
+    if (authLoading || !user || !profileReady) return;
 
-    let redirectPath = getRedirectPath();
+    const destination =
+      currentApp === "dti" && isAdmin ? "/admin" : getSafeRedirect();
 
-    if (showApplyModal) {
-      redirectPath += `?show-apply-modal=${showApplyModal}`;
+    const params = new URLSearchParams(location.search);
+    const applyModal = params.get("show-apply-modal");
+
+    let finalDestination = `${basename}${destination}`;
+
+    if (currentApp === "dti" && applyModal) {
+      const destinationUrl = new URL(destination, window.location.origin);
+      destinationUrl.searchParams.set("show-apply-modal", applyModal);
+      finalDestination =
+        `${basename}${destinationUrl.pathname}` +
+        destinationUrl.search +
+        destinationUrl.hash;
     }
 
-    const currentPath = location.pathname + location.search;
-
-    if (currentPath !== redirectPath) {
-      navigate(redirectPath, { replace: true });
+    const currentUrl = location.pathname + location.search + location.hash;
+    if (currentUrl !== finalDestination) {
+      navigate(finalDestination, { replace: true });
     }
   }, [
     authLoading,
     user,
+    profileReady,
     isAdmin,
-    showApplyModal,
-    location,
-    navigate,
-    from,
     currentApp,
+    basename,
+    location.pathname,
+    location.search,
+    location.hash,
+    navigate,
   ]);
 
-  /* ------------------------------------------------------------
-     Email / password login
-     ------------------------------------------------------------ */
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  /* ---- change handler (clears inline errors) ---- */
+  const handleChange = (field) => (e) => {
+    const value = e.target.value;
 
-    setError('');
+    if (field === "email") setEmail(value);
+    else if (field === "password") setPassword(value);
+
+    // Clear any server-level error + Google prompt on edit
+    setServerError("");
     setUseGoogle(false);
 
+    // Clear the field error
+    setErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  /* ---- client-side field validation ---- */
+  const validateForm = () => {
+    const next = {};
     const cleanEmail = email.trim();
 
     if (!cleanEmail) {
-      setError('Please enter your email address.');
-      return;
+      next.email = "Please enter your email address.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      next.email = "Please enter a valid email address.";
     }
 
     if (!password) {
-      setError('Please enter your password.');
+      next.password = "Please enter your password.";
+    }
+
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  /* ---- submit ---- */
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    setServerError("");
+    setUseGoogle(false);
+
+    if (!validateForm()) {
+      toast.error("Please fix the errors before continuing.");
       return;
     }
 
+    const cleanEmail = email.trim();
     setLoading(true);
 
     try {
-      const { error: signInError } = await signIn(
-        cleanEmail,
-        password
-      );
+      const result = await signIn(cleanEmail, password);
+
+      const signInError =
+        result?.error || (result?.success === false ? result : null);
 
       if (signInError) {
+        const message =
+          getErrorMessage(signInError) ||
+          getErrorMessage(result) ||
+          "Unable to sign in. Please try again.";
+
+        const errorCode =
+          signInError?.code ||
+          signInError?.errorCode ||
+          result?.code ||
+          result?.errorCode;
+
+        const googleRequired =
+          signInError?.useGoogle === true ||
+          result?.useGoogle === true ||
+          errorCode === "GOOGLE_ACCOUNT" ||
+          errorCode === "GOOGLE_SIGN_IN_REQUIRED";
+
+        const normalized = message.toLowerCase();
+
+        // Map well-known auth failures to the relevant field so users see
+        // the message right where the mistake happened.
         if (
-          signInError.useGoogle ||
-          signInError.code === 'GOOGLE_ACCOUNT'
+          normalized.includes("invalid login") ||
+          normalized.includes("invalid credentials") ||
+          normalized.includes("wrong password") ||
+          normalized.includes("incorrect password")
         ) {
-          setUseGoogle(true);
-          setError(
-            'This email is registered with Google. Please continue with Google.'
-          );
+          setErrors((prev) => ({ ...prev, password: message }));
+        } else if (
+          normalized.includes("email not") ||
+          normalized.includes("no user") ||
+          normalized.includes("user not found") ||
+          normalized.includes("account not found")
+        ) {
+          setErrors((prev) => ({ ...prev, email: message }));
         } else {
-          setError(
-            signInError.message || 'Invalid credentials'
-          );
+          // Everything else (Google required, network, etc.) → banner
+          setServerError(message);
         }
 
-        setLoading(false);
+        setUseGoogle(googleRequired);
+        toast.error(message);
         return;
       }
 
-      rememberLoginMethod('email');
-      toast.success('Welcome back! 🎉');
+      rememberLoginMethod("email");
+      toast.success("Welcome back! 🎉");
     } catch (err) {
-      console.error('Sign-in error:', err);
-      setError(
-        'An unexpected error occurred. Please try again.'
-      );
+      console.error("Sign-in error:", err);
+
+      const message =
+        getErrorMessage(err) ||
+        "An unexpected error occurred. Please try again.";
+
+      const errorCode = err?.code || err?.errorCode;
+      const googleRequired =
+        err?.useGoogle === true ||
+        errorCode === "GOOGLE_ACCOUNT" ||
+        errorCode === "GOOGLE_SIGN_IN_REQUIRED";
+
+      setServerError(message);
+      setUseGoogle(googleRequired);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleSuccess = () => {
-    rememberLoginMethod('google');
+    rememberLoginMethod("google");
+    setServerError("");
+    setErrors({});
+    setUseGoogle(false);
   };
 
+  /* ---- input styling (mirrors Register) ---- */
+  const inputClasses = (field) =>
+    `w-full rounded-xl border bg-white py-2.5 pl-11 text-sm font-medium text-ink-900 outline-none transition placeholder:text-ink-400 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+      errors[field]
+        ? "border-danger-300 focus:border-danger-400 focus:ring-danger-200"
+        : "border-ink-200 focus:border-primary-400 focus:ring-primary-200"
+    }`;
+
   if (authLoading) return null;
-
-  const googleRedirect =
-    currentApp === 'pop'
-      ? `${window.location.origin}/app/pop/auth/callback`
-      : `${window.location.origin}/app/dti/auth/callback`;
-
-  const isPop = currentApp === 'pop';
+  if (user && !profileReady) return null;
 
   return (
     <div className="min-h-screen bg-ink-50 lg:flex">
-
-      {/* ========================================================
-          LEFT PANEL — brand / context (hidden below lg)
-      ======================================================== */}
+      {/* LEFT PANEL */}
       <div className="relative hidden overflow-hidden bg-primary-600 lg:flex lg:w-[45%] lg:flex-col lg:justify-between">
-
-        {/* Dot-grid texture */}
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.15]"
           style={{
-            backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)',
-            backgroundSize: '22px 22px',
-            color: '#ffffff',
+            backgroundImage:
+              "radial-gradient(currentColor 1px, transparent 1px)",
+            backgroundSize: "22px 22px",
+            color: "#ffffff",
           }}
         />
 
-        {/* Soft glow accents */}
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-primary-500/40 blur-3xl" />
           <div className="absolute -bottom-40 -right-24 h-[30rem] w-[30rem] rounded-full bg-primary-700/60 blur-3xl" />
         </div>
 
-        {/* NAV */}
+        {/* DESKTOP NAVIGATION */}
         <div className="relative z-10 flex items-center justify-between px-10 pt-10">
           <Link
-            to="/"
-            aria-label="Home"
+            to={getAppHomeUrl()}
+            aria-label={`${isPop ? "POP" : "DTI"} home`}
             className="flex h-10 w-10 items-center justify-center rounded-xl text-white/70 transition hover:bg-white/10 hover:text-white"
           >
-            <i className="bi bi-house text-[17px]" />
+            <Home size={17} />
           </Link>
 
           <div className="inline-flex items-center gap-1 rounded-2xl bg-white/10 p-1 backdrop-blur-sm">
             <button
               type="button"
-              onClick={() => switchApp('dti')}
-              disabled={currentApp === 'dti'}
-              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-extrabold transition-all ${
-                currentApp === 'dti'
-                  ? 'bg-white text-ink-900 shadow-xs'
-                  : 'text-white/70 hover:bg-white/10 hover:text-white'
+              onClick={() => switchApp("pop")}
+              aria-current={isPop ? "page" : undefined}
+              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-extrabold transition ${
+                isPop
+                  ? "bg-white text-ink-950 shadow-sm"
+                  : "text-white/70 hover:bg-white/10 hover:text-white"
               }`}
             >
-              <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-lg bg-white ring-1 ring-ink-200">
-                <img src={dtiLogo} alt="" className="logo h-full w-full object-contain" />
+              <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-lg bg-primary-700">
+                <img
+                  src={popLogo}
+                  alt=""
+                  className="logo h-full w-full object-contain"
+                />
               </span>
-              <span>DTI</span>
+              <span>POP</span>
             </button>
 
             <button
               type="button"
-              onClick={() => switchApp('pop')}
-              disabled={currentApp === 'pop'}
-              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-extrabold transition-all ${
-                currentApp === 'pop'
-                  ? 'bg-white text-ink-900 shadow-xs'
-                  : 'text-white/70 hover:bg-white/10 hover:text-white'
+              onClick={() => switchApp("dti")}
+              aria-current={!isPop ? "page" : undefined}
+              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-extrabold transition ${
+                !isPop
+                  ? "bg-white text-ink-950 shadow-sm"
+                  : "text-white/70 hover:bg-white/10 hover:text-white"
               }`}
             >
-              <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-lg bg-primary-700">
-                <img src={popLogo} alt="" className="logo h-full w-full object-contain" />
+              <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-lg bg-white ring-1 ring-ink-200">
+                <img
+                  src={dtiLogo}
+                  alt=""
+                  className="logo h-full w-full object-contain"
+                />
               </span>
-              <span>POP</span>
+              <span>DTI</span>
             </button>
           </div>
         </div>
 
-        {/* MID — floating preview card */}
         <div className="relative z-10 my-auto px-10">
-          <div className="w-full max-w-xs -rotate-2 rounded-2xl border border-white/15 bg-white/10 p-5 shadow-large backdrop-blur-md transition-transform duration-500 hover:rotate-0">
+          <div className="w-full max-w-xs -rotate-2 rounded-[26px] border border-white/15 bg-white/10 p-5 shadow-lg backdrop-blur-md transition-transform duration-500 hover:rotate-0">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-white">
                 <img
@@ -280,33 +497,47 @@ const Login = ({ app = 'dti' }) => {
 
             <div className="mt-5 flex items-center justify-between rounded-xl bg-white/10 px-3 py-2.5">
               <span className="text-[11px] font-bold text-white/80">
-                {isPop ? 'Warranty active' : 'Status: verified'}
+                {isPop ? "Warranty active" : "Status: verified"}
               </span>
-              <i className="bi bi-check-circle-fill text-sm text-white" />
+              <CheckCircle2
+                size={15}
+                fill="currentColor"
+                className="text-white"
+              />
             </div>
           </div>
         </div>
 
-        {/* BOTTOM — headline + features */}
         <div className="relative z-10 px-10 pb-14">
           <h2 className="max-w-sm text-3xl font-black leading-tight tracking-tight text-white">
-            {isPop ? 'Proof of purchase, sorted.' : 'Welcome to DTI.'}
+            {isPop ? "Proof of purchase, sorted." : "Welcome to DTI."}
           </h2>
 
-          <p className="mt-3 max-w-xs text-sm leading-6 text-white/70">
+          <p className="mt-3 max-w-xs text-sm font-medium leading-6 text-white/70">
             {isPop
-              ? 'Track purchases, manage warranties, and keep every receipt where you can find it.'
-              : 'Sign in to pick up right where you left off.'}
+              ? "Track purchases, manage warranties, and keep every receipt where you can find it."
+              : "Sign in to pick up right where you left off."}
           </p>
 
           <ul className="mt-6 space-y-3">
             {(isPop
-              ? ['Warranty tracking, automated', 'Receipts, always searchable', 'One login for every purchase']
-              : ['Secure, single sign-on access', 'Your dashboard, saved and synced', 'Built for how you already work']
+              ? [
+                  "Warranty tracking, automated",
+                  "Receipts, always searchable",
+                  "One login for every purchase",
+                ]
+              : [
+                  "Secure, single sign-on access",
+                  "Your dashboard, saved and synced",
+                  "Built for how you already work",
+                ]
             ).map((line) => (
-              <li key={line} className="flex items-center gap-3 text-sm font-semibold text-white/85">
+              <li
+                key={line}
+                className="flex items-center gap-3 text-sm font-semibold text-white/85"
+              >
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/15">
-                  <i className="bi bi-check2 text-xs text-white" />
+                  <Check size={11} strokeWidth={3} className="text-white" />
                 </span>
                 {line}
               </li>
@@ -315,261 +546,299 @@ const Login = ({ app = 'dti' }) => {
         </div>
       </div>
 
-      {/* ========================================================
-          RIGHT PANEL — form
-      ======================================================== */}
+      {/* RIGHT PANEL */}
       <div className="flex flex-1 flex-col justify-center px-5 py-10 sm:px-8 lg:px-16 xl:px-24">
-
-        {/* Mobile-only top nav */}
+        {/* MOBILE NAVIGATION */}
         <div className="mb-8 flex items-center justify-center lg:hidden">
-          <div className="inline-flex items-center gap-1 rounded-2xl border border-ink-200 bg-white p-1 shadow-xs">
+          <div className="inline-flex items-center gap-1 rounded-2xl border border-ink-200 bg-white p-1 shadow-sm">
             <Link
-              to="/"
-              aria-label="Home"
-              className="flex h-10 w-10 items-center justify-center rounded-xl text-ink-400 transition-all hover:bg-ink-50 hover:text-ink-800"
+              to={getAppHomeUrl()}
+              aria-label={`${isPop ? "POP" : "DTI"} home`}
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-ink-400 transition hover:bg-ink-50 hover:text-ink-800"
             >
-              <i className="bi bi-house text-[17px]" />
+              <Home size={17} />
             </Link>
 
             <div className="mx-0.5 h-6 w-px bg-ink-200" />
 
             <button
               type="button"
-              onClick={() => switchApp('dti')}
-              disabled={currentApp === 'dti'}
-              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-extrabold transition-all ${
-                currentApp === 'dti'
-                  ? 'bg-ink-50 text-ink-900 shadow-xs'
-                  : 'text-ink-400 hover:bg-ink-50 hover:text-ink-700'
+              onClick={() => switchApp("pop")}
+              aria-current={isPop ? "page" : undefined}
+              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-extrabold transition ${
+                isPop
+                  ? "bg-ink-50 border-2 border-primary-500 text-ink-950 shadow-sm"
+                  : "text-ink-400 hover:bg-ink-50 hover:text-ink-700"
               }`}
             >
-              <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-lg bg-white ring-1 ring-ink-200">
-                <img src={dtiLogo} alt="" className="logo h-full w-full object-contain" />
+              <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-lg bg-primary-600">
+                <img
+                  src={popLogo}
+                  alt=""
+                  className="logo h-full w-full object-contain"
+                />
               </span>
-              <span className="hidden sm:inline">DTI</span>
+              <span className="hidden sm:inline">POP</span>
             </button>
 
             <button
               type="button"
-              onClick={() => switchApp('pop')}
-              disabled={currentApp === 'pop'}
-              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-extrabold transition-all ${
-                currentApp === 'pop'
-                  ? 'bg-ink-50 text-ink-900 shadow-xs'
-                  : 'text-ink-400 hover:bg-ink-50 hover:text-ink-700'
+              onClick={() => switchApp("dti")}
+              aria-current={!isPop ? "page" : undefined}
+              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-extrabold transition ${
+                !isPop
+                  ? "bg-ink-50 border-2 border-primary-500 text-ink-950 shadow-sm"
+                  : "text-ink-400 hover:bg-ink-50 hover:text-ink-700"
               }`}
             >
-              <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-lg bg-primary-600">
-                <img src={popLogo} alt="" className="logo h-full w-full object-contain" />
+              <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-lg bg-white ring-1 ring-ink-200">
+                <img
+                  src={dtiLogo}
+                  alt=""
+                  className="logo h-full w-full object-contain"
+                />
               </span>
-              <span className="hidden sm:inline">POP</span>
+              <span className="hidden sm:inline">DTI</span>
             </button>
           </div>
         </div>
 
         <div className="mx-auto w-full max-w-sm">
-
-          <div className="rounded-[1.75rem] border border-ink-200 bg-white p-6 shadow-large sm:p-8">
-
-          <div className="mb-6 h-1.5 w-16 rounded-full bg-primary-600" />
-
-          <div className="mb-8">
-            <h1 className="text-2xl font-black tracking-tight text-ink-900 sm:text-[28px]">
-              Sign in to your account
+          <div className="rounded-[26px] border border-ink-100 bg-white p-6 shadow-md sm:p-8">
+            <h1 className="text-2xl font-black tracking-tight text-ink-950 sm:text-[28px]">
+              Sign in to {isPop ? "POP" : "DTI"}
             </h1>
-            <p className="mt-2 text-sm leading-6 text-ink-500">
-              Enter your details below to continue.
+
+            <p className="mt-2 text-sm font-medium leading-6 text-ink-500">
+              {isPop
+                ? "Enter your details to access your POP account."
+                : "Enter your details to access your DTI account."}
             </p>
-          </div>
 
-          {/* Google account notice */}
-          {useGoogle && (
-            <div className="mb-5 rounded-2xl border border-primary-200 bg-primary-50 p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-primary-600 shadow-xs">
-                  <i className="bi bi-google text-base" />
-                </div>
-                <div>
-                  <p className="text-sm font-extrabold text-ink-900">
-                    Continue with Google
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-ink-600">
-                    This email is registered with Google. Use Google below to sign in.
-                  </p>
+            {/* Google-required notice (server-level, tied to sign-in flow) */}
+            {useGoogle && (
+              <div className="mt-6 rounded-2xl border border-primary-100 bg-primary-50 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-primary-600 shadow-sm">
+                    <i className="bi bi-google text-base" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-extrabold text-ink-950">
+                      Continue with Google
+                    </p>
+                    <p className="mt-1 text-xs font-medium leading-5 text-ink-600">
+                      {serverError ||
+                        "This email is registered with Google. Use Google below to sign in."}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Error */}
-          {error && !useGoogle && (
-            <div className="mb-5 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-red-600 shadow-xs">
-                <i className="bi bi-exclamation-circle-fill" />
-              </div>
-              <p className="pt-1 text-sm font-semibold leading-5 text-red-700">
-                {error}
-              </p>
-            </div>
-          )}
-
-          {/* Google — moved above the form as primary path */}
-          <div className="relative mb-5">
-            <GoogleLogin
-              redirectTo={googleRedirect}
-              onSuccess={handleGoogleSuccess}
-              lastUsed={lastLoginMethod === 'google'}
-            />
-          </div>
-
-          <div className="mb-6 flex items-center gap-4">
-            <div className="h-px flex-1 bg-ink-200" />
-            <span className="whitespace-nowrap text-[10px] font-extrabold uppercase tracking-wider text-ink-400">
-              Or sign in with email
-            </span>
-            <div className="h-px flex-1 bg-ink-200" />
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-
-            {/* EMAIL */}
-            <div>
-              <label
-                htmlFor="login-email"
-                className="mb-2 block text-sm font-bold text-ink-800"
+            {/* Server-level error banner (never for field errors) */}
+            {serverError && !useGoogle && (
+              <div
+                role="alert"
+                aria-live="polite"
+                className="mt-6 flex items-start gap-4 rounded-2xl border border-danger-100 bg-danger-50 p-4"
               >
-                Email address
-              </label>
-
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-ink-400">
-                  <i className="bi bi-envelope text-[17px]" />
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-danger-100 text-danger-600">
+                  <AlertCircle size={16} />
                 </div>
-
-                <input
-                  id="login-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setError('');
-                    setUseGoogle(false);
-                  }}
-                  placeholder="you@example.com"
-                  autoComplete="email"
-                  disabled={loading}
-                  className="w-full rounded-xl border border-ink-200 bg-ink-50 py-3.5 pl-11 pr-4 text-sm font-semibold text-ink-900 outline-none transition-all placeholder:text-ink-400 hover:border-ink-300 focus:border-primary-500 focus:bg-white focus:ring-4 focus:ring-primary-500/10 disabled:cursor-not-allowed disabled:opacity-60"
-                />
+                <p className="pt-1 text-sm font-bold leading-5 text-danger-700">
+                  {serverError}
+                </p>
               </div>
+            )}
+
+            <div className="mt-6">
+              <GoogleLogin
+                redirectTo={googleRedirect}
+                onSuccess={handleGoogleSuccess}
+                lastUsed={lastLoginMethod === "google"}
+              />
             </div>
 
-            {/* PASSWORD */}
-            <div>
-              <div className="mb-2 flex items-center justify-between">
+            <div className="my-6 flex items-center gap-4">
+              <div className="h-px flex-1 bg-ink-100" />
+              <span className="whitespace-nowrap text-[10px] font-extrabold uppercase tracking-[0.16em] text-ink-400">
+                Or sign in with email
+              </span>
+              <div className="h-px flex-1 bg-ink-100" />
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Email */}
+              <div>
                 <label
-                  htmlFor="login-password"
-                  className="block text-sm font-bold text-ink-800"
+                  htmlFor="login-email"
+                  className="mb-1.5 block text-sm font-extrabold text-ink-700"
                 >
-                  Password
+                  Email address
                 </label>
 
-                <Link
-                  to={`${basename}/forgot-password`}
-                  className="text-xs font-bold text-primary-600 transition hover:text-primary-700 hover:underline"
-                >
-                  Forgot password?
-                </Link>
-              </div>
+                <div className="relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-ink-400">
+                    <Mail size={16} />
+                  </div>
 
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-ink-400">
-                  <i className="bi bi-lock text-[17px]" />
+                  <input
+                    id="login-email"
+                    type="email"
+                    value={email}
+                    onChange={handleChange("email")}
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    disabled={loading}
+                    aria-invalid={Boolean(errors.email)}
+                    aria-describedby={
+                      errors.email ? "login-email-error" : undefined
+                    }
+                    className={`${inputClasses("email")} pr-4`}
+                  />
                 </div>
 
-                <input
-                  id="login-password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setError('');
-                    setUseGoogle(false);
-                  }}
-                  placeholder="Enter your password"
-                  autoComplete="current-password"
-                  disabled={loading}
-                  className="w-full rounded-xl border border-ink-200 bg-ink-50 py-3.5 pl-11 pr-12 text-sm font-semibold text-ink-900 outline-none transition-all placeholder:text-ink-400 hover:border-ink-300 focus:border-primary-500 focus:bg-white focus:ring-4 focus:ring-primary-500/10 disabled:cursor-not-allowed disabled:opacity-60"
-                />
+                {errors.email && (
+                  <p
+                    id="login-email-error"
+                    className="mt-1.5 flex items-center gap-1 text-xs font-bold text-danger-700"
+                  >
+                    <AlertCircle size={12} />
+                    {errors.email}
+                  </p>
+                )}
+              </div>
 
+              {/* Password */}
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label
+                    htmlFor="login-password"
+                    className="block text-sm font-extrabold text-ink-700"
+                  >
+                    Password
+                  </label>
+
+                  <Link
+                    to={`${basename}/forgot-password`}
+                    className="text-xs font-extrabold text-primary-600 transition hover:text-primary-700 hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+
+                <div className="relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-ink-400">
+                    <Lock size={16} />
+                  </div>
+
+                  <input
+                    id="login-password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={handleChange("password")}
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                    disabled={loading}
+                    aria-invalid={Boolean(errors.password)}
+                    aria-describedby={
+                      errors.password ? "login-password-error" : undefined
+                    }
+                    className={`${inputClasses("password")} pr-12`}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    disabled={loading}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                    className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-ink-400 transition hover:text-ink-700 disabled:cursor-not-allowed"
+                  >
+                    {showPassword ? (
+                      <EyeOff size={18} />
+                    ) : (
+                      <Eye size={18} />
+                    )}
+                  </button>
+                </div>
+
+                {errors.password && (
+                  <p
+                    id="login-password-error"
+                    className="mt-1.5 flex items-center gap-1 text-xs font-bold text-danger-700"
+                  >
+                    <AlertCircle size={12} />
+                    {errors.password}
+                  </p>
+                )}
+              </div>
+
+              {/* Submit */}
+              <div className="relative pt-2">
                 <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
+                  type="submit"
                   disabled={loading}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-ink-400 transition hover:text-ink-700 disabled:cursor-not-allowed"
+                  className="relative inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 text-sm font-extrabold text-white transition hover:bg-primary-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <i className={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'} text-lg`} />
+                  {loading ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Signing in...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Sign in</span>
+                      <ArrowRight size={16} />
+                    </>
+                  )}
+
+                  {!loading && lastLoginMethod === "email" && (
+                    <span className="absolute -top-3 right-4 z-20 inline-flex items-center justify-center whitespace-nowrap rounded-full border border-ink-200 bg-white px-3 py-1 text-center text-[9px] font-black uppercase leading-none tracking-wide text-ink-500 shadow-sm">
+                      Last used
+                    </span>
+                  )}
                 </button>
               </div>
-            </div>
+            </form>
 
-            {/* SIGN IN */}
-            <div className="relative pt-2">
-              <button
-                type="submit"
-                disabled={loading}
-                className="relative flex min-h-[52px] w-full items-center justify-center rounded-xl bg-primary-600 px-5 py-3 text-sm font-black text-white shadow-primary transition-all hover:-translate-y-0.5 hover:bg-primary-700 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+            <p className="mt-6 text-center text-sm font-medium text-ink-500">
+              Don&apos;t have an account?{" "}
+              <Link
+                to={`${basename}/register`}
+                className="font-extrabold text-primary-600 transition hover:text-primary-700 hover:underline"
               >
-                {loading ? (
-                  <>
-                    <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    <span>Signing in...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Sign in</span>
-                    <i className="bi bi-arrow-right ml-2 text-base" />
-                  </>
-                )}
+                Create one
+              </Link>
+            </p>
 
-                {!loading && lastLoginMethod === 'email' && (
-                  <span className="absolute -top-3 right-4 z-20 inline-flex items-center justify-center whitespace-nowrap rounded-full border border-ink-200 bg-white px-3 py-1 text-center text-[9px] font-black uppercase leading-none tracking-wide text-ink-500 shadow-xs">
-                    Last used
-                  </span>
-                )}
+            {useGoogle && (
+              <button
+                type="button"
+                onClick={() => {
+                  setUseGoogle(false);
+                  setServerError("");
+                  setErrors({});
+                }}
+                className="mx-auto mt-4 flex items-center gap-2 text-xs font-extrabold text-ink-500 transition hover:text-ink-800"
+              >
+                <ArrowLeft size={13} />
+                Back to email login
               </button>
-            </div>
-          </form>
-
-          {/* REGISTER */}
-          <p className="mt-7 text-center text-sm text-ink-500">
-            Don't have an account?{' '}
-            <Link
-              to="/register"
-              className="font-black text-primary-600 transition hover:text-primary-700 hover:underline"
-            >
-              Create one
-            </Link>
-          </p>
-
-          {/* Back to email (kept for parity, though email is already default) */}
-          {useGoogle && (
-            <button
-              type="button"
-              onClick={() => {
-                setUseGoogle(false);
-                setError('');
-              }}
-              className="mx-auto mt-4 flex items-center gap-2 text-xs font-bold text-ink-500 transition hover:text-ink-800"
-            >
-              <i className="bi bi-arrow-left" />
-              Back to email login
-            </button>
-          )}
+            )}
           </div>
 
-          <p className="mt-8 text-center text-[11px] leading-5 text-ink-400">
-            By continuing, you agree to our terms and policies.
+          <p className="mt-8 text-center text-[11px] font-medium leading-5 text-ink-400">
+            By continuing, you agree to our{" "}
+            <Link className="text-primary-600 underline" to="#">
+              terms
+            </Link>{" "}
+            and{" "}
+            <Link className="text-primary-600 underline" to="#">
+              policies
+            </Link>
+            .
           </p>
         </div>
       </div>

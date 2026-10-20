@@ -101,15 +101,15 @@ const getContextTitle = (conversation) =>
 const getContextLabel = (conversation) => {
   const type = getContextType(conversation);
 
-  if (type === "item") return "Item";
-  if (type === "request") return "Request";
+  if (type === "dti_donor_applicant") return "Item";
+  if (type === "pop_request") return "Request";
   return "Conversation";
 };
 
 const getContextId = (conversation, requestId) => {
   const type = getContextType(conversation);
 
-  if (type === "item") {
+  if (type === "dti_donor_applicant") {
     return (
       conversation?.item?.id ||
       conversation?.item_id ||
@@ -138,8 +138,8 @@ const getContextHref = (conversation, requestId) => {
 
   if (!id) return null;
 
-  if (type === "item") return `/items/${id}`;
-  if (type === "request") return `/requests/${id}`;
+  if (type === "dti_donor_applicant") return `/items/${id}`;
+  if (type === "pop_request") return `/requests/${id}`;
 
   return null;
 };
@@ -147,17 +147,17 @@ const getContextHref = (conversation, requestId) => {
 /*
  * Role label for the OTHER participant.
  *
- * DTI (context_type = "item"):
+ * DTI (context_type = "dti_donor_applicant"):
  *   - if I'm the donor (requester_id), the other person is the applicant
  *   - if I'm the applicant (provider_id), the other person is the donor
  *
- * POP (context_type = "request") / direct:
+ * POP (context_type = "pop_request") / direct:
  *   - fall back to the service-provider heuristic already in use
  */
 const getOtherRoleLabel = (conversation, profile, currentUserId) => {
   const type = getContextType(conversation);
 
-  if (type === "item") {
+  if (type === "dti_donor_applicant") {
     const requesterId =
       conversation?.requester_id ||
       conversation?.requesterId;

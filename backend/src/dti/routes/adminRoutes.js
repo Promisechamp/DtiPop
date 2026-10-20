@@ -30,13 +30,7 @@ import {
   adminDeleteWinner
 } from '../controllers/winnerController.js';
 
-import {
-  getSettings,
-  updateSettings,
-  toggleMaintenance,
-  getMaintenanceStatus,
-  getSystemHealth
-} from '../controllers/settingsController.js';
+
 
 // ✅ Chat reports
 import {
@@ -57,10 +51,6 @@ import { isAdmin, isSuperAdmin } from '../../middleware/admin.js';
 
 const router = express.Router();
 
-// ============================================
-// PUBLIC ROUTES (No Auth Required)
-// ============================================
-router.get('/maintenance/status', getMaintenanceStatus);
 
 // ============================================
 // ALL ADMIN ROUTES REQUIRE AUTH + ADMIN
@@ -101,13 +91,7 @@ router.post('/winners', adminCreateWinner);
 router.put('/winners/:winnerId', adminUpdateWinner);
 router.delete('/winners/:winnerId', adminDeleteWinner);
 
-// ============================================
-// SETTINGS & MAINTENANCE
-// ============================================
-router.get('/settings', getSettings);
-router.put('/settings', updateSettings);
-router.post('/maintenance/toggle', toggleMaintenance);
-router.get('/health', getSystemHealth);
+
 
 // ============================================
 // REPORT MANAGEMENT (Chat & Item Discussions)

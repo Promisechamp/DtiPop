@@ -9,9 +9,9 @@ import {
 // CONSTANTS
 // ============================================================
 
-export const CONTEXT_ITEM = 'item';
-export const CONTEXT_REQUEST = 'request';
-export const CONTEXT_DIRECT = 'direct';
+export const CONTEXT_ITEM = 'dti_donor_applicant';
+export const CONTEXT_REQUEST = 'pop_request';
+export const CONTEXT_DIRECT = 'direct_chat';
 
 const ALLOWED_CONTEXTS = new Set([
   CONTEXT_ITEM,
@@ -578,16 +578,6 @@ const getOrCreateItemConversation = async (
     });
   }
 
-  // donor can't originate
-  if (isDonor) {
-    return res.status(404).json({
-      success: false,
-      error:
-        'No conversation exists yet. The applicant has not started a chat.',
-      conversationExists: false,
-    });
-  }
-
   const now = new Date().toISOString();
 
   const { data: created, error: createError } = await supabaseAdmin
@@ -623,8 +613,10 @@ const getOrCreateItemConversation = async (
     });
   }
 
-  // Notify donor
-  await notify(donorId, created, {
+  // Notify the other party — whoever did not initiate.
+  const recipientId = isDonor ? providerId : requesterId;
+
+  await notify(recipientId, created, {
     type: 'conversation_started',
     title: 'New conversation',
     message: `A new conversation has started for "${item.title}".`,
@@ -648,6 +640,9 @@ const getOrCreateItemConversation = async (
     ),
   });
 };
+
+
+
 
 // ============================================================
 // REQUEST CONTEXT  (POP semantics)

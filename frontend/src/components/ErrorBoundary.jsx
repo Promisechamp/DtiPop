@@ -1,18 +1,11 @@
+// src/components/ErrorBoundary.jsx
+
 import React from 'react';
+import { AlertTriangle, RefreshCw, Home, Code2 } from 'lucide-react';
 
 /**
  * Advanced ErrorBoundary – catches all JavaScript errors anywhere in the app,
  * including async code, promise rejections, and event handlers.
- *
- * Features:
- * - Catches render/child-component errors (componentDidCatch)
- * - Catches unhandled exceptions (window.onerror)
- * - Catches unhandled promise rejections (unhandledrejection)
- * - Prevents duplicate error states
- * - Cleanup of global listeners on unmount
- * - Shows detailed stack in development
- * - Custom fallback support
- * - Reset cooldown to avoid rapid loops
  */
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -25,18 +18,15 @@ class ErrorBoundary extends React.Component {
       resetCooldown: false,
     };
     this.resetTimer = null;
-    // Bound method for global error handlers
     this.handleGlobalError = this.handleGlobalError.bind(this);
     this.handleGlobalRejection = this.handleGlobalRejection.bind(this);
   }
 
   static getDerivedStateFromError(error) {
-    // Update state so the next render will show the fallback UI.
     return { hasError: true, error };
   }
 
   componentDidCatch(error, errorInfo) {
-    // Log and capture error info
     console.error('🚨 ErrorBoundary (React) caught:', error, errorInfo);
     this.setState({
       errorInfo,
@@ -46,13 +36,11 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidMount() {
-    // Attach global error listeners to catch errors outside React lifecycle
     window.addEventListener('error', this.handleGlobalError);
     window.addEventListener('unhandledrejection', this.handleGlobalRejection);
   }
 
   componentWillUnmount() {
-    // Clean up listeners and timers
     window.removeEventListener('error', this.handleGlobalError);
     window.removeEventListener('unhandledrejection', this.handleGlobalRejection);
     if (this.resetTimer) {
@@ -61,9 +49,7 @@ class ErrorBoundary extends React.Component {
     }
   }
 
-  // ─── Global error handler for runtime exceptions ──────────
   handleGlobalError(event) {
-    // Ignore errors that are already being handled by React's boundary
     if (this.state.hasError) return;
 
     const { error, message, filename, lineno, colno } = event;
@@ -77,12 +63,10 @@ class ErrorBoundary extends React.Component {
       },
     });
 
-    // Prevent default browser error logging
     event.preventDefault();
     this.reportError(error || message);
   }
 
-  // ─── Global handler for unhandled promise rejections ─────
   handleGlobalRejection(event) {
     if (this.state.hasError) return;
 
@@ -101,7 +85,6 @@ class ErrorBoundary extends React.Component {
     this.reportError(reason);
   }
 
-  // ─── Error reporting (optional) ───────────────────────────
   reportError(error, errorInfo) {
     if (this.props.onError) {
       try {
@@ -112,7 +95,6 @@ class ErrorBoundary extends React.Component {
     }
   }
 
-  // ─── Reset handler ──────────────────────────────────────────
   handleReset = () => {
     if (this.state.resetCooldown) return;
     this.setState({
@@ -129,10 +111,9 @@ class ErrorBoundary extends React.Component {
   };
 
   render() {
-    const { hasError, error, errorInfo, componentStack } = this.state;
+    const { hasError, error } = this.state;
 
     if (hasError) {
-      // Use custom fallback if provided
       if (this.props.fallback) {
         try {
           return this.props.fallback(error, this.handleReset);
@@ -151,79 +132,92 @@ class ErrorBoundary extends React.Component {
     const isDev = process.env.NODE_ENV === 'development';
     const errorMessage = error?.message || 'An unexpected error occurred.';
     const errorStack = error?.stack || null;
+    const { componentStack, resetCooldown } = this.state;
 
     return (
-      <div className="min-h-screen flex items-center justify-center bg-ink-50/30 px-4">
-        <div className="max-w-md w-full bg-white border border-ink-100/80 rounded-2xl shadow-sm p-8 text-center">
-          {/* Icon */}
-          <div className="inline-flex w-14 h-14 rounded-2xl bg-rose-50 border border-rose-200/60 items-center justify-center text-rose-600 mb-5 shadow-sm">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
+      <div className="flex min-h-screen items-center justify-center bg-ink-50/30 px-5 py-12">
+        <div className="w-full max-w-md">
+          <div className="overflow-hidden rounded-[26px] border border-ink-100 bg-white shadow-sm">
+            {/* HEADER */}
+            <div className="border-b border-ink-100 px-5 py-6 text-center sm:px-6">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-danger-50 text-danger-600">
+                <AlertTriangle size={24} />
+              </div>
+
+              <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-danger-600">
+                Something went wrong
+              </p>
+
+              <h1 className="text-2xl font-black tracking-tight text-ink-950">
+                An unexpected error occurred
+              </h1>
+
+              <p className="mx-auto mt-2 max-w-sm text-sm font-medium leading-6 text-ink-500">
+                {errorMessage}
+              </p>
+            </div>
+
+            {/* DEV STACK */}
+            {isDev && (errorStack || componentStack) && (
+              <div className="border-b border-ink-100 px-5 py-4 sm:px-6">
+                <details className="group rounded-2xl border border-ink-100 bg-ink-50/50 p-3">
+                  <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[11px] font-extrabold text-ink-500 transition hover:text-ink-800">
+                    <Code2 size={12} />
+                    Error details (developer)
+                  </summary>
+
+                  {errorStack && (
+                    <pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-ink-100 bg-white p-2.5 text-[11px] font-mono text-ink-600">
+                      {errorStack}
+                    </pre>
+                  )}
+
+                  {componentStack && (
+                    <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-ink-100 bg-white p-2.5 text-[10px] font-mono text-ink-400">
+                      {componentStack}
+                    </pre>
+                  )}
+                </details>
+              </div>
+            )}
+
+            {/* ACTIONS */}
+            <div className="px-5 py-5 sm:px-6">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => (window.location.href = '/')}
+                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50"
+                >
+                  <Home size={15} />
+                  Go home
+                </button>
+
+                <button
+                  type="button"
+                  onClick={this.handleReset}
+                  disabled={resetCooldown}
+                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 text-sm font-extrabold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <RefreshCw
+                    size={15}
+                    className={resetCooldown ? 'animate-spin' : undefined}
+                  />
+                  {resetCooldown ? 'Please wait…' : 'Try again'}
+                </button>
+              </div>
+
+              <p className="mt-5 text-center text-[11px] font-medium leading-5 text-ink-400">
+                Still stuck?{' '}
+                <a
+                  href="/support"
+                  className="font-extrabold text-primary-600 transition hover:text-primary-700 hover:underline"
+                >
+                  Contact support
+                </a>
+              </p>
+            </div>
           </div>
-
-          <h1 className="text-xl font-extrabold text-ink-900 mb-2">
-            Something went wrong
-          </h1>
-
-          <p className="text-sm font-medium text-ink-500 mb-6">
-            {errorMessage}
-          </p>
-
-          {/* Show stack trace in development */}
-          {isDev && errorStack && (
-            <details className="mb-6 text-left bg-ink-50/50 rounded-xl p-4 border border-ink-100/60 max-h-48 overflow-auto">
-              <summary className="text-xs font-bold text-ink-500 cursor-pointer hover:text-ink-700">
-                <svg className="inline mr-1 w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                </svg>
-                Error details (developer)
-              </summary>
-              <pre className="mt-3 text-[11px] font-mono text-ink-600 whitespace-pre-wrap break-words">
-                {errorStack}
-              </pre>
-              {this.state.componentStack && (
-                <pre className="mt-2 text-[10px] font-mono text-ink-400 whitespace-pre-wrap break-words border-t border-ink-100/60 pt-2">
-                  {this.state.componentStack}
-                </pre>
-              )}
-            </details>
-          )}
-
-          {/* Action buttons */}
-          <div className="flex flex-wrap gap-3 justify-center">
-            <button
-              onClick={this.handleReset}
-              disabled={this.state.resetCooldown}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-brand-600 hover:shadow-md text-white text-sm font-extrabold transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h5M20 20v-5h-5" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 9a8 8 0 0112-6m0 12a8 8 0 01-12 6" />
-              </svg>
-              {this.state.resetCooldown ? 'Please wait...' : 'Try again'}
-            </button>
-
-            <button
-              onClick={() => (window.location.href = '/')}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-ink-200 bg-white hover:bg-ink-50 text-ink-700 text-sm font-bold transition shadow-sm"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-              Go home
-            </button>
-          </div>
-
-          <p className="mt-6 text-xs font-medium text-ink-400">
-            Need help?{' '}
-            <a
-              href="/support"
-              className="text-primary-600 hover:text-primary-700 font-bold transition"
-            >
-              Contact support
-            </a>
-          </p>
         </div>
       </div>
     );

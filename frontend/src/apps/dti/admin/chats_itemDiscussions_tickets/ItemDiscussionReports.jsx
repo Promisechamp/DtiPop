@@ -1,144 +1,282 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+// src/admin/ItemDiscussionReports.jsx
+
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Flag,
   Clock,
   CheckCircle,
   XCircle,
-  Search,
-  Filter,
-  ChevronDown,
-  ChevronUp,
-  ChevronLeft,
-  ChevronRight,
+  Eye,
   MessageCircle,
   PenLine,
   Trash2,
   AlertTriangle,
-  Grid,
-  Table,
-  Minus,
-  Plus as PlusIcon,
-  X,
-  Eye,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  Filter as FilterIcon,
 } from 'lucide-react';
 
 import { itemDiscussionsAPI } from '@/services/api/dtiApi';
 import Modal from '@/reusables/Modal';
-import { useBreakpoint } from '@/reusables/Breakpoint';
+import Select from '@/reusables/Select';
+import FilterBar, { ColumnStepper, ViewToggle } from '@/reusables/FilterBar';
+import { usePageState } from '@/hooks/usePageState';
 
 const ITEMS_PER_PAGE = 20;
 
-const STATUS_OPTIONS = [
-  { value: 'all', label: 'All' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'reviewed', label: 'Reviewed' },
-  { value: 'resolved', label: 'Resolved' },
-  { value: 'dismissed', label: 'Dismissed' },
-];
+/* ============================================================
+   PAGE CONFIG — stable module-level refs
+============================================================ */
 
-const STATUS_COLORS = {
-  pending: 'bg-amber-50 text-amber-700 border-amber-200',
-  reviewed: 'bg-blue-50 text-blue-700 border-blue-200',
-  resolved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  dismissed: 'bg-ink-50 text-ink-600 border-ink-200',
+const URL_DEFAULTS = {
+  search: '',
+  filter: 'all',
+  sortBy: 'newest',
+  sortOrder: 'desc',
+  page: 1,
 };
 
-// ============================================================
-// Skeleton (matches AdminSupport)
-// ============================================================
-const ReportsSkeleton = () => (
-  <div className="min-h-screen bg-ink-50/30 px-2">
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="animate-pulse">
-          <div className="mb-2 flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-ink-200" />
-            <div className="h-3 w-40 rounded bg-ink-200" />
-          </div>
-          <div className="h-9 w-56 rounded bg-ink-200" />
-          <div className="mt-2 h-4 w-72 max-w-full rounded bg-ink-200" />
-        </div>
-      </div>
+const FILTER_KEYS = ['search', 'filter', 'sortBy', 'sortOrder'];
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="rounded-2xl border border-ink-100/80 bg-white p-4 shadow-sm">
-            <div className="animate-pulse">
-              <div className="flex items-center justify-between gap-3">
-                <div className="h-3 w-20 rounded bg-ink-200" />
-                <div className="h-9 w-9 rounded-xl bg-ink-200" />
-              </div>
-              <div className="mt-2 h-8 w-12 rounded bg-ink-200" />
+const FILTER_RESET = {
+  search: '',
+  filter: 'all',
+  sortBy: 'newest',
+  sortOrder: 'desc',
+  page: 1,
+};
+
+/* ============================================================
+   CONSTANTS
+============================================================ */
+
+const STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending', icon: Clock, color: 'yellow' },
+  { value: 'reviewed', label: 'Reviewed', icon: Eye, color: 'blue' },
+  { value: 'resolved', label: 'Resolved', icon: CheckCircle, color: 'green' },
+  { value: 'dismissed', label: 'Dismissed', icon: XCircle, color: 'gray' },
+];
+
+const statusFilterOptions = [
+  { value: 'all', label: 'All Statuses', icon: FilterIcon },
+  ...STATUS_OPTIONS.map(({ value, label, icon }) => ({ value, label, icon })),
+];
+
+const sortOptions = [
+  { value: 'newest', label: 'Newest First', icon: ArrowDown },
+  { value: 'oldest', label: 'Oldest First', icon: ArrowUp },
+  { value: 'status', label: 'Status', icon: ArrowUpDown },
+];
+
+const getStatusBadgeClass = (status) => {
+  const map = {
+    pending: 'border-warning-200 bg-warning-50 text-warning-700',
+    reviewed: 'border-primary-200 bg-primary-50 text-primary-700',
+    resolved: 'border-success-200 bg-success-50 text-success-700',
+    dismissed: 'border-ink-200 bg-ink-50 text-ink-600',
+  };
+  return map[status] || map.dismissed;
+};
+
+const formatDate = (date) => {
+  if (!date) return 'N/A';
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return 'N/A';
+  return parsed.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
+
+/* ============================================================
+   SKELETON
+============================================================ */
+
+const ReportsSkeleton = ({ embedded = false }) => {
+  const content = (
+    <div className="space-y-7">
+      {!embedded && (
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <div className="mb-2 flex items-center gap-2">
+              <div className="h-3.5 w-3.5 animate-pulse rounded bg-ink-200" />
+              <div className="h-3 w-32 animate-pulse rounded bg-ink-200" />
             </div>
+            <div className="h-8 w-64 animate-pulse rounded bg-ink-200" />
+            <div className="mt-3 h-4 w-72 max-w-full animate-pulse rounded bg-ink-200" />
+          </div>
+          <div className="h-11 w-40 animate-pulse rounded-xl bg-ink-200" />
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div
+            key={i}
+            className="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="h-3 w-20 animate-pulse rounded-full bg-ink-100" />
+              <div className="h-9 w-9 animate-pulse rounded-xl bg-ink-100" />
+            </div>
+            <div className="mt-2 h-8 w-12 animate-pulse rounded bg-ink-100" />
           </div>
         ))}
       </div>
 
-      <div className="overflow-visible rounded-2xl border border-ink-100/80 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3 animate-pulse">
-            <div className="h-10 w-10 rounded-xl bg-ink-200" />
-            <div>
-              <div className="h-4 w-36 rounded bg-ink-200" />
-              <div className="mt-1.5 h-3 w-28 rounded bg-ink-200" />
-            </div>
-          </div>
-          <div className="flex items-center justify-between gap-3 border-t border-ink-50 pt-3 sm:justify-end sm:border-0 sm:pt-0">
-            <div className="h-9 w-24 rounded-xl bg-ink-200 animate-pulse" />
-            <div className="h-9 w-24 rounded-xl bg-ink-200 animate-pulse" />
+      <div className="rounded-3xl border border-ink-100 bg-white p-3 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="h-12 flex-1 animate-pulse rounded-2xl bg-ink-100" />
+          <div className="flex gap-2">
+            <div className="h-12 w-32 animate-pulse rounded-2xl bg-ink-100" />
+            <div className="h-12 w-12 animate-pulse rounded-2xl bg-ink-100" />
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {[...Array(6)].map((_, i) => (
+      <div className="overflow-hidden rounded-[26px] border border-ink-100 bg-white shadow-sm">
+        {Array.from({ length: 8 }).map((_, i) => (
           <div
             key={i}
-            className="flex flex-col justify-between overflow-hidden rounded-2xl border border-ink-100/80 bg-white shadow-sm"
+            className="flex items-center gap-4 border-b border-ink-100 px-5 py-4 last:border-0"
           >
-            <div className="space-y-3 p-4 animate-pulse">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-ink-200" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 w-2/3 rounded bg-ink-200" />
-                  <div className="h-3 w-1/3 rounded bg-ink-200" />
-                </div>
-              </div>
-              <div className="h-3 w-full rounded bg-ink-200" />
-              <div className="h-3 w-4/5 rounded bg-ink-200" />
-              <div className="h-16 rounded-xl bg-ink-200" />
+            <div className="h-10 w-10 animate-pulse rounded-full bg-ink-100" />
+            <div className="flex-1 space-y-1.5">
+              <div className="h-3.5 w-1/3 animate-pulse rounded bg-ink-100" />
+              <div className="h-2.5 w-1/4 animate-pulse rounded bg-ink-100" />
             </div>
-            <div className="border-t border-ink-100 bg-ink-50/50 px-4 py-3 flex gap-2 animate-pulse">
-              <div className="h-8 w-8 rounded-lg bg-ink-200" />
-              <div className="h-8 w-8 rounded-lg bg-ink-200" />
+            <div className="h-5 w-16 animate-pulse rounded-full bg-ink-100" />
+            <div className="h-5 w-20 animate-pulse rounded-full bg-ink-100" />
+            <div className="h-4 w-24 animate-pulse rounded bg-ink-100" />
+            <div className="flex gap-1">
+              {Array.from({ length: 3 }).map((_, j) => (
+                <div
+                  key={j}
+                  className="h-8 w-8 animate-pulse rounded-lg bg-ink-100"
+                />
+              ))}
             </div>
           </div>
         ))}
       </div>
     </div>
-  </div>
-);
+  );
 
-// ============================================================
-// Main Component
-// ============================================================
+  if (embedded) return content;
+
+  return (
+    <div className="min-h-full bg-transparent">
+      <div className="mx-auto w-full max-w-[1500px]">{content}</div>
+    </div>
+  );
+};
+
+/* ============================================================
+   STAT CARD
+============================================================ */
+
+function StatCard({
+  label,
+  value,
+  subtext,
+  icon: Icon,
+  tone = 'ink',
+  active = false,
+  onClick,
+}) {
+  const tones = {
+    ink: { color: 'text-ink-900', bg: 'bg-ink-50' },
+    warning: { color: 'text-warning-600', bg: 'bg-warning-50' },
+    success: { color: 'text-success-600', bg: 'bg-success-50' },
+    danger: { color: 'text-danger-600', bg: 'bg-danger-50' },
+    primary: { color: 'text-primary-600', bg: 'bg-primary-50' },
+  };
+
+  const style = tones[tone] || tones.ink;
+  const Component = onClick ? 'button' : 'div';
+
+  return (
+    <Component
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      className={`group w-full rounded-2xl border bg-white p-4 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-ink-200 hover:shadow-md ${
+        active
+          ? 'border-primary-400 ring-2 ring-primary-500/20'
+          : 'border-ink-100'
+      }`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <p
+          className={`truncate text-xs font-bold ${
+            active ? 'text-primary-700' : 'text-ink-500'
+          }`}
+        >
+          {label}
+        </p>
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${style.bg}`}
+        >
+          <Icon size={15} className={style.color} />
+        </span>
+      </div>
+      <p className={`mt-2 text-2xl font-black tracking-tight ${style.color}`}>
+        {typeof value === 'number' ? value.toLocaleString() : value}
+      </p>
+      {subtext && (
+        <p className="mt-0.5 text-[10px] font-bold text-ink-400">{subtext}</p>
+      )}
+    </Component>
+  );
+}
+
+/* ============================================================
+   MAIN COMPONENT
+============================================================ */
+
 const ItemDiscussionReports = ({ embedded = false }) => {
-  const breakpoint = useBreakpoint();
+  /* ---------- URL + localStorage state ---------- */
+  const {
+    filters,
+    setFilters,
+    viewMode,
+    setViewMode,
+    gridCols,
+    setGridCols,
+    filtersExpanded,
+    setFiltersExpanded,
+  } = usePageState({
+    namespace: 'admin.itemDiscussionReports',
+    urlDefaults: URL_DEFAULTS,
+    filterKeys: FILTER_KEYS,
+  });
 
+  const {
+    search,
+    filter,
+    sortBy,
+    sortOrder,
+    page: currentPage,
+  } = filters;
+
+  /* ---------- grid style derived from persisted gridCols ---------- */
+  const gridStyle = useMemo(
+    () => ({ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }),
+    [gridCols]
+  );
+
+  /* ---------- data state ---------- */
   const [reports, setReports] = useState([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState('all');
-  const [search, setSearch] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [viewMode, setViewMode] = useState('cards');
-  const [gridCols, setGridCols] = useState(4);
-  const [isCustomCols, setIsCustomCols] = useState(false);
-  const [filtersExpanded, setFiltersExpanded] = useState(false);
 
+  /* ---------- modals ---------- */
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
   const [newStatus, setNewStatus] = useState('');
@@ -147,22 +285,17 @@ const ItemDiscussionReports = ({ embedded = false }) => {
   const [deleteReport, setDeleteReport] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  const getDefaultCols = useCallback((bp) => {
-    if (bp === 'xs' || bp === 'sm') return 1;
-    if (bp === 'md') return 2;
-    if (bp === 'lg') return 3;
-    if (bp === 'xl' || bp === '2xl') return 4;
-    return 4;
-  }, []);
-
-  useEffect(() => {
-    if (!isCustomCols) setGridCols(getDefaultCols(breakpoint));
-  }, [breakpoint, isCustomCols, getDefaultCols]);
+  /* ============================================================
+     FETCH
+  ============================================================ */
 
   const fetchReports = useCallback(async () => {
     setRefreshing(true);
     try {
-      const params = { status: filter === 'all' ? undefined : filter, limit: 100 };
+      const params = {
+        status: filter === 'all' ? undefined : filter,
+        limit: 100,
+      };
       const response = await itemDiscussionsAPI.adminGetReports(params);
       setReports(response.data?.reports || []);
     } catch (error) {
@@ -178,9 +311,17 @@ const ItemDiscussionReports = ({ embedded = false }) => {
     fetchReports();
   }, [fetchReports]);
 
+  /* ============================================================
+     FILTERED + SORTED (client-side narrowing)
+  ============================================================ */
+
   const filteredReports = useMemo(() => {
     let result = [...reports];
-    if (filter !== 'all') result = result.filter((r) => r.status === filter);
+
+    if (filter !== 'all') {
+      result = result.filter((r) => r.status === filter);
+    }
+
     if (search) {
       const term = search.toLowerCase();
       result = result.filter(
@@ -191,8 +332,25 @@ const ItemDiscussionReports = ({ embedded = false }) => {
           r.reason?.toLowerCase().includes(term)
       );
     }
+
+    if (sortBy === 'status') {
+      result.sort((a, b) => {
+        const order = ['pending', 'reviewed', 'resolved', 'dismissed'];
+        const cmp = order.indexOf(a.status) - order.indexOf(b.status);
+        return sortOrder === 'asc' ? cmp : -cmp;
+      });
+    } else if (sortBy === 'oldest') {
+      result.sort(
+        (a, b) => new Date(a.created_at) - new Date(b.created_at)
+      );
+    } else {
+      result.sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+      );
+    }
+
     return result;
-  }, [reports, filter, search]);
+  }, [reports, filter, search, sortBy, sortOrder]);
 
   const totalPages = Math.ceil(filteredReports.length / ITEMS_PER_PAGE);
   const paginatedReports = filteredReports.slice(
@@ -200,32 +358,74 @@ const ItemDiscussionReports = ({ embedded = false }) => {
     currentPage * ITEMS_PER_PAGE
   );
 
-  const getCount = (status) =>
-    status === 'all' ? reports.length : reports.filter((r) => r.status === status).length;
+  /* ============================================================
+     STATS
+  ============================================================ */
 
-  const stats = useMemo(
-    () => ({
+  const stats = useMemo(() => {
+    const acc = {
       total: reports.length,
-      pending: getCount('pending'),
-      reviewed: getCount('reviewed'),
-      resolved: getCount('resolved'),
-      dismissed: getCount('dismissed'),
-    }),
-    [reports]
-  );
+      pending: 0,
+      reviewed: 0,
+      resolved: 0,
+      dismissed: 0,
+    };
+    reports.forEach((r) => {
+      if (acc[r.status] !== undefined) acc[r.status]++;
+    });
+    return acc;
+  }, [reports]);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filter !== 'all') count++;
     if (search) count++;
+    if (sortBy !== 'newest') count++;
+    if (sortOrder !== 'desc') count++;
     return count;
-  }, [filter, search]);
+  }, [filter, search, sortBy, sortOrder]);
+
+  const hasActiveFilters =
+    filter !== 'all' ||
+    Boolean(search) ||
+    sortBy !== 'newest' ||
+    sortOrder !== 'desc';
+
+  const activeFilterChips = [
+    filter !== 'all' && {
+      key: 'status',
+      label: STATUS_OPTIONS.find((s) => s.value === filter)?.label || filter,
+      onRemove: () => setFilters({ filter: 'all' }),
+    },
+    search && {
+      key: 'search',
+      label: `Search: ${search}`,
+      onRemove: () => setFilters({ search: '' }),
+    },
+    sortBy !== 'newest' && {
+      key: 'sort',
+      label: sortOptions.find((o) => o.value === sortBy)?.label || sortBy,
+      onRemove: () => setFilters({ sortBy: 'newest' }),
+    },
+    sortOrder !== 'desc' && {
+      key: 'order',
+      label: sortOrder === 'asc' ? 'Ascending' : 'Descending',
+      onRemove: () => setFilters({ sortOrder: 'desc' }),
+    },
+  ].filter(Boolean);
+
+  /* ============================================================
+     ACTIONS
+  ============================================================ */
 
   const handleStatusUpdate = async () => {
     if (!selectedReport || !newStatus) return;
     setUpdatingStatus(true);
     try {
-      await itemDiscussionsAPI.adminUpdateReportStatus(selectedReport.id, newStatus);
+      await itemDiscussionsAPI.adminUpdateReportStatus(
+        selectedReport.id,
+        newStatus
+      );
       toast.success('Status updated');
       await fetchReports();
       setShowStatusModal(false);
@@ -260,515 +460,328 @@ const ItemDiscussionReports = ({ embedded = false }) => {
     setShowStatusModal(true);
   };
 
+  const openDeleteModal = (report) => {
+    setDeleteReport(report);
+    setShowDeleteModal(true);
+  };
+
   const handleStatClick = (status) => {
     if (filter !== status) {
-      setFilter(status);
-      setCurrentPage(1);
+      setFilters({ filter: status });
     }
   };
 
-  const clearAllFilters = () => {
-    setSearch('');
-    setFilter('all');
-    setCurrentPage(1);
-  };
+  const clearAllFilters = () => setFilters({ ...FILTER_RESET });
 
-  if (initialLoading) {
-    return embedded ? (
-      <div className="space-y-8 animate-pulse">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="rounded-2xl border border-ink-100/80 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div className="h-3 w-20 rounded bg-ink-200" />
-                <div className="h-9 w-9 rounded-xl bg-ink-200" />
-              </div>
-              <div className="mt-2 h-8 w-12 rounded bg-ink-200" />
-            </div>
-          ))}
-        </div>
-        <div className="h-16 rounded-2xl border border-ink-100/80 bg-white" />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-48 rounded-2xl border border-ink-100/80 bg-white" />
-          ))}
-        </div>
-      </div>
-    ) : (
-      <ReportsSkeleton />
-    );
-  }
+  /* ============================================================
+     LOADING
+  ============================================================ */
+
+  if (initialLoading) return <ReportsSkeleton embedded={embedded} />;
+
+  /* ============================================================
+     RENDER
+  ============================================================ */
+
+  const outerClass = embedded ? '' : 'min-h-full bg-transparent';
+  const innerClass = embedded
+    ? 'space-y-7'
+    : 'mx-auto w-full max-w-[1500px] space-y-7';
 
   return (
-    <div className={embedded ? '' : 'min-h-screen bg-ink-50/30 px-2'}>
-      <div className="space-y-8">
-        {/* HEADER — hidden when embedded in AdminModeration tabs */}
+    <div className={outerClass}>
+      <div className={innerClass}>
+        {/* HEADER — hidden when embedded */}
         {!embedded && (
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="mb-2 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-primary-500" />
-                <span className="text-[10px] font-black uppercase tracking-[0.18em] text-primary-600">
-                  Moderation
-                </span>
+          <header>
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0">
+                <div className="mb-2 flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary-600">
+                  <Flag size={14} />
+                  <span>Community moderation</span>
+                </div>
+
+                <h1 className="text-2xl font-black tracking-tight text-ink-950 sm:text-3xl">
+                  Community Reports
+                </h1>
+
+                <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium leading-6 text-ink-500">
+                  <span>{stats.total.toLocaleString()} reports</span>
+                  <span className="text-ink-300">·</span>
+                  <span>Reports from item discussions</span>
+                </p>
               </div>
-              <h1 className="text-2xl font-extrabold tracking-[-0.03em] text-ink-900 sm:text-3xl">
-                Community Reports
-              </h1>
-              <p className="mt-1 text-sm text-ink-500">
-                {stats.total} total reports · Reports from item discussions
-              </p>
             </div>
-          </div>
+          </header>
         )}
 
-        {/* STATS CARDS */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        {/* STATS */}
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <StatCard
             label="Total"
             value={stats.total}
+            subtext="All reports"
             icon={Flag}
-            color="text-ink-700"
-            bg="bg-ink-50"
+            tone="ink"
             active={filter === 'all'}
             onClick={() => handleStatClick('all')}
           />
           <StatCard
             label="Pending"
             value={stats.pending}
+            subtext="Awaiting review"
             icon={Clock}
-            color="text-amber-600"
-            bg="bg-amber-50"
+            tone="warning"
             active={filter === 'pending'}
             onClick={() => handleStatClick('pending')}
           />
           <StatCard
             label="Reviewed"
             value={stats.reviewed}
+            subtext="Being reviewed"
             icon={Eye}
-            color="text-blue-600"
-            bg="bg-blue-50"
+            tone="primary"
             active={filter === 'reviewed'}
             onClick={() => handleStatClick('reviewed')}
           />
           <StatCard
             label="Resolved"
             value={stats.resolved}
+            subtext="Resolved reports"
             icon={CheckCircle}
-            color="text-emerald-600"
-            bg="bg-emerald-50"
+            tone="success"
             active={filter === 'resolved'}
             onClick={() => handleStatClick('resolved')}
           />
           <StatCard
             label="Dismissed"
             value={stats.dismissed}
+            subtext="Dismissed reports"
             icon={XCircle}
-            color="text-ink-500"
-            bg="bg-ink-50"
+            tone="ink"
             active={filter === 'dismissed'}
             onClick={() => handleStatClick('dismissed')}
           />
-        </div>
+        </section>
 
-        {/* FILTER TOOLBAR */}
-        <div className="overflow-visible rounded-2xl border border-ink-100/80 bg-white shadow-sm">
-          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <button
-              type="button"
-              onClick={() => setFiltersExpanded(!filtersExpanded)}
-              className="flex items-center gap-3 text-left transition-colors"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary-100 bg-primary-50 text-primary-600">
-                <Filter size={16} />
+        {/* FILTER BAR */}
+        <FilterBar
+          searchValue={search}
+          onSearchChange={(v) => setFilters({ search: v })}
+          searchPlaceholder="Search by reporter, reported user, reason, or message..."
+          filtersOpen={filtersExpanded}
+          onToggleFilters={() => setFiltersExpanded((v) => !v)}
+          activeFilterCount={activeFilterCount}
+          onRefresh={fetchReports}
+          refreshing={refreshing}
+          activeFilters={activeFilterChips}
+          onClearAll={clearAllFilters}
+										rightSlot={<ViewToggle value={viewMode} onChange={setViewMode} />}
+        >
+          <div
+            className={`grid gap-4 ${
+              viewMode === 'cards'
+                ? 'md:grid-cols-2 lg:grid-cols-4'
+                : 'md:grid-cols-3'
+            }`}
+          >
+										
+            <Select
+              options={statusFilterOptions}
+              value={filter}
+              onChange={(value) => setFilters({ filter: value })}
+              placeholder="All Statuses"
+              showIcon
+            />
+
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <Select
+                  options={sortOptions}
+                  value={sortBy}
+                  onChange={(v) => setFilters({ sortBy: v })}
+                  placeholder="Sort By"
+                  showIcon
+                />
               </div>
-              <div>
-                <p className="text-sm font-extrabold text-ink-800">Filters & Search</p>
-                <p className="mt-0.5 text-xs text-ink-400">
-                  {activeFilterCount > 0
-                    ? `${activeFilterCount} active filter${activeFilterCount > 1 ? 's' : ''}`
-                    : 'No active filters'}
-                  {search && ' · Search active'}
-                </p>
-              </div>
-            </button>
-
-            <div className="flex items-center justify-between gap-3 border-t border-ink-50 pt-3 sm:justify-end sm:border-0 sm:pt-0">
-              {activeFilterCount > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-600 px-1.5 text-[10px] font-black text-white">
-                  {activeFilterCount}
-                </span>
-              )}
-
-              {/* VIEW TOGGLE */}
-              {viewMode === 'table' ? (
-                <div className="flex items-center rounded-xl border border-ink-200/80 bg-ink-100 p-1 shadow-sm">
-                  <button
-                    onClick={() => setViewMode('table')}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                      viewMode === 'table'
-                        ? 'bg-white text-primary-700 shadow-sm'
-                        : 'text-ink-500 hover:text-ink-800'
-                    }`}
-                  >
-                    <Table size={14} />
-                    <span>Table</span>
-                  </button>
-                  <button
-                    onClick={() => setViewMode('cards')}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                      viewMode === 'cards'
-                        ? 'bg-white text-primary-700 shadow-sm'
-                        : 'text-ink-500 hover:text-ink-800'
-                    }`}
-                  >
-                    <Grid size={14} />
-                    <span>Cards</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center rounded-xl border border-ink-200/80 bg-ink-100 p-1 shadow-sm">
-                  <button
-                    onClick={() => setViewMode('table')}
-                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition text-ink-500 hover:text-ink-800"
-                  >
-                    <Table size={14} />
-                    <span>Table</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsCustomCols(true);
-                      setGridCols(Math.max(1, gridCols - 1));
-                    }}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-500 transition hover:bg-white/50 hover:text-primary-700"
-                    title="Fewer columns"
-                  >
-                    <Minus size={12} />
-                  </button>
-                  <span className="min-w-[1.5rem] px-2 text-center text-xs font-bold text-ink-700">
-                    {gridCols}
-                  </span>
-                  <button
-                    onClick={() => {
-                      setIsCustomCols(true);
-                      setGridCols(Math.min(4, gridCols + 1));
-                    }}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-500 transition hover:bg-white/50 hover:text-primary-700"
-                    title="More columns"
-                  >
-                    <PlusIcon size={12} />
-                  </button>
-                </div>
-              )}
-
               <button
                 type="button"
-                onClick={() => setFiltersExpanded(!filtersExpanded)}
-                className="rounded-xl border border-ink-200/80 bg-ink-100 px-3.5 py-2 text-xs font-bold text-ink-700 shadow-sm hover:bg-ink-50"
+                onClick={() =>
+                  setFilters({
+                    sortOrder: sortOrder === 'asc' ? 'desc' : 'asc',
+                  })
+                }
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-ink-200 bg-white text-ink-600 transition hover:bg-ink-50"
+                title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
               >
-                <span>{filtersExpanded ? 'Hide' : 'Expand'}</span>
-                {filtersExpanded ? (
-                  <ChevronUp size={10} className="ml-1 inline" />
+                {sortOrder === 'asc' ? (
+                  <ArrowUp size={15} />
                 ) : (
-                  <ChevronDown size={10} className="ml-1 inline" />
+                  <ArrowDown size={15} />
                 )}
               </button>
             </div>
-          </div>
 
-          {/* Expanded Filter Area */}
-          <AnimatePresence>
-            {filtersExpanded && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: 'easeInOut' }}
-                className="overflow-hidden border-t border-ink-100"
-              >
-                <div className="space-y-4 bg-ink-50/20 px-5 py-4">
-                  <div className="relative">
-                    <Search
-                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400"
-                      size={16}
-                    />
-                    <input
-                      type="text"
-                      value={search}
-                      onChange={(e) => {
-                        setSearch(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                      placeholder="Search by reporter, reported user, reason, or message..."
-                      className="w-full rounded-xl border border-ink-100 bg-white py-3 pl-10 pr-4 text-sm text-ink-800 outline-none transition-all placeholder:text-ink-400 focus:border-primary-300 focus:ring-4 focus:ring-primary-100"
-                    />
-                  </div>
-                  {(activeFilterCount > 0 || search) && (
-                    <div className="flex justify-end pt-1">
-                      <button
-                        type="button"
-                        onClick={clearAllFilters}
-                        className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-rose-600 transition-colors hover:bg-rose-50"
-                      >
-                        <X size={14} />
-                        Clear All
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
+            {viewMode === 'cards' && (
+              <ColumnStepper
+                label="Grid columns"
+                value={gridCols}
+                onChange={setGridCols}
+                min={1}
+                max={4}
+              />
             )}
-          </AnimatePresence>
+          </div>
+        </FilterBar>
+
+        {/* RESULT SUMMARY */}
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-bold text-ink-500">
+            {filteredReports.length === stats.total
+              ? stats.total === 1
+                ? '1 report'
+                : `${stats.total.toLocaleString()} reports`
+              : `Showing ${filteredReports.length} of ${stats.total.toLocaleString()} reports`}
+          </p>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="text-xs font-extrabold text-primary-600 hover:text-primary-700"
+            >
+              Reset filters
+            </button>
+          )}
         </div>
 
-        {/* CONTENT */}
+        {/* EMPTY */}
         {filteredReports.length === 0 ? (
-          <div className="relative overflow-hidden rounded-2xl border border-ink-100/80 bg-white p-12 text-center shadow-sm">
-            <div className="pointer-events-none absolute left-1/2 top-0 h-40 w-64 -translate-x-1/2 rounded-full bg-primary-100/40 blur-3xl" />
-            <div className="relative">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary-100 bg-primary-50 text-primary-500 shadow-sm">
-                <Flag size={24} />
+          <div className="flex min-h-[420px] items-center justify-center rounded-[28px] border border-dashed border-ink-200 bg-white px-6 py-12">
+            <div className="mx-auto max-w-md text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-primary-50 text-primary-600">
+                <Flag size={27} />
               </div>
-              <h3 className="text-lg font-extrabold text-ink-800">No reports found</h3>
-              <p className="mx-auto mt-1 max-w-md text-sm text-ink-400">
-                {filter !== 'all' || search
-                  ? 'Try adjusting your filters or search term.'
-                  : 'No community reports available right now.'}
+              <h2 className="mt-5 text-lg font-black text-ink-950">
+                No reports found
+              </h2>
+              <p className="mt-2 text-sm font-medium leading-6 text-ink-500">
+                {hasActiveFilters
+                  ? 'Try adjusting your search or filters to find the reports you are looking for.'
+                  : 'No community reports have been submitted yet.'}
               </p>
             </div>
           </div>
-        ) : viewMode === 'cards' ? (
-          <motion.div
-            className="grid gap-4"
-            animate={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          >
-            {paginatedReports.map((report) => {
-              const message = report.message || {};
-              const author = message.author || {};
-              const isDeleted = message.is_deleted || false;
-
-              return (
-                <motion.div
-                  key={report.id}
-                  layout
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                  className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-ink-100/80 bg-white shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
-                >
-                  <div className="p-4 space-y-3">
-                    {/* Header */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-3 min-w-0">
-                        {report.reporter?.avatar_url ? (
-                          <img
-                            src={report.reporter.avatar_url}
-                            alt={report.reporter?.full_name || 'Reporter'}
-                            className="h-10 w-10 rounded-full object-cover border border-ink-100 shadow-sm shrink-0"
-                          />
-                        ) : (
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-ink-100 border border-ink-200 shrink-0 text-xs font-bold text-ink-600">
-                            {(report.reporter?.full_name || 'U').charAt(0)}
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <Link
-                            to={`/admin/users-profile/${report.reporter?.id}`}
-                            className="block truncate text-sm font-extrabold text-ink-900 hover:text-primary-600 transition"
-                            title={report.reporter?.full_name || 'Unknown'}
-                          >
-                            {report.reporter?.full_name || 'Unknown'}
-                          </Link>
-                          <p className="truncate text-xs text-ink-400 mt-0.5">
-                            {new Date(report.created_at).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })}
-                          </p>
-                        </div>
-                      </div>
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold shrink-0 ${
-                          STATUS_COLORS[report.status] || 'bg-ink-50 text-ink-600 border-ink-200'
-                        }`}
-                      >
-                        {report.status}
-                      </span>
-                    </div>
-
-                    {/* Reported user */}
-                    <div>
-                      <span className="text-[10px] font-extrabold text-ink-500 uppercase tracking-wider">
-                        Reported User
-                      </span>
-                      {author.id ? (
-                        <Link
-                          to={`/admin/users-profile/${author.id}`}
-                          className="mt-0.5 block truncate text-sm font-bold text-ink-800 hover:text-primary-600 transition"
-                          title={author.full_name || 'Unknown'}
-                        >
-                          {author.full_name || 'Unknown'}
-                        </Link>
-                      ) : (
-                        <p className="mt-0.5 text-sm text-ink-400 italic">Unknown</p>
-                      )}
-                    </div>
-
-                    {/* Message */}
-                    {message.id && (
-                      <div>
-                        <span className="text-[10px] font-extrabold text-ink-500 uppercase tracking-wider">
-                          Message
-                        </span>
-                        <Link
-                          to={`/admin/discussions/item/${message.item_id}?message=${message.id}&case=reported`}
-                          className="mt-0.5 block text-sm text-ink-600 hover:text-primary-600 transition line-clamp-2 leading-relaxed"
-                          title={message.content || ''}
-                        >
-                          {isDeleted ? (
-                            <span className="text-ink-400 italic line-through">
-                              [deleted] {message.content}
-                            </span>
-                          ) : (
-                            message.content
-                          )}
-                        </Link>
-                      </div>
-                    )}
-
-                    {/* Reason */}
-                    <div>
-                      <span className="text-[10px] font-extrabold text-ink-500 uppercase tracking-wider">
-                        Reason
-                      </span>
-                      <p
-                        className="mt-0.5 text-sm font-bold text-ink-800 truncate"
-                        title={report.reason || 'No reason'}
-                      >
-                        {report.reason || 'No reason'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Action bar */}
-                  <div className="border-t border-ink-100 bg-ink-50/50 px-4 py-3 flex items-center justify-between gap-2 rounded-b-2xl">
-                    {message.id ? (
-                      <Link
-                        to={`/admin/discussions/item/${message.item_id}?message=${message.id}&case=reported`}
-                        className="inline-flex h-9 items-center gap-2 px-3.5 rounded-xl text-xs font-bold bg-primary-50 text-primary-700 hover:bg-primary-100 border border-primary-200 shadow-xs transition"
-                      >
-                        <MessageCircle size={14} />
-                        <span>View</span>
-                      </Link>
-                    ) : (
-                      <span className="text-xs text-ink-400 italic">No message</span>
-                    )}
-
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => openStatusModal(report)}
-                        className="flex h-9 w-9 items-center justify-center rounded-xl bg-white border border-ink-200/70 text-ink-500 hover:bg-ink-100 hover:text-primary-600 transition shadow-xs"
-                        title="Change Status"
-                      >
-                        <PenLine size={14} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setDeleteReport(report);
-                          setShowDeleteModal(true);
-                        }}
-                        className="flex h-9 w-9 items-center justify-center rounded-xl bg-white border border-ink-200/70 text-ink-400 hover:bg-rose-50 hover:text-rose-600 transition shadow-xs"
-                        title="Delete Report"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </motion.div>
-        ) : (
+        ) : viewMode === 'table' ? (
           /* TABLE VIEW */
-          <div className="bg-white rounded-2xl border border-ink-100/80 shadow-sm overflow-hidden">
+          <div className="overflow-hidden rounded-[26px] border border-ink-100 bg-white shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full">
                 <thead>
-                  <tr className="bg-ink-50/80 border-b border-ink-200/60 text-[11px] font-black uppercase tracking-wider text-ink-500">
-                    <th className="py-3 px-4">Reporter</th>
-                    <th className="py-3 px-4">Reported User</th>
-                    <th className="py-3 px-4">Message</th>
-                    <th className="py-3 px-4">Reason</th>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4">Date</th>
-                    <th className="py-3 px-4 text-right">Actions</th>
+                  <tr className="border-b border-ink-100 bg-ink-50/60">
+                    <th className="px-5 py-3 text-left text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink-400">
+                      Reporter
+                    </th>
+                    <th className="hidden px-5 py-3 text-left text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink-400 md:table-cell">
+                      Reported User
+                    </th>
+                    <th className="hidden px-5 py-3 text-left text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink-400 lg:table-cell">
+                      Message
+                    </th>
+                    <th className="px-5 py-3 text-left text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink-400">
+                      Reason
+                    </th>
+                    <th className="px-5 py-3 text-left text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink-400">
+                      Status
+                    </th>
+                    <th className="hidden whitespace-nowrap px-5 py-3 text-left text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink-400 sm:table-cell">
+                      Date
+                    </th>
+                    <th className="px-5 py-3 text-right text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink-400">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-ink-100 text-xs text-ink-700">
+
+                <tbody className="divide-y divide-ink-100">
                   {paginatedReports.map((report) => {
                     const message = report.message || {};
                     const author = message.author || {};
                     const isDeleted = message.is_deleted || false;
 
                     return (
-                      <tr key={report.id} className="hover:bg-primary-50/20 transition group">
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
+                      <tr
+                        key={report.id}
+                        className="transition hover:bg-ink-50/60"
+                      >
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-3">
                             {report.reporter?.avatar_url ? (
                               <img
                                 src={report.reporter.avatar_url}
                                 alt=""
-                                className="w-6 h-6 rounded-full object-cover ring-1 ring-ink-200"
+                                className="h-9 w-9 shrink-0 rounded-full border border-ink-100 object-cover"
                               />
                             ) : (
-                              <div className="w-6 h-6 rounded-full bg-ink-100 flex items-center justify-center text-[10px] font-bold text-ink-600">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-ink-100 bg-ink-50 text-[10px] font-extrabold text-ink-500">
                                 {(report.reporter?.full_name || 'U').charAt(0)}
                               </div>
                             )}
-                            <Link
-                              to={`/admin/users-profile/${report.reporter?.id}`}
-                              className="font-bold text-ink-800 hover:text-primary-600 hover:underline transition truncate"
-                              title={report.reporter?.full_name || 'Unknown'}
-                            >
-                              {report.reporter?.full_name || 'Unknown'}
-                            </Link>
+                            <div className="min-w-0">
+                              <Link
+                                to={`/admin/users-profile/${
+                                  report.reporter?.id || ''
+                                }`}
+                                className="block truncate text-sm font-extrabold text-ink-950 transition hover:text-primary-600"
+                                title={report.reporter?.full_name || 'Unknown'}
+                              >
+                                {report.reporter?.full_name || 'Unknown'}
+                              </Link>
+                              <p className="truncate text-[11px] font-bold text-ink-400">
+                                {formatDate(report.created_at)}
+                              </p>
+                            </div>
                           </div>
                         </td>
-                        <td className="py-3.5 px-4 whitespace-nowrap">
+
+                        <td className="hidden px-5 py-3.5 md:table-cell">
                           {author.id ? (
                             <div className="flex items-center gap-2">
                               {author.avatar_url ? (
                                 <img
                                   src={author.avatar_url}
                                   alt=""
-                                  className="w-6 h-6 rounded-full object-cover ring-1 ring-ink-200"
+                                  className="h-7 w-7 shrink-0 rounded-full border border-ink-100 object-cover"
                                 />
                               ) : (
-                                <div className="w-6 h-6 rounded-full bg-ink-100 flex items-center justify-center text-[10px] font-bold text-ink-600">
+                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-ink-100 bg-ink-50 text-[10px] font-extrabold text-ink-500">
                                   {(author.full_name || 'U').charAt(0)}
                                 </div>
                               )}
                               <Link
                                 to={`/admin/users-profile/${author.id}`}
-                                className="font-bold text-ink-800 hover:text-primary-600 hover:underline transition truncate"
+                                className="truncate text-xs font-extrabold text-ink-800 transition hover:text-primary-600"
                                 title={author.full_name || 'Unknown'}
                               >
                                 {author.full_name || 'Unknown'}
                               </Link>
                             </div>
                           ) : (
-                            <span className="text-ink-400 italic">Unknown</span>
+                            <span className="text-xs font-bold italic text-ink-300">
+                              Unknown
+                            </span>
                           )}
                         </td>
-                        <td className="py-3.5 px-4 max-w-[200px]">
+
+                        <td className="hidden px-5 py-3.5 lg:table-cell">
                           {message.id ? (
                             <Link
                               to={`/admin/discussions/item/${message.item_id}?message=${message.id}&case=reported`}
-                              className="block text-ink-600 hover:text-primary-600 transition truncate"
+                              className="block max-w-[220px] truncate text-xs font-bold text-ink-500 transition hover:text-primary-600"
                               title={message.content || ''}
                             >
                               {isDeleted ? (
-                                <span className="text-ink-400 italic line-through">
+                                <span className="line-through text-ink-400">
                                   [deleted] {message.content}
                                 </span>
                               ) : (
@@ -776,57 +789,61 @@ const ItemDiscussionReports = ({ embedded = false }) => {
                               )}
                             </Link>
                           ) : (
-                            <span className="text-ink-400 italic">Message not found</span>
+                            <span className="text-xs font-bold italic text-ink-300">
+                              Message not found
+                            </span>
                           )}
                         </td>
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span className="capitalize font-medium">{report.reason}</span>
+
+                        <td className="px-5 py-3.5">
+                          <p className="truncate text-sm font-extrabold capitalize text-ink-950">
+                            {report.reason || 'No reason'}
+                          </p>
                         </td>
-                        <td className="py-3.5 px-4 whitespace-nowrap">
+
+                        <td className="px-5 py-3.5">
                           <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
-                              STATUS_COLORS[report.status] ||
-                              'bg-ink-50 text-ink-600 border-ink-200'
-                            }`}
+                            className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-1 text-[10px] font-extrabold capitalize ${getStatusBadgeClass(
+                              report.status
+                            )}`}
                           >
                             {report.status}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 whitespace-nowrap text-ink-500 font-medium">
-                          {new Date(report.created_at).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
+
+                        <td className="hidden whitespace-nowrap px-5 py-3.5 text-xs font-bold text-ink-500 sm:table-cell">
+                          {formatDate(report.created_at)}
                         </td>
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1.5">
+
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center justify-end gap-1">
                             {message.id && (
                               <Link
                                 to={`/admin/discussions/item/${message.item_id}?message=${message.id}&case=reported`}
-                                className="px-2.5 py-1 bg-primary-50 text-primary-700 hover:bg-primary-100 rounded-lg text-xs font-bold transition flex items-center gap-1 border border-primary-200"
+                                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-primary-200 bg-primary-50 px-2.5 text-[11px] font-extrabold text-primary-700 transition hover:bg-primary-100"
                                 title="View Discussion"
                               >
                                 <MessageCircle size={12} />
                                 <span>View</span>
                               </Link>
                             )}
+
                             <button
+                              type="button"
                               onClick={() => openStatusModal(report)}
-                              className="p-1.5 text-ink-500 hover:text-primary-600 hover:bg-ink-100 rounded-lg transition"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition hover:bg-primary-50 hover:text-primary-600"
                               title="Change Status"
                             >
-                              <PenLine size={14} />
+                              <PenLine size={15} />
                             </button>
+
                             <button
-                              onClick={() => {
-                                setDeleteReport(report);
-                                setShowDeleteModal(true);
-                              }}
-                              className="p-1.5 text-ink-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                              type="button"
+                              onClick={() => openDeleteModal(report)}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition hover:bg-danger-50 hover:text-danger-600"
                               title="Delete Report"
                             >
-                              <Trash2 size={14} />
+                              <Trash2 size={15} />
                             </button>
                           </div>
                         </td>
@@ -837,22 +854,169 @@ const ItemDiscussionReports = ({ embedded = false }) => {
               </table>
             </div>
           </div>
+        ) : (
+          /* GRID VIEW */
+          <motion.div
+            className="grid gap-4"
+            animate={gridStyle}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          >
+            {paginatedReports.map((report) => {
+              const message = report.message || {};
+              const author = message.author || {};
+              const isDeleted = message.is_deleted || false;
+
+              return (
+                <motion.article
+                  key={report.id}
+                  layout
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  className="group flex flex-col overflow-hidden rounded-[26px] border border-ink-100 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-ink-200 hover:shadow-md"
+                >
+                  <div className="space-y-3 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-3">
+                        {report.reporter?.avatar_url ? (
+                          <img
+                            src={report.reporter.avatar_url}
+                            alt=""
+                            className="h-9 w-9 shrink-0 rounded-full border border-ink-100 object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-ink-100 bg-ink-50 text-[10px] font-extrabold text-ink-500">
+                            {(report.reporter?.full_name || 'U').charAt(0)}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <Link
+                            to={`/admin/users-profile/${
+                              report.reporter?.id || ''
+                            }`}
+                            className="block truncate text-sm font-extrabold text-ink-950 transition hover:text-primary-600"
+                            title={report.reporter?.full_name || 'Unknown'}
+                          >
+                            {report.reporter?.full_name || 'Unknown'}
+                          </Link>
+                          <p className="truncate text-[11px] font-bold text-ink-400">
+                            {formatDate(report.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-1 text-[10px] font-extrabold capitalize ${getStatusBadgeClass(
+                          report.status
+                        )}`}
+                      >
+                        {report.status}
+                      </span>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-500">
+                        Reported User
+                      </p>
+                      {author.id ? (
+                        <Link
+                          to={`/admin/users-profile/${author.id}`}
+                          className="mt-0.5 block truncate text-sm font-extrabold text-ink-950 transition hover:text-primary-600"
+                          title={author.full_name || 'Unknown'}
+                        >
+                          {author.full_name || 'Unknown'}
+                        </Link>
+                      ) : (
+                        <p className="mt-0.5 text-[11px] font-bold italic text-ink-400">
+                          Unknown
+                        </p>
+                      )}
+                    </div>
+
+                    {message.id && (
+                      <div>
+                        <p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-500">
+                          Message
+                        </p>
+                        <Link
+                          to={`/admin/discussions/item/${message.item_id}?message=${message.id}&case=reported`}
+                          className="mt-0.5 block line-clamp-2 text-[11px] font-bold leading-5 text-ink-500 transition hover:text-primary-600"
+                          title={message.content || ''}
+                        >
+                          {isDeleted ? (
+                            <span className="line-through text-ink-400">
+                              [deleted] {message.content}
+                            </span>
+                          ) : (
+                            message.content
+                          )}
+                        </Link>
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-500">
+                        Reason
+                      </p>
+                      <p className="mt-0.5 truncate text-sm font-extrabold capitalize text-ink-950">
+                        {report.reason || 'No reason'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 border-t border-ink-100 bg-ink-50/50 px-3 py-3">
+                    {message.id ? (
+                      <Link
+                        to={`/admin/discussions/item/${message.item_id}?message=${message.id}&case=reported`}
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-primary-200 bg-primary-50 px-2.5 text-[11px] font-extrabold text-primary-700 transition hover:bg-primary-100"
+                      >
+                        <MessageCircle size={12} />
+                        <span>View</span>
+                      </Link>
+                    ) : (
+                      <span className="text-[11px] font-bold italic text-ink-400">
+                        No message
+                      </span>
+                    )}
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openStatusModal(report)}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition hover:bg-primary-50 hover:text-primary-600"
+                        title="Change Status"
+                      >
+                        <PenLine size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openDeleteModal(report)}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition hover:bg-danger-50 hover:text-danger-600"
+                        title="Delete Report"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                </motion.article>
+              );
+            })}
+          </motion.div>
         )}
 
-        {/* Pagination */}
+        {/* PAGINATION */}
         {totalPages > 1 && (
-          <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs font-medium text-ink-400">
+          <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs font-bold text-ink-500">
               Showing{' '}
-              <span className="font-bold text-ink-600">
+              <span className="font-extrabold text-ink-700">
                 {(currentPage - 1) * ITEMS_PER_PAGE + 1}
               </span>
               –
-              <span className="font-bold text-ink-600">
-                {Math.min(currentPage * ITEMS_PER_PAGE, filteredReports.length)}
+              <span className="font-extrabold text-ink-700">
+                {Math.min(
+                  currentPage * ITEMS_PER_PAGE,
+                  filteredReports.length
+                )}
               </span>{' '}
               of{' '}
-              <span className="font-bold text-ink-600">
+              <span className="font-extrabold text-ink-700">
                 {filteredReports.length.toLocaleString()}
               </span>{' '}
               reports
@@ -860,16 +1024,20 @@ const ItemDiscussionReports = ({ embedded = false }) => {
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
-              onPageChange={setCurrentPage}
+              onPageChange={(page) => setFilters({ page })}
             />
           </div>
         )}
       </div>
 
-      {/* MODALS */}
+      {/* ============================================================
+          MODALS (unchanged)
+      ============================================================ */}
+
       <Modal
         isOpen={showStatusModal}
         onClose={() => {
+          if (updatingStatus) return;
           setShowStatusModal(false);
           setSelectedReport(null);
           setNewStatus('');
@@ -878,67 +1046,91 @@ const ItemDiscussionReports = ({ embedded = false }) => {
         size="sm"
       >
         {selectedReport && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-ink-50/50 rounded-xl border border-ink-100/60 shadow-sm">
-              <p className="text-sm font-extrabold text-ink-900 truncate">
+          <div className="space-y-5">
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-ink-100 bg-ink-50/50 p-3">
+              <p className="min-w-0 truncate text-sm font-extrabold capitalize text-ink-950">
                 {selectedReport.reason || 'Report'}
               </p>
               <span
-                className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
-                  STATUS_COLORS[selectedReport.status] ||
-                  'bg-ink-50 text-ink-600 border-ink-200'
-                }`}
+                className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-extrabold capitalize ${getStatusBadgeClass(
+                  selectedReport.status
+                )}`}
               >
                 {selectedReport.status}
               </span>
             </div>
+
             {selectedReport.message?.content && (
-              <div className="bg-ink-50/60 p-3 rounded-xl border border-ink-100 max-h-24 overflow-y-auto">
-                <p className="text-xs text-ink-600 line-clamp-3 leading-relaxed">
+              <div className="max-h-24 overflow-y-auto rounded-2xl border border-ink-100 bg-ink-50/50 p-3">
+                <p className="text-xs font-bold leading-5 text-ink-600">
                   {selectedReport.message.content}
                 </p>
               </div>
             )}
+
             <div className="space-y-2">
-              {STATUS_OPTIONS.filter((opt) => opt.value !== 'all').map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setNewStatus(opt.value)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition ${
-                    newStatus === opt.value
-                      ? 'bg-primary-50 border-primary-500 text-primary-700 shadow-sm'
-                      : 'border-ink-200 hover:border-ink-300 bg-white text-ink-700'
-                  }`}
-                >
-                  <div className="flex-1 text-left">
-                    <p className="text-sm font-extrabold capitalize">{opt.label}</p>
-                  </div>
-                  {newStatus === opt.value && (
-                    <CheckCircle size={16} className="text-primary-600" />
-                  )}
-                </button>
-              ))}
+              {STATUS_OPTIONS.map((option) => {
+                const isSelected = newStatus === option.value;
+                const Icon = option.icon;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setNewStatus(option.value)}
+                    className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${
+                      isSelected
+                        ? 'border-primary-400 bg-primary-50 text-primary-700'
+                        : 'border-ink-100 bg-ink-50/60 text-ink-700 hover:bg-white'
+                    }`}
+                  >
+                    <span
+                      className={`flex h-9 w-9 items-center justify-center rounded-xl ${
+                        isSelected
+                          ? 'bg-white shadow-sm text-primary-600'
+                          : 'bg-white text-ink-400'
+                      }`}
+                    >
+                      <Icon size={15} />
+                    </span>
+                    <span className="flex-1 text-sm font-extrabold capitalize">
+                      {option.label}
+                    </span>
+                    {isSelected && (
+                      <CheckCircle size={15} className="text-primary-600" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
-            <div className="flex gap-3 pt-2">
+
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
+                type="button"
+                disabled={updatingStatus}
                 onClick={() => {
                   setShowStatusModal(false);
                   setSelectedReport(null);
                   setNewStatus('');
                 }}
-                className="flex-1 px-4 py-2.5 bg-ink-100 hover:bg-ink-200 text-ink-700 rounded-xl font-bold transition"
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleStatusUpdate}
                 disabled={
-                  updatingStatus || !newStatus || newStatus === selectedReport.status
+                  updatingStatus ||
+                  !newStatus ||
+                  newStatus === selectedReport.status
                 }
-                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-primary-500 to-brand-600 hover:shadow-md text-white rounded-xl font-bold transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 text-sm font-extrabold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {updatingStatus ? (
-                  <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Updating...
+                  </>
                 ) : (
                   'Update Status'
                 )}
@@ -951,6 +1143,7 @@ const ItemDiscussionReports = ({ embedded = false }) => {
       <Modal
         isOpen={showDeleteModal}
         onClose={() => {
+          if (deleting) return;
           setShowDeleteModal(false);
           setDeleteReport(null);
         }}
@@ -958,50 +1151,60 @@ const ItemDiscussionReports = ({ embedded = false }) => {
         size="sm"
       >
         {deleteReport && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-rose-100 flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="text-rose-600" size={24} />
+          <div className="space-y-6">
+            <div className="flex items-start gap-4 rounded-2xl border border-danger-100 bg-danger-50 p-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-danger-100 text-danger-600">
+                <AlertTriangle size={18} />
               </div>
-              <div>
-                <p className="text-sm text-ink-600">
-                  Are you sure you want to delete this report?
+              <div className="min-w-0">
+                <p className="text-sm font-extrabold text-danger-900">
+                  Delete this report?
                 </p>
-                <p className="text-xs text-ink-400 mt-1">This action cannot be undone.</p>
+                <p className="mt-1 text-xs font-medium leading-5 text-danger-700">
+                  Are you sure you want to delete the report{' '}
+                  <strong className="capitalize">
+                    "{deleteReport.reason || 'Report'}"
+                  </strong>
+                  ? This action cannot be undone.
+                </p>
               </div>
             </div>
-            <div className="bg-ink-50/50 rounded-xl p-3 border border-ink-100/60">
-              <p className="text-xs font-bold text-ink-700">
+
+            <div className="rounded-2xl border border-ink-100 bg-ink-50/50 p-3">
+              <p className="text-xs font-extrabold capitalize text-ink-700">
                 {deleteReport.reason || 'Report'}
               </p>
-              <p className="text-xs text-ink-500 mt-0.5">
-                {new Date(deleteReport.created_at).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
+              <p className="mt-0.5 text-[11px] font-bold text-ink-500">
+                {formatDate(deleteReport.created_at)}
               </p>
             </div>
-            <div className="flex gap-3 pt-2">
+
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
+                type="button"
+                disabled={deleting}
                 onClick={() => {
                   setShowDeleteModal(false);
                   setDeleteReport(null);
                 }}
-                className="flex-1 px-4 py-2.5 bg-ink-100 hover:bg-ink-200 text-ink-700 rounded-xl font-bold transition"
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-rose-500 to-rose-600 hover:shadow-md text-white rounded-xl font-bold transition flex items-center justify-center gap-2 disabled:opacity-50"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-danger-600 px-4 text-sm font-extrabold text-white transition hover:bg-danger-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {deleting ? (
-                  <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Deleting...
+                  </>
                 ) : (
                   <>
-                    <Trash2 size={14} />
+                    <Trash2 size={15} />
                     Delete
                   </>
                 )}
@@ -1014,49 +1217,15 @@ const ItemDiscussionReports = ({ embedded = false }) => {
   );
 };
 
-// ============================================================
-// Helper Components
-// ============================================================
+/* ============================================================
+   PAGINATION — unchanged
+============================================================ */
 
-const StatCard = ({
-  label,
-  value,
-  icon: Icon,
-  color = 'text-ink-700',
-  bg = 'bg-ink-50',
-  active,
-  onClick,
-}) => {
-  return (
-    <button
-      onClick={onClick}
-      className={`group rounded-2xl border p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md text-left w-full ${
-        active
-          ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200'
-          : 'border-ink-100/80 bg-white hover:border-primary-200'
-      }`}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <p className={`text-xs font-bold ${active ? 'text-primary-700' : 'text-ink-500'}`}>
-          {label}
-        </p>
-        <div
-          className={`flex h-9 w-9 items-center justify-center rounded-xl ${bg} border border-ink-100/60`}
-        >
-          <Icon className={color} size={16} />
-        </div>
-      </div>
-      <p className={`mt-2 text-2xl font-extrabold tracking-[-0.03em] ${color}`}>
-        {typeof value === 'number' ? value.toLocaleString() : value}
-      </p>
-    </button>
-  );
-};
-
-const Pagination = ({ currentPage, totalPages, onPageChange }) => {
+function Pagination({ currentPage, totalPages, onPageChange }) {
   const getPageNumbers = () => {
     const pages = [];
     const maxVisible = 5;
+
     if (totalPages <= maxVisible) {
       for (let i = 1; i <= totalPages; i++) pages.push(i);
     } else {
@@ -1066,41 +1235,46 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
       const end = Math.min(totalPages - 1, currentPage + 1);
       for (let i = start; i <= end; i++) pages.push(i);
       if (currentPage < totalPages - 2) pages.push('...');
-      if (totalPages > 1) pages.push(totalPages);
+      pages.push(totalPages);
     }
+
     return pages;
   };
 
   if (totalPages <= 1) return null;
 
   return (
-    <div className="flex items-center gap-1 rounded-xl border border-ink-100/80 bg-white p-1 shadow-sm">
+    <div className="flex items-center gap-1 rounded-2xl border border-ink-100 bg-white p-1 shadow-sm">
       <button
+        type="button"
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
+        aria-label="Previous page"
+        className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${
           currentPage === 1
             ? 'cursor-not-allowed text-ink-200'
-            : 'text-ink-500 hover:bg-primary-50/60 hover:text-primary-600'
+            : 'text-ink-500 hover:bg-primary-50 hover:text-primary-600'
         }`}
       >
         <ChevronLeft size={14} />
       </button>
+
       {getPageNumbers().map((page, index) =>
         page === '...' ? (
           <span
             key={`dots-${index}`}
-            className="flex h-8 w-8 items-center justify-center text-xs font-medium text-ink-300"
+            className="flex h-8 w-8 items-center justify-center text-xs font-bold text-ink-300"
           >
             …
           </span>
         ) : (
           <button
+            type="button"
             key={page}
             onClick={() => onPageChange(page)}
-            className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-extrabold transition-all ${
+            className={`flex h-8 w-8 items-center justify-center rounded-xl text-xs font-extrabold transition ${
               currentPage === page
-                ? 'bg-gradient-to-r from-primary-500 to-brand-600 text-white shadow-sm'
+                ? 'bg-primary-600 text-white shadow-sm'
                 : 'text-ink-500 hover:bg-ink-50 hover:text-primary-600'
             }`}
           >
@@ -1108,19 +1282,22 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
           </button>
         )
       )}
+
       <button
+        type="button"
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
+        aria-label="Next page"
+        className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${
           currentPage === totalPages
             ? 'cursor-not-allowed text-ink-200'
-            : 'text-ink-500 hover:bg-primary-50/60 hover:text-primary-600'
+            : 'text-ink-500 hover:bg-primary-50 hover:text-primary-600'
         }`}
       >
         <ChevronRight size={14} />
       </button>
     </div>
   );
-};
+}
 
 export default ItemDiscussionReports;

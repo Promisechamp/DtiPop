@@ -1,12 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { PageNavigation, PageNavigationSkeleton } from '@/reusables/PageNavigation';
 
 const PrivacyPolicyPage = () => {
   return (
-    <div className="min-h-screen bg-ink-50/30 pb-20 mt-10">
-      <div className="mx-auto max-w-7xl px-6 py-8 sm:px-6 lg:px-8">
-        <PageNavigation />
+    <div className="min-h-screen bg-ink-50/30 pb-20 mt-0">
+      <div className="mx-auto max-w-7xl px-6 pb-8 sm:px-6 lg:px-8">
 
         <div className="mt-10">
           {/* Header (Unified) */}

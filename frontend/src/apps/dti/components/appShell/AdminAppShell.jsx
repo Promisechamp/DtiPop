@@ -19,23 +19,34 @@ import {
 } from 'framer-motion';
 
 import { useAuth } from '@/context/AuthContext';
+import { DTI_BASE, makePaths } from '@/utils/routeBases';
+
 import NotificationBell from '../../components/common/NotificationBell';
 
 import logo from '@/assets/dti.png';
+
+/* =========================================================
+   ROUTE HELPERS
+   to("/x")  -> "/app/dti/x"
+========================================================= */
+
+const { to } = makePaths(DTI_BASE);
+
+const ADMIN_HOME = to('/admin');
 
 /* =========================================================
    Sidebar item (matches public AppShell)
 ========================================================= */
 
 const SidebarItem = ({
-  to,
+  to: target,
   label,
   icon,
   onClick,
 }) => {
   return (
     <RouterNavLink
-      to={to}
+      to={target}
       onClick={onClick}
       className={({ isActive }) => `
         group relative flex items-center gap-3
@@ -81,7 +92,7 @@ const SidebarItem = ({
 ========================================================= */
 
 const IconButton = ({
-  to,
+  to: target,
   onClick,
   icon,
   label,
@@ -107,9 +118,9 @@ const IconButton = ({
     />
   );
 
-  if (to) {
+  if (target) {
     return (
-      <Link to={to} aria-label={label} title={label} className={className}>
+      <Link to={target} aria-label={label} title={label} className={className}>
         {content}
       </Link>
     );
@@ -174,29 +185,29 @@ const AdminAppShell = () => {
   ------------------------------------------------------- */
 
   const navItems = [
-    { to: '/admin', label: 'Dashboard', icon: 'bi-speedometer2' },
-    { to: '/admin/users', label: 'Users', icon: 'bi-people' },
-    { to: '/admin/items', label: 'Items', icon: 'bi-box-seam' },
-    { to: '/admin/applications', label: 'Applications', icon: 'bi-file-text' },
-    { to: '/admin/winners', label: 'Winners', icon: 'bi-trophy' },
-    { to: '/admin/support', label: 'Support Tickets', icon: 'bi-ticket-perforated' },
+    { to: to('/admin'), label: 'Dashboard', icon: 'bi-speedometer2' },
+    { to: to('/admin/users'), label: 'Users', icon: 'bi-people' },
+    { to: to('/admin/items'), label: 'Items', icon: 'bi-box-seam' },
+    { to: to('/admin/applications'), label: 'Applications', icon: 'bi-file-text' },
+    { to: to('/admin/winners'), label: 'Winners', icon: 'bi-trophy' },
+    { to: to('/admin/support'), label: 'Support Tickets', icon: 'bi-ticket-perforated' },
   ];
 
   const analyticsItems = [
-    { to: '/admin/analytics', label: 'Overview', icon: 'bi-graph-up' },
-    { to: '/admin/analytics/funnel', label: 'Funnel', icon: 'bi-funnel' },
-    { to: '/admin/analytics/items-performance', label: 'Item Performance', icon: 'bi-bar-chart' },
-    { to: '/admin/analytics/user-insights', label: 'User Insights', icon: 'bi-people' },
-    { to: '/admin/analytics/fulfilment', label: 'Fulfilment', icon: 'bi-truck' },
+    { to: to('/admin/analytics'), label: 'Overview', icon: 'bi-graph-up' },
+    { to: to('/admin/analytics/funnel'), label: 'Funnel', icon: 'bi-funnel' },
+    { to: to('/admin/analytics/items-performance'), label: 'Item Performance', icon: 'bi-bar-chart' },
+    { to: to('/admin/analytics/user-insights'), label: 'User Insights', icon: 'bi-people' },
+    { to: to('/admin/analytics/fulfilment'), label: 'Fulfilment', icon: 'bi-truck' },
   ];
 
   const systemItems = [
-    { to: '/admin/api-reference', label: 'API Reference', icon: 'bi-code-square' },
-    { to: '/admin/settings', label: 'Settings', icon: 'bi-gear' },
+    { to: to('/admin/api-reference'), label: 'API Reference', icon: 'bi-code-square' },
+    { to: to('/admin/settings'), label: 'Settings', icon: 'bi-gear' },
   ];
 
   /* -------------------------------------------------------
-     Active helpers
+     Active helpers (all take full /app/dti/... paths)
   ------------------------------------------------------- */
 
   const isExactActive = (path) =>
@@ -207,7 +218,7 @@ const AdminAppShell = () => {
     location.pathname === path ||
     location.pathname.startsWith(`${path}/`);
 
-  const isOnAnalytics = location.pathname.startsWith('/admin/analytics');
+  const isOnAnalytics = location.pathname.startsWith(to('/admin/analytics'));
 
   /* -------------------------------------------------------
      Effects
@@ -242,7 +253,7 @@ const AdminAppShell = () => {
     try {
       await signOut();
       setIsOpen(false);
-      navigate('/');
+      navigate(to());
     } finally {
       setLoggingOut(false);
     }
@@ -258,7 +269,7 @@ const AdminAppShell = () => {
     <div className="flex h-full flex-col">
       {/* Brand */}
       <div className="px-5 pt-5 pb-3">
-        <Brand homePath="/admin" />
+        <Brand homePath={ADMIN_HOME} />
       </div>
 
       {/* Scroll */}
@@ -392,7 +403,7 @@ const AdminAppShell = () => {
       {/* Footer — user card + visit site */}
       <div className="border-t border-ink-100 px-3 py-3">
         <Link
-          to="/"
+          to={to()}
           onClick={onNavigate}
           className="mb-2 flex items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-xs font-bold text-ink-700 transition-colors hover:bg-ink-50"
         >
@@ -464,7 +475,7 @@ const AdminAppShell = () => {
             <div className="flex h-[64px] items-center justify-between gap-4 px-4 sm:px-6">
               {/* Mobile: brand */}
               <div className="flex items-center gap-3 lg:hidden">
-                <Brand homePath="/admin" />
+                <Brand homePath={ADMIN_HOME} />
               </div>
 
               {/* Desktop: search */}
@@ -483,15 +494,15 @@ const AdminAppShell = () => {
               <div className="flex items-center gap-1.5">
                 <div className="hidden lg:flex lg:items-center lg:gap-0.5">
                   <IconButton
-                    to="/admin/notifications"
+                    to={to('/admin/notifications')}
                     icon="bi-bell"
                     label="Notifications"
                   />
                   <IconButton
-                    to="/admin/settings"
+                    to={to('/admin/settings')}
                     icon="bi-gear"
                     label="Settings"
-                    isActive={isSectionActive('/admin/settings')}
+                    isActive={isSectionActive(to('/admin/settings'))}
                   />
                 </div>
 

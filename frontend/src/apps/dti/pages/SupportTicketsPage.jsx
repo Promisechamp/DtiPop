@@ -2,125 +2,99 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Ticket,
+  Search,
+  Filter,
+  Plus,
+  Clock,
+  Repeat,
+  CheckCircle2,
+  XCircle,
+  Circle,
+  MessageCircle,
+  Pencil,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
+  LogIn,
+  Inbox,
+  RefreshCw,
+  Loader2,
+  ArrowDown,
+  ArrowUp,
+  Package,
+} from 'lucide-react';
 
 import { useAuth } from '@/context/AuthContext';
 import { supportAPI } from '@/services/api/dtiApi';
 import SupportModal from '../components/common/SupportModal';
 import TicketMessagesModal from '../components/common/TicketMessagesModal';
-import { PageNavigation, PageNavigationSkeleton } from '@/reusables/PageNavigation';
+
 import Modal from '@/reusables/Modal';
-import { useBreakpoint } from '@/reusables/Breakpoint';
-import { TICKET_STATUS_DISPLAY, STATUS_COLOR_CLASSES, getReasonLabel, formatTicketDate } from '@/utils/constants';
+import Select from '@/reusables/Select';
+import ActionMenu from '@/reusables/ActionMenu';
+import FilterBar, {
+  ColumnStepper,
+  useResponsiveGrid,
+} from '@/reusables/FilterBar';
+import {
+  TICKET_STATUS_DISPLAY,
+  getReasonLabel,
+  formatTicketDate,
+} from '@/utils/constants';
 
-// ============================================================
-// Skeleton
-// ============================================================
-const SupportTicketsSkeleton = () => (
-  <div className="min-h-screen bg-ink-50/30 px-2">
-    <PageNavigationSkeleton />
+/* ============================================================
+   STATUS HELPERS
+============================================================ */
 
-    <div className="space-y-8">
-      {/* HEADER */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="animate-pulse">
-          <div className="mb-2 flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-ink-200" />
-            <div className="h-3 w-40 rounded bg-ink-200" />
-          </div>
-          <div className="h-9 w-48 rounded bg-ink-200" />
-          <div className="mt-2 h-4 w-72 max-w-full rounded bg-ink-200" />
-        </div>
-        <div className="h-11 w-36 rounded-xl bg-ink-200 animate-pulse" />
-      </div>
+const getStatusIconComponent = (status) => {
+  switch (status) {
+    case 'open':
+      return Clock;
+    case 'in_progress':
+      return Repeat;
+    case 'resolved':
+      return CheckCircle2;
+    case 'closed':
+      return XCircle;
+    default:
+      return Circle;
+  }
+};
 
-      {/* STATS */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        {[1, 2, 3, 4, 5].map((item) => (
-          <div key={item} className="rounded-2xl border border-ink-100/80 bg-white p-4 shadow-sm">
-            <div className="animate-pulse">
-              <div className="flex items-center justify-between gap-3">
-                <div className="h-3 w-20 rounded bg-ink-200" />
-                <div className="h-9 w-9 rounded-xl bg-ink-200" />
-              </div>
-              <div className="mt-2 h-8 w-12 rounded bg-ink-200" />
-            </div>
-          </div>
-        ))}
-      </div>
+const getStatusDisplay = (status) =>
+  TICKET_STATUS_DISPLAY?.[status] || {
+    label: status || 'Unknown',
+    color: 'gray',
+  };
 
-      {/* FILTER TOOLBAR */}
-      <div className="overflow-visible rounded-2xl border border-ink-100/80 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3 animate-pulse">
-            <div className="h-10 w-10 rounded-xl bg-ink-200" />
-            <div>
-              <div className="h-4 w-36 rounded bg-ink-200" />
-              <div className="mt-1.5 h-3 w-28 rounded bg-ink-200" />
-            </div>
-          </div>
-          <div className="flex items-center justify-between gap-3 border-t border-ink-50 pt-3 sm:justify-end sm:border-0 sm:pt-0">
-            <div className="h-9 w-24 rounded-xl bg-ink-200 animate-pulse" />
-            <div className="h-9 w-24 rounded-xl bg-ink-200 animate-pulse" />
-          </div>
-        </div>
-      </div>
+const getStatusBadgeClasses = (status) => {
+  const display = TICKET_STATUS_DISPLAY?.[status];
+  const colorMap = {
+    green: 'border-success-200 bg-success-50 text-success-700',
+    yellow: 'border-warning-200 bg-warning-50 text-warning-700',
+    blue: 'border-primary-200 bg-primary-50 text-primary-700',
+    red: 'border-danger-200 bg-danger-50 text-danger-700',
+    gray: 'border-ink-200 bg-ink-50 text-ink-600',
+  };
+  return colorMap[display?.color] || colorMap.gray;
+};
 
-      {/* GRID */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {[1, 2, 3, 4, 5, 6].map((item) => (
-          <div key={item} className="flex flex-col justify-between overflow-hidden rounded-2xl border border-ink-100/80 bg-white shadow-sm">
-            <div className="space-y-3 p-4 animate-pulse">
-              <div className="h-32 bg-ink-200 rounded-xl" />
-              <div className="h-4 w-3/4 rounded bg-ink-200" />
-              <div className="h-3 w-1/2 rounded bg-ink-200" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
+/* ============================================================
+   SUPPORT REASONS
+============================================================ */
 
-// ============================================================
-// Select - Using the same as FavoritesPage
-// ============================================================
-function Select({
-  options = [],
-  value,
-  onChange,
-  placeholder = 'Select',
-  showIcon = false,
-  className = '',
-}) {
-  return (
-    <div className={`relative ${className}`}>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full appearance-none rounded-xl border border-ink-100 bg-white px-4 py-3 pr-10 text-sm font-semibold text-ink-700 outline-none transition focus:border-primary-300 focus:ring-4 focus:ring-primary-100"
-      >
-        <option value="">{placeholder}</option>
-        {options.map((option) => (
-          <option key={option.value || 'all'} value={option.value}>
-            {option.label || placeholder}
-          </option>
-        ))}
-      </select>
-
-      {showIcon && (
-        <i className="bi bi-chevron-down pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink-400" />
-      )}
-    </div>
-  );
-}
-
-// ============================================================
-// Support Reasons
-// ============================================================
 const DONOR_SUPPORT_REASONS = [
   { value: 'winner_unresponsive', label: 'Winner is unresponsive' },
   { value: 'winner_no_show', label: "Winner didn't show up for pickup" },
-  { value: 'winner_dispute', label: 'Dispute with winner over item condition' },
+  {
+    value: 'winner_dispute',
+    label: 'Dispute with winner over item condition',
+  },
   { value: 'shipping_issue', label: 'Issue with shipping/delivery' },
   { value: 'item_damaged', label: 'Item was damaged during shipping' },
   { value: 'other', label: 'Other' },
@@ -152,21 +126,93 @@ const USER_SUPPORT_REASONS = [
   { value: 'other', label: 'Other' },
 ];
 
-// ============================================================
-// Status Helpers
-// ============================================================
-const getStatusDisplay = (status) =>
-  TICKET_STATUS_DISPLAY?.[status] || {
-    label: status || 'Unknown',
-    icon: 'bi-circle',
-    color: 'gray',
-  };
+/* ============================================================
+   SKELETON
+============================================================ */
 
-// ============================================================
-// Main Component
-// ============================================================
+const SupportTicketsSkeleton = () => (
+  <div className="min-h-full bg-transparent">
+    <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+
+
+      <div className="space-y-7">
+        {/* HEADER */}
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <div className="mb-2 flex items-center gap-2">
+              <div className="h-3.5 w-3.5 animate-pulse rounded bg-ink-200" />
+              <div className="h-3 w-40 animate-pulse rounded bg-ink-200" />
+            </div>
+            <div className="h-8 w-56 animate-pulse rounded bg-ink-200" />
+            <div className="mt-3 h-4 w-64 max-w-full animate-pulse rounded bg-ink-200" />
+          </div>
+          <div className="h-12 w-36 animate-pulse rounded-2xl bg-ink-200" />
+        </div>
+
+        {/* STATS */}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="h-3 w-20 animate-pulse rounded-full bg-ink-100" />
+                <div className="h-9 w-9 animate-pulse rounded-xl bg-ink-100" />
+              </div>
+              <div className="mt-2 h-8 w-12 animate-pulse rounded bg-ink-100" />
+            </div>
+          ))}
+        </div>
+
+        {/* FILTER BAR */}
+        <div className="rounded-3xl border border-ink-100 bg-white p-3 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="h-12 flex-1 animate-pulse rounded-2xl bg-ink-100" />
+            <div className="flex gap-2">
+              <div className="h-12 w-32 animate-pulse rounded-2xl bg-ink-100" />
+              <div className="h-12 w-12 animate-pulse rounded-2xl bg-ink-100" />
+            </div>
+          </div>
+        </div>
+
+        {/* CARDS */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-[26px] border border-ink-100 bg-white p-4 shadow-sm"
+            >
+              <div className="flex items-start gap-3">
+                <div className="h-12 w-12 animate-pulse rounded-2xl bg-ink-100" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3.5 w-32 animate-pulse rounded-full bg-ink-100" />
+                  <div className="h-2.5 w-24 animate-pulse rounded-full bg-ink-100" />
+                </div>
+                <div className="h-6 w-20 animate-pulse rounded-full bg-ink-100" />
+              </div>
+              <div className="mt-4 h-4 w-3/4 animate-pulse rounded bg-ink-100" />
+              <div className="mt-3 h-3 w-1/2 animate-pulse rounded bg-ink-100" />
+              <div className="mt-4 flex items-center justify-between border-t border-ink-100 pt-3">
+                <div className="h-9 w-20 animate-pulse rounded-xl bg-ink-100" />
+                <div className="flex gap-1">
+                  <div className="h-9 w-9 animate-pulse rounded-xl bg-ink-100" />
+                  <div className="h-9 w-9 animate-pulse rounded-xl bg-ink-100" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+/* ============================================================
+   MAIN COMPONENT
+============================================================ */
+
 const SupportTicketsPage = () => {
-  const breakpoint = useBreakpoint();
   const { user } = useAuth();
 
   const [tickets, setTickets] = useState([]);
@@ -177,77 +223,68 @@ const SupportTicketsPage = () => {
   const [filterStatus, setFilterStatus] = useState('');
   const [sortBy, setSortBy] = useState('newest');
 
-  const [gridCols, setGridCols] = useState(4);
-  const [isCustomCols, setIsCustomCols] = useState(false);
+  const { gridCols, setGridCols, gridStyle } = useResponsiveGrid({
+    min: 1,
+    max: 4,
+  });
   const [filtersExpanded, setFiltersExpanded] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
 
-  // Modal states
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [sendingReply, setSendingReply] = useState(false);
   const [openingTicketId, setOpeningTicketId] = useState(null);
 
-  // Edit ticket states
   const [editingTicket, setEditingTicket] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editReason, setEditReason] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editingLoading, setEditingLoading] = useState(false);
 
-  // Delete ticket states
   const [deletingTicket, setDeletingTicket] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingLoading, setDeletingLoading] = useState(false);
 
-  // Dropdown state
-  const [dropdownOpen, setDropdownOpen] = useState(null);
+  /* ============================================================
+     FILTER OPTIONS
+  ============================================================ */
 
-  // Responsive columns setup
-  const getDefaultCols = useCallback((bp) => {
-    if (bp === 'xs' || bp === 'sm') return 1;
-    if (bp === 'md') return 2;
-    if (bp === 'lg') return 3;
-    if (bp === 'xl' || bp === '2xl') return 4;
-    return 4;
-  }, []);
-
-  useEffect(() => {
-    if (!isCustomCols) {
-      setGridCols(getDefaultCols(breakpoint));
-    }
-  }, [breakpoint, isCustomCols, getDefaultCols]);
-
-  // Active filters count
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filterStatus) count += 1;
     if (sortBy !== 'newest') count += 1;
-    if (searchTerm) count += 1;
     return count;
-  }, [filterStatus, sortBy, searchTerm]);
+  }, [filterStatus, sortBy]);
+
+  const hasActiveFilters = Boolean(filterStatus) || Boolean(searchTerm);
 
   const statusOptions = useMemo(
     () => [
-      { value: '', label: 'All Statuses', icon: 'bi-funnel' },
+      { value: '', label: 'All Statuses', icon: Filter },
       ...Object.entries(TICKET_STATUS_DISPLAY).map(([value, display]) => ({
         value,
         label: display.label,
-        icon: display.icon,
+        icon: getStatusIconComponent(value),
       })),
     ],
     []
   );
 
-  const sortOptions = [
-    { value: 'newest', label: 'Newest First', icon: 'bi-sort-down' },
-    { value: 'oldest', label: 'Oldest First', icon: 'bi-sort-up' },
-  ];
+  const sortOptions = useMemo(
+    () => [
+      { value: 'newest', label: 'Newest First', icon: ArrowDown },
+      { value: 'oldest', label: 'Oldest First', icon: ArrowUp },
+    ],
+    []
+  );
 
-  // Fetch tickets
+  /* ============================================================
+     FETCH TICKETS
+  ============================================================ */
+
   const fetchTickets = useCallback(async () => {
     if (!user) {
       setLoading(false);
@@ -279,18 +316,10 @@ const SupportTicketsPage = () => {
     setCurrentPage(1);
   }, [filterStatus, searchTerm, sortBy]);
 
-  // Click outside handler for dropdown
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownOpen && !event.target.closest('.ticket-dropdown-container')) {
-        setDropdownOpen(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [dropdownOpen]);
+  /* ============================================================
+     FILTER + SORT
+  ============================================================ */
 
-  // Filter & Sort logic
   const filteredTickets = useMemo(() => {
     let result = [...tickets];
 
@@ -325,7 +354,10 @@ const SupportTicketsPage = () => {
     return filteredTickets.slice(start, start + itemsPerPage);
   }, [filteredTickets, currentPage]);
 
-  // Stats
+  /* ============================================================
+     STATS
+  ============================================================ */
+
   const stats = useMemo(
     () => ({
       total: tickets.length,
@@ -336,6 +368,10 @@ const SupportTicketsPage = () => {
     }),
     [tickets]
   );
+
+  /* ============================================================
+     HELPERS
+  ============================================================ */
 
   const getAllReasons = () => {
     const all = new Map();
@@ -352,6 +388,10 @@ const SupportTicketsPage = () => {
   const canEditOrDelete = (ticket) => {
     return ticket.status === 'resolved' || ticket.status === 'closed';
   };
+
+  /* ============================================================
+     HANDLERS
+  ============================================================ */
 
   const openMessages = async (ticket) => {
     if (openingTicketId) return;
@@ -393,7 +433,6 @@ const SupportTicketsPage = () => {
     setEditReason(ticket.reason);
     setEditDescription(ticket.description || '');
     setShowEditModal(true);
-    setDropdownOpen(null);
   };
 
   const handleEditSubmit = async () => {
@@ -427,7 +466,6 @@ const SupportTicketsPage = () => {
     }
     setDeletingTicket(ticket);
     setShowDeleteModal(true);
-    setDropdownOpen(null);
   };
 
   const handleDeleteConfirm = async () => {
@@ -454,250 +492,226 @@ const SupportTicketsPage = () => {
     setCurrentPage(1);
   };
 
+  /* ============================================================
+     UNAUTHENTICATED
+  ============================================================ */
+
   if (!user) {
     return (
-      <div className="min-h-screen bg-ink-50/30 px-2">
-        <PageNavigation />
-        <div className="relative overflow-hidden rounded-2xl border border-ink-100/80 bg-white p-12 text-center shadow-sm">
-          <div className="pointer-events-none absolute left-1/2 top-0 h-40 w-64 -translate-x-1/2 rounded-full bg-primary-100/40 blur-3xl" />
-          <div className="relative">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary-100 bg-primary-50 text-primary-500 shadow-sm">
-              <i className="bi bi-ticket-perforated text-2xl" />
+      <div className="min-h-full bg-transparent">
+
+        <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+          <div className="flex min-h-[420px] items-center justify-center rounded-[28px] border border-dashed border-ink-200 bg-white px-6 py-12">
+            <div className="mx-auto max-w-md text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-primary-50 text-primary-600">
+                <Ticket size={27} />
+              </div>
+
+              <h2 className="mt-5 text-lg font-black text-ink-950">
+                Sign in to view tickets
+              </h2>
+
+              <p className="mt-2 text-sm font-medium leading-6 text-ink-500">
+                Submit support requests and track your tickets.
+              </p>
+
+              <div className="mt-6 flex justify-center">
+                <Link
+                  to="/login"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 text-sm font-extrabold text-white transition hover:bg-primary-700"
+                >
+                  <LogIn size={16} />
+                  Sign in
+                </Link>
+              </div>
             </div>
-            <h3 className="text-lg font-extrabold text-ink-800">Sign in to View Tickets</h3>
-            <p className="mx-auto mt-1 max-w-md text-sm text-ink-400">
-              Submit support requests and track your tickets.
-            </p>
-            <Link
-              to="/login"
-              className="group mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-brand-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <i className="bi bi-box-arrow-in-right" />
-              Sign In
-            </Link>
           </div>
         </div>
       </div>
     );
   }
 
-  if (loading) return <SupportTicketsSkeleton />;
+  /* ============================================================
+     LOADING
+  ============================================================ */
+
+  if (loading) {
+    return <SupportTicketsSkeleton />;
+  }
+
+  /* ============================================================
+     ACTIVE FILTER CHIPS
+  ============================================================ */
+
+  const activeFilterChips = [
+    filterStatus && {
+      key: 'status',
+      label: getStatusDisplay(filterStatus).label || filterStatus,
+      onRemove: () => setFilterStatus(''),
+    },
+    searchTerm && {
+      key: 'search',
+      label: `Search: ${searchTerm}`,
+      onRemove: () => setSearchTerm(''),
+    },
+    sortBy !== 'newest' && {
+      key: 'sort',
+      label: sortOptions.find((o) => o.value === sortBy)?.label || sortBy,
+      onRemove: () => setSortBy('newest'),
+    },
+  ].filter(Boolean);
+
+  /* ============================================================
+     RENDER
+  ============================================================ */
 
   return (
-    <div className="min-h-screen bg-ink-50/30 px-2">
-      <PageNavigation />
+    <div className="min-h-full bg-transparent">
 
-      <div className="space-y-8">
+      <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
         {/* HEADER */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <div className="mb-2 flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-primary-500" />
-              <span className="text-[10px] font-black uppercase tracking-[0.18em] text-primary-600">
-                Help Center & Support
-              </span>
-            </div>
-            <h1 className="text-2xl font-extrabold tracking-[-0.03em] text-ink-900 sm:text-3xl">
-              Support Tickets
-            </h1>
-            <p className="mt-1 text-sm text-ink-500">
-              {tickets.length} {tickets.length === 1 ? 'ticket' : 'tickets'} submitted
-            </p>
-          </div>
+        <div className="mb-7">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+              <div className="mb-2 flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary-600">
+                <Ticket size={14} />
+                <span>Help center & support</span>
+              </div>
 
-          <button
-            onClick={() => setShowSupportModal(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-brand-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-          >
-            <i className="bi bi-plus-lg text-xs" />
-            Create Ticket
-          </button>
+              <h1 className="text-2xl font-black tracking-tight text-ink-950 sm:text-3xl">
+                Support Tickets
+              </h1>
+
+              <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-ink-500">
+                {tickets.length}{' '}
+                {tickets.length === 1 ? 'ticket' : 'tickets'} submitted
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowSupportModal(true)}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-primary-600 px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
+            >
+              <Plus size={17} strokeWidth={2.5} />
+              <span>Create Ticket</span>
+            </button>
+          </div>
         </div>
 
         {/* STATS */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-          <StatCard label="Total Tickets" value={stats.total} icon="bi-ticket-perforated" color="text-ink-900" bg="bg-ink-50" />
-          <StatCard label="Open" value={stats.open} icon="bi-clock-history" color="text-amber-600" bg="bg-amber-50" />
-          <StatCard label="In Progress" value={stats.inProgress} icon="bi-arrow-repeat" color="text-blue-600" bg="bg-blue-50" />
-          <StatCard label="Resolved" value={stats.resolved} icon="bi-check-circle-fill" color="text-emerald-600" bg="bg-emerald-50" />
-          <StatCard label="Closed" value={stats.closed} icon="bi-x-circle" color="text-ink-500" bg="bg-ink-50" />
+        <div className="mb-7 grid grid-cols-2 gap-3 md:grid-cols-5">
+          <StatCard
+            label="Total Tickets"
+            value={stats.total}
+            icon={Ticket}
+            tone="ink"
+          />
+
+          <StatCard
+            label="Open"
+            value={stats.open}
+            icon={Clock}
+            tone="warning"
+          />
+
+          <StatCard
+            label="In Progress"
+            value={stats.inProgress}
+            icon={Repeat}
+            tone="primary"
+          />
+
+          <StatCard
+            label="Resolved"
+            value={stats.resolved}
+            icon={CheckCircle2}
+            tone="success"
+          />
+
+          <StatCard
+            label="Closed"
+            value={stats.closed}
+            icon={XCircle}
+            tone="danger"
+          />
         </div>
 
-        {/* FILTER TOOLBAR */}
-        <div className="overflow-visible rounded-2xl border border-ink-100/80 bg-white shadow-sm">
-          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <button
-              type="button"
-              onClick={() => setFiltersExpanded((val) => !val)}
-              className="flex items-center gap-3 text-left transition-colors"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary-100 bg-primary-50 text-primary-600">
-                <i className="bi bi-funnel text-sm" />
-              </div>
-              <div>
-                <p className="text-sm font-extrabold text-ink-800">
-                  Filter & Sort Tickets
-                </p>
-                <p className="mt-0.5 text-xs text-ink-400">
-                  {activeFilterCount > 0
-                    ? `${activeFilterCount} active filter${activeFilterCount > 1 ? 's' : ''}`
-                    : 'All tickets visible'}
-                  {searchTerm && ' · Search active'}
-                </p>
-              </div>
-            </button>
+        {/* FILTER BAR */}
+        <FilterBar
+          className="mb-6"
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Search by reason, description, or item name..."
+          filtersOpen={filtersExpanded}
+          onToggleFilters={() => setFiltersExpanded((v) => !v)}
+          activeFilterCount={activeFilterCount}
+          onRefresh={fetchTickets}
+          refreshing={loading}
+          activeFilters={activeFilterChips}
+          onClearAll={clearAllFilters}
+        >
+          <div className="grid gap-4 md:grid-cols-3">
+            <Select
+              options={statusOptions}
+              value={filterStatus}
+              onChange={setFilterStatus}
+              placeholder="All Statuses"
+              showIcon
+            />
 
-            <div className="flex items-center justify-between gap-3 border-t border-ink-50 pt-3 sm:justify-end sm:border-0 sm:pt-0">
-              {activeFilterCount > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-600 px-1.5 text-[10px] font-black text-white">
-                  {activeFilterCount}
-                </span>
-              )}
+            <Select
+              options={sortOptions}
+              value={sortBy}
+              onChange={setSortBy}
+              placeholder="Sort By"
+              showIcon
+            />
 
-              {/* GRID CONTROLS */}
-              <div className="flex items-center rounded-xl border border-ink-200/80 bg-ink-100 p-1 shadow-sm">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCustomCols(true);
-                    setGridCols((val) => Math.max(1, val - 1));
-                  }}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-500 transition hover:bg-white/50 hover:text-primary-700"
-                  title="Fewer columns"
-                >
-                  <i className="bi bi-dash-lg text-xs" />
-                </button>
-                <span className="min-w-[1.5rem] px-2 text-center text-xs font-bold text-ink-700">
-                  {gridCols} cols
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCustomCols(true);
-                    setGridCols((val) => Math.min(4, val + 1));
-                  }}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-500 transition hover:bg-white/50 hover:text-primary-700"
-                  title="More columns"
-                >
-                  <i className="bi bi-plus-lg text-xs" />
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setFiltersExpanded((val) => !val)}
-                className="rounded-xl border border-ink-200/80 bg-ink-100 px-3.5 py-2 text-xs font-bold text-ink-700 shadow-sm hover:bg-ink-50"
-              >
-                <span>{filtersExpanded ? 'Hide' : 'Expand'}</span>
-                <i className={`bi bi-chevron-${filtersExpanded ? 'up' : 'down'} ml-1 text-[10px]`} />
-              </button>
-            </div>
+            <ColumnStepper
+              label="Grid columns"
+              value={gridCols}
+              onChange={setGridCols}
+              min={1}
+              max={4}
+            />
           </div>
+        </FilterBar>
 
-          <AnimatePresence>
-            {filtersExpanded && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: 'easeInOut' }}
-                className="overflow-hidden border-t border-ink-100"
-              >
-                <div className="space-y-4 bg-ink-50/20 px-5 py-4">
-                  <div className="relative">
-                    <i className="bi bi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" />
-                    <input
-                      type="text"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="Search by reason, description, or item name..."
-                      className="w-full rounded-xl border border-ink-100 bg-white py-3 pl-10 pr-4 text-sm text-ink-800 outline-none transition-all placeholder:text-ink-400 focus:border-primary-300 focus:ring-4 focus:ring-primary-100"
-                    />
-                  </div>
+        {/* RESULT SUMMARY */}
+        {!loading && tickets.length > 0 && (
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <p className="text-xs font-bold text-ink-500">
+              {filteredTickets.length === 1
+                ? '1 ticket'
+                : `${filteredTickets.length} tickets`}
+            </p>
 
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <Select
-                      options={statusOptions}
-                      value={filterStatus}
-                      onChange={setFilterStatus}
-                      placeholder="All Statuses"
-                      showIcon
-                      className="w-full sm:flex-1"
-                    />
-                    <Select
-                      options={sortOptions}
-                      value={sortBy}
-                      onChange={setSortBy}
-                      placeholder="Sort By"
-                      showIcon
-                      className="w-full sm:flex-1"
-                    />
-                  </div>
-
-                  {(activeFilterCount > 0 || searchTerm) && (
-                    <div className="flex justify-end pt-1">
-                      <button
-                        type="button"
-                        onClick={clearAllFilters}
-                        className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-rose-600 transition-colors hover:bg-rose-50"
-                      >
-                        <i className="bi bi-x-circle" />
-                        Clear All Filters
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* GRID VIEW OR EMPTY STATE */}
-        {tickets.length === 0 ? (
-          <div className="relative overflow-hidden rounded-2xl border border-ink-100/80 bg-white p-12 text-center shadow-sm">
-            <div className="pointer-events-none absolute left-1/2 top-0 h-40 w-64 -translate-x-1/2 rounded-full bg-primary-100/40 blur-3xl" />
-            <div className="relative">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary-100 bg-primary-50 text-primary-500 shadow-sm">
-                <i className="bi bi-ticket-perforated text-2xl" />
-              </div>
-              <h3 className="text-lg font-extrabold text-ink-800">No support tickets yet</h3>
-              <p className="mx-auto mt-1 max-w-md text-sm text-ink-400">
-                Need help? Create a support ticket and our team will assist you.
-              </p>
-              <button
-                onClick={() => setShowSupportModal(true)}
-                className="group mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-brand-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <i className="bi bi-plus-lg text-xs" />
-                Create Ticket
-              </button>
-            </div>
-          </div>
-        ) : filteredTickets.length === 0 ? (
-          <div className="relative overflow-hidden rounded-2xl border border-ink-100/80 bg-white p-12 text-center shadow-sm">
-            <div className="pointer-events-none absolute left-1/2 top-0 h-40 w-64 -translate-x-1/2 rounded-full bg-ink-100/40 blur-3xl" />
-            <div className="relative">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-ink-100 bg-ink-50 text-ink-300 shadow-sm">
-                <i className="bi bi-search text-2xl" />
-              </div>
-              <h3 className="text-lg font-extrabold text-ink-800">No matches found</h3>
-              <p className="mx-auto mt-1 max-w-md text-sm text-ink-400">
-                Try adjusting your search or filters.
-              </p>
+            {hasActiveFilters && (
               <button
                 type="button"
                 onClick={clearAllFilters}
-                className="mt-5 inline-flex items-center gap-2 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-bold text-ink-700 shadow-sm hover:bg-ink-50"
+                className="text-xs font-extrabold text-primary-600 hover:text-primary-700"
               >
-                Clear Filters
+                Reset filters
               </button>
-            </div>
+            )}
           </div>
+        )}
+
+        {/* GRID / EMPTY STATES */}
+        {tickets.length === 0 ? (
+          <EmptyState
+            variant="empty"
+            onCreate={() => setShowSupportModal(true)}
+          />
+        ) : filteredTickets.length === 0 ? (
+          <EmptyState variant="filtered" onReset={clearAllFilters} />
         ) : (
           <>
             <motion.div
               className="grid gap-4"
-              animate={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}
+              animate={gridStyle}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             >
               {paginatedTickets.map((ticket) => (
@@ -712,25 +726,28 @@ const SupportTicketsPage = () => {
                     onEdit={openEditModal}
                     onDelete={openDeleteModal}
                     isOpening={openingTicketId === ticket.id}
-                    dropdownOpen={dropdownOpen === ticket.id}
-                    setDropdownOpen={(id) => setDropdownOpen(id)}
                   />
                 </motion.div>
               ))}
             </motion.div>
 
+            {/* PAGINATION */}
             {totalPages > 1 && (
-              <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs font-medium text-ink-400">
+              <div className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs font-bold text-ink-500">
                   Showing{' '}
-                  <span className="font-bold text-ink-600">
+                  <span className="font-extrabold text-ink-700">
                     {(currentPage - 1) * itemsPerPage + 1}
                   </span>
                   –
-                  <span className="font-bold text-ink-600">
+                  <span className="font-extrabold text-ink-700">
                     {Math.min(currentPage * itemsPerPage, totalItems)}
                   </span>{' '}
-                  of <span className="font-bold text-ink-600">{totalItems}</span> tickets
+                  of{' '}
+                  <span className="font-extrabold text-ink-700">
+                    {totalItems}
+                  </span>{' '}
+                  tickets
                 </p>
 
                 <Pagination
@@ -742,247 +759,295 @@ const SupportTicketsPage = () => {
             )}
           </>
         )}
-
-        {/* MODALS */}
-        <SupportModal
-          isOpen={showSupportModal}
-          onClose={() => setShowSupportModal(false)}
-          reporterType="unknown"
-          onSuccess={fetchTickets}
-        />
-								
-								
-								<TicketMessagesModal
-									isOpen={showMessagesModal}
-									onClose={() => {
-											setShowMessagesModal(false);
-											setSelectedTicket(null);
-									}}
-									ticket={selectedTicket}
-									currentUser={user}
-									onReply={handleSendReply}
-									sending={sendingReply}
-									isAdminView={false}
-							/>
-
-        
-        {/* Edit Modal */}
-        <Modal
-          isOpen={showEditModal}
-          onClose={() => {
-            setShowEditModal(false);
-            setEditingTicket(null);
-          }}
-          title="Edit Support Ticket"
-          size="md"
-        >
-          {editingTicket && (
-            <div className="space-y-6">
-              <div className="flex items-start gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-primary-100 bg-primary-50 text-primary-600">
-                  <i className="bi bi-pencil text-xl" />
-                </div>
-                <div>
-                  <p className="text-sm leading-relaxed text-ink-600">
-                    Update the details of your support request below.
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-ink-700 mb-1.5">
-                  Support Reason <span className="text-rose-500">*</span>
-                </label>
-                <Select
-                  value={editReason}
-                  onChange={setEditReason}
-                  options={getAllReasons()}
-                  placeholder="Select a reason…"
-                  className="w-full"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-ink-700 mb-1.5">
-                  Detailed Description
-                </label>
-                <textarea
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  rows={4}
-                  placeholder="Provide additional details..."
-                  className="w-full rounded-xl border border-ink-100 bg-white px-4 py-3 text-sm text-ink-800 outline-none transition-all placeholder:text-ink-400 focus:border-primary-300 focus:ring-4 focus:ring-primary-100"
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  disabled={editingLoading}
-                  className="flex-1 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-bold text-ink-700 transition-all hover:bg-ink-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleEditSubmit}
-                  disabled={editingLoading || !editReason}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-brand-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
-                >
-                  {editingLoading ? (
-                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  ) : (
-                    'Save Changes'
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-        </Modal>
-
-        {/* Delete Confirmation Modal */}
-        <Modal
-          isOpen={showDeleteModal}
-          onClose={() => {
-            setShowDeleteModal(false);
-            setDeletingTicket(null);
-          }}
-          title="Delete Support Ticket"
-          size="sm"
-        >
-          {deletingTicket && (
-            <div className="space-y-6">
-              <div className="flex items-start gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600">
-                  <i className="bi bi-exclamation-triangle text-xl" />
-                </div>
-                <div>
-                  <p className="text-sm leading-relaxed text-ink-600">
-                    Are you sure you want to delete this ticket? This action cannot be undone.
-                  </p>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-ink-100 bg-ink-50/50 p-4">
-                <p className="text-sm font-extrabold text-ink-800">
-                  {getReasonLabel(deletingTicket.reason)}
-                </p>
-                <p className="text-xs text-ink-400 mt-0.5">
-                  Created on {formatTicketDate(deletingTicket.created_at)}
-                </p>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteModal(false)}
-                  disabled={deletingLoading}
-                  className="flex-1 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-bold text-ink-700 transition-all hover:bg-ink-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteConfirm}
-                  disabled={deletingLoading}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
-                >
-                  {deletingLoading ? (
-                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  ) : (
-                    'Delete'
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-        </Modal>
       </div>
+
+      {/* SUPPORT MODAL */}
+      <SupportModal
+        isOpen={showSupportModal}
+        onClose={() => setShowSupportModal(false)}
+        reporterType="unknown"
+        onSuccess={fetchTickets}
+      />
+
+      {/* MESSAGES MODAL */}
+      <TicketMessagesModal
+        isOpen={showMessagesModal}
+        onClose={() => {
+          setShowMessagesModal(false);
+          setSelectedTicket(null);
+        }}
+        ticket={selectedTicket}
+        currentUser={user}
+        onReply={handleSendReply}
+        sending={sendingReply}
+        isAdminView={false}
+      />
+
+      {/* EDIT MODAL */}
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingTicket(null);
+        }}
+        title="Edit Support Ticket"
+        size="md"
+      >
+        {editingTicket && (
+          <div className="space-y-6">
+            <div className="flex items-start gap-4 rounded-2xl border border-primary-100 bg-primary-50 p-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-100 text-primary-600">
+                <Pencil size={18} />
+              </div>
+
+              <div className="min-w-0">
+                <p className="text-sm font-extrabold text-primary-900">
+                  Update ticket details
+                </p>
+
+                <p className="mt-1 text-xs font-medium leading-5 text-primary-700">
+                  Update the details of your support request below.
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-extrabold text-ink-700">
+                Support Reason <span className="text-danger-500">*</span>
+              </label>
+
+              <Select
+                value={editReason}
+                onChange={setEditReason}
+                options={getAllReasons()}
+                placeholder="Select a reason…"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-extrabold text-ink-700">
+                Detailed Description
+              </label>
+
+              <textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                rows={4}
+                placeholder="Provide additional details..."
+                className="w-full rounded-xl border border-ink-200 bg-white px-4 py-3 text-sm text-ink-800 outline-none transition placeholder:text-ink-400 focus:border-primary-400 focus:ring-2 focus:ring-primary-200"
+              />
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                disabled={editingLoading}
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleEditSubmit}
+                disabled={editingLoading || !editReason}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 text-sm font-extrabold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {editingLoading ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={16} />
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* DELETE MODAL */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setDeletingTicket(null);
+        }}
+        title="Delete Support Ticket"
+        size="sm"
+      >
+        {deletingTicket && (
+          <div className="space-y-6">
+            <div className="flex items-start gap-4 rounded-2xl border border-danger-100 bg-danger-50 p-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-danger-100 text-danger-600">
+                <AlertTriangle size={18} />
+              </div>
+
+              <div className="min-w-0">
+                <p className="text-sm font-extrabold text-danger-900">
+                  Delete this ticket?
+                </p>
+
+                <p className="mt-1 text-xs font-medium leading-5 text-danger-700">
+                  Are you sure you want to delete this ticket? This action
+                  cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-ink-100 bg-ink-50/50 p-4">
+              <p className="text-sm font-extrabold text-ink-800">
+                {getReasonLabel(deletingTicket.reason)}
+              </p>
+
+              <p className="mt-0.5 text-xs font-medium text-ink-400">
+                Created on {formatTicketDate(deletingTicket.created_at)}
+              </p>
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deletingLoading}
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Keep Ticket
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                disabled={deletingLoading}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-danger-600 px-4 text-sm font-extrabold text-white transition hover:bg-danger-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {deletingLoading ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} />
+                    Yes, Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };
 
-// ============================================================
-// Ticket Card Sub-component
-// ============================================================
-const TicketCard = ({ ticket, onOpenMessages, onEdit, onDelete, isOpening, dropdownOpen, setDropdownOpen }) => {
-  const [expanded, setExpanded] = useState(false);
-  const statusDisplay = getStatusDisplay(ticket.status);
-  const statusBadgeClass = STATUS_COLOR_CLASSES[statusDisplay.color] || STATUS_COLOR_CLASSES.gray;
-  const canEditDelete = ticket.status === 'resolved' || ticket.status === 'closed';
+/* ============================================================
+   TICKET CARD
+============================================================ */
 
-  const toggleDropdown = (e) => {
-    e.stopPropagation();
-    setDropdownOpen(dropdownOpen ? null : ticket.id);
-  };
+const TicketCard = ({ ticket, onOpenMessages, onEdit, onDelete, isOpening }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  const statusDisplay = getStatusDisplay(ticket.status);
+  const StatusIcon = getStatusIconComponent(ticket.status);
+  const badgeClasses = getStatusBadgeClasses(ticket.status);
+
+  const menuItems = [
+    {
+      key: 'edit',
+      icon: Pencil,
+      label: 'Edit Ticket',
+      onClick: () => onEdit(ticket),
+    },
+    {
+      key: 'divider-delete',
+      divider: true,
+    },
+    {
+      key: 'delete',
+      icon: Trash2,
+      label: 'Delete Ticket',
+      danger: true,
+      onClick: () => onDelete(ticket),
+    },
+  ];
 
   return (
-    <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-ink-100/80 bg-white shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
+    <div className="group relative flex flex-col justify-between overflow-hidden rounded-[26px] border border-ink-100 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-ink-200 hover:shadow-md">
       <div className="p-4">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-3 min-w-0">
+        {/* HEADER */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             {ticket.item?.images?.[0] ? (
               <img
                 src={ticket.item.images[0]}
                 alt={ticket.item.title || 'Item'}
-                className="h-12 w-12 rounded-xl border border-ink-100 object-cover"
+                className="h-12 w-12 shrink-0 rounded-2xl border border-ink-100 object-cover"
               />
             ) : (
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-ink-50 border border-ink-100">
-                <i className="bi bi-box text-ink-400 text-xl" />
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-ink-100 bg-ink-50 text-ink-300">
+                <Package size={18} />
               </div>
             )}
+
             <div className="min-w-0">
-              <p className="truncate text-sm font-extrabold text-ink-900">
+              <p className="truncate text-sm font-black text-ink-950">
                 {getReasonLabel(ticket.reason)}
               </p>
-              <p className="truncate text-xs text-ink-400 mt-0.5">
+
+              <p className="mt-0.5 truncate text-[11px] font-bold text-ink-400">
                 {formatTicketDate(ticket.created_at)}
               </p>
             </div>
           </div>
+
           <span
-            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold shrink-0 ${statusBadgeClass}`}
+            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[10px] font-extrabold ${badgeClasses}`}
           >
-            <i className={`bi ${statusDisplay.icon} text-[9px]`} />
+            <StatusIcon size={11} />
             {statusDisplay.label}
           </span>
         </div>
 
-        {/* Description */}
+        {/* DESCRIPTION */}
         {ticket.description && (
-          <p className="mt-3 text-sm text-ink-600 line-clamp-2 leading-relaxed">
+          <p className="mt-3 line-clamp-2 text-xs font-medium leading-5 text-ink-500">
             {ticket.description}
           </p>
         )}
 
-        {/* Footer meta */}
-        <div className="mt-3 flex items-center justify-between text-xs font-medium text-ink-500">
-          <div className="flex items-center gap-2 min-w-0">
+        {/* FOOTER META */}
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             {ticket.reporter?.avatar_url ? (
               <img
                 src={ticket.reporter.avatar_url}
                 alt={ticket.reporter?.full_name || 'Reporter'}
-                className="h-5 w-5 rounded-full object-cover ring-1 ring-ink-200 flex-shrink-0"
+                className="h-5 w-5 shrink-0 rounded-full object-cover ring-1 ring-ink-200"
               />
             ) : (
-              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-ink-100 text-[10px] font-bold text-ink-600 flex-shrink-0">
+              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink-100 text-[10px] font-black text-ink-600">
                 {(ticket.reporter?.full_name || 'U').charAt(0)}
               </div>
             )}
-            <span className="font-semibold text-ink-700 truncate">
+
+            <span className="truncate text-[11px] font-bold text-ink-600">
               {ticket.reporter?.full_name || 'Unknown'}
             </span>
           </div>
+
           <span
-            className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${
+            className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-extrabold ${
               ticket.reporter_type === 'donor'
-                ? 'bg-sky-50 text-sky-700 border border-sky-200/60'
+                ? 'border-primary-200 bg-primary-50 text-primary-700'
                 : ticket.reporter_type === 'winner'
-                ? 'bg-primary-50 text-primary-700 border border-primary-200/60'
-                : 'bg-ink-100 text-ink-600 border border-ink-200/60'
+                ? 'border-success-200 bg-success-50 text-success-700'
+                : 'border-ink-200 bg-ink-100 text-ink-600'
             }`}
           >
             {ticket.reporter_type === 'donor'
@@ -994,155 +1059,149 @@ const TicketCard = ({ ticket, onOpenMessages, onEdit, onDelete, isOpening, dropd
         </div>
 
         {ticket.item?.title && (
-          <div className="mt-2 text-xs text-ink-500 truncate pt-2 border-t border-ink-50">
-            <span className="font-medium">Item:</span> {ticket.item.title}
+          <div className="mt-3 truncate border-t border-ink-100 pt-3 text-[11px] font-medium text-ink-500">
+            <span className="font-extrabold text-ink-700">Item:</span>{' '}
+            {ticket.item.title}
           </div>
         )}
       </div>
 
-      {/* Action bar */}
-      <div className="border-t border-ink-100 bg-ink-50/50 px-4 py-3 flex items-center justify-between gap-2 rounded-b-2xl">
+      {/* ACTION BAR */}
+      <div className="flex items-center justify-between gap-2 border-t border-ink-100 bg-ink-50/50 px-4 py-3">
         <button
+          type="button"
           onClick={() => onOpenMessages(ticket)}
           disabled={isOpening}
-          className={`inline-flex h-9 items-center gap-2 px-3.5 rounded-xl text-xs font-bold transition ${
+          className={`inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-extrabold transition ${
             isOpening
-              ? 'bg-ink-100 text-ink-400 cursor-wait'
-              : 'bg-primary-50 text-primary-700 hover:bg-primary-100 border border-primary-200 shadow-xs'
+              ? 'cursor-wait border-ink-200 bg-ink-100 text-ink-400'
+              : 'border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100'
           }`}
         >
           {isOpening ? (
-            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-ink-400 border-t-transparent" />
+            <Loader2 size={13} className="animate-spin" />
           ) : (
             <>
-              <i className="bi bi-chat-dots text-sm" />
-              <span>{ticket.replies?.length > 0 ? `${ticket.replies.length} replies` : 'Chat'}</span>
+              <MessageCircle size={13} />
+              <span>
+                {ticket.replies?.length > 0
+                  ? `${ticket.replies.length} replies`
+                  : 'Chat'}
+              </span>
             </>
           )}
         </button>
 
         <div className="flex items-center gap-1.5">
-          <div className="ticket-dropdown-container relative z-30">
-            <button
-              onClick={toggleDropdown}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-white border border-ink-200/70 text-ink-500 hover:bg-ink-100 hover:text-primary-600 transition shadow-xs"
-              aria-label="More actions"
-            >
-              <i className="bi bi-three-dots-vertical text-xs" />
-            </button>
-
-            {dropdownOpen && (
-              <div className="absolute right-0 bottom-full mb-2 w-48 bg-white rounded-2xl border border-ink-100 shadow-xl py-2 z-50">
-                <button
-                  onClick={() => onEdit(ticket)}
-                  className={`w-full px-4 py-2.5 text-left text-xs font-bold transition flex items-center gap-2.5 ${
-                    canEditDelete
-                      ? 'text-ink-700 hover:bg-primary-50/70'
-                      : 'text-ink-300 cursor-not-allowed'
-                  }`}
-                  disabled={!canEditDelete}
-                  title={!canEditDelete ? 'Only resolved or closed tickets can be edited.' : ''}
-                >
-                  <i className={`bi bi-pencil ${canEditDelete ? 'text-primary-500' : 'text-ink-300'}`} />
-                  Edit Ticket
-                </button>
-                <button
-                  onClick={() => onDelete(ticket)}
-                  className={`w-full px-4 py-2.5 text-left text-xs font-bold transition flex items-center gap-2.5 ${
-                    canEditDelete
-                      ? 'text-rose-600 hover:bg-rose-50'
-                      : 'text-ink-300 cursor-not-allowed'
-                  }`}
-                  disabled={!canEditDelete}
-                  title={!canEditDelete ? 'Only resolved or closed tickets can be deleted.' : ''}
-                >
-                  <i className={`bi bi-trash ${canEditDelete ? 'text-rose-500' : 'text-ink-300'}`} />
-                  Delete Ticket
-                </button>
-              </div>
-            )}
-          </div>
+          <ActionMenu items={menuItems} placement="top" align="top" />
 
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-white border border-ink-200/70 text-ink-500 transition hover:bg-ink-100 hover:text-primary-600 shadow-xs"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-ink-200 bg-white text-ink-500 transition hover:bg-ink-100 hover:text-primary-600"
             aria-label="Toggle details"
           >
-            <i className={`bi bi-chevron-${expanded ? 'up' : 'down'} text-xs`} />
+            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
         </div>
       </div>
 
-      {/* Expanded details */}
-      <AnimatePresence>
+      {/* EXPANDED DETAILS */}
+      <AnimatePresence initial={false}>
         {expanded && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="border-t border-ink-100 bg-ink-50/40 p-5 space-y-4 rounded-b-2xl"
+            className="overflow-hidden border-t border-ink-100 bg-ink-50/40"
           >
-            <div>
-              <span className="text-[10px] font-extrabold text-ink-400 uppercase tracking-wider">Full Description</span>
-              <p className="mt-1.5 text-sm text-ink-700 bg-white p-3.5 rounded-xl border border-ink-100/70 leading-relaxed shadow-xs">
-                {ticket.description || 'No description provided.'}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="bg-white p-3.5 rounded-xl border border-ink-100/70 shadow-xs">
-                <span className="text-[10px] font-extrabold text-ink-400 uppercase tracking-wider">Reporter Info</span>
-                <div className="flex items-center gap-2.5 mt-2">
-                  {ticket.reporter?.avatar_url ? (
-                    <img
-                      src={ticket.reporter.avatar_url}
-                      alt={ticket.reporter?.full_name || 'Reporter'}
-                      className="h-7 w-7 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-ink-100 text-xs font-bold text-ink-700">
-                      {(ticket.reporter?.full_name || 'U').charAt(0)}
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-ink-800 truncate">
-                      {ticket.reporter?.full_name || 'Unknown'}
-                    </p>
-                    <p className="text-[10px] text-ink-400 capitalize">{ticket.reporter_type}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white p-3.5 rounded-xl border border-ink-100/70 shadow-xs">
-                <span className="text-[10px] font-extrabold text-ink-400 uppercase tracking-wider">Associated Item</span>
-                {ticket.item ? (
-                  <div className="mt-1.5">
-                    <Link
-                      to={`/item/${ticket.item.id}`}
-                      className="text-xs font-bold text-ink-800 hover:text-primary-600 transition truncate block"
-                    >
-                      {ticket.item.title}
-                    </Link>
-                    <p className="text-[10px] text-ink-400 mt-0.5">{ticket.item.category}</p>
-                  </div>
-                ) : (
-                  <p className="text-xs text-ink-400 mt-1.5">Not linked to any item</p>
-                )}
-              </div>
-            </div>
-
-            {ticket.replies?.length > 0 && (
-              <div className="bg-white p-3.5 rounded-xl border border-ink-100/70 shadow-xs">
-                <span className="text-[10px] font-extrabold text-ink-400 uppercase tracking-wider">
-                  Latest Message Preview
+            <div className="space-y-3 p-4">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-ink-500">
+                  Full Description
                 </span>
-                <p className="text-xs text-ink-700 mt-1.5">
-                  {ticket.replies[ticket.replies.length - 1]?.message?.substring(0, 120)}
-                  {ticket.replies[ticket.replies.length - 1]?.message?.length > 120 ? '...' : ''}
+
+                <p className="mt-1.5 rounded-2xl border border-ink-100 bg-white p-3 text-xs font-medium leading-relaxed text-ink-700">
+                  {ticket.description || 'No description provided.'}
                 </p>
               </div>
-            )}
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-ink-100 bg-white p-3">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-ink-500">
+                    Reporter
+                  </span>
+
+                  <div className="mt-2 flex items-center gap-2">
+                    {ticket.reporter?.avatar_url ? (
+                      <img
+                        src={ticket.reporter.avatar_url}
+                        alt={ticket.reporter?.full_name || 'Reporter'}
+                        className="h-7 w-7 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-ink-100 text-xs font-black text-ink-600">
+                        {(ticket.reporter?.full_name || 'U').charAt(0)}
+                      </span>
+                    )}
+
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-extrabold text-ink-800">
+                        {ticket.reporter?.full_name || 'Unknown'}
+                      </p>
+
+                      <p className="text-[10px] font-bold capitalize text-ink-400">
+                        {ticket.reporter_type}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-ink-100 bg-white p-3">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-ink-500">
+                    Associated Item
+                  </span>
+
+                  {ticket.item ? (
+                    <div className="mt-1.5">
+                      <Link
+                        to={`/item/${ticket.item.id}`}
+                        className="block truncate text-xs font-extrabold text-ink-800 transition hover:text-primary-600"
+                      >
+                        {ticket.item.title}
+                      </Link>
+
+                      <p className="mt-0.5 text-[10px] font-bold text-ink-400">
+                        {ticket.item.category}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="mt-1.5 text-xs font-medium text-ink-400">
+                      Not linked to any item
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {ticket.replies?.length > 0 && (
+                <div className="rounded-2xl border border-ink-100 bg-white p-3">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-ink-500">
+                    Latest Message Preview
+                  </span>
+
+                  <p className="mt-1.5 text-xs font-medium leading-relaxed text-ink-700">
+                    {ticket.replies[
+                      ticket.replies.length - 1
+                    ]?.message?.substring(0, 120)}
+                    {ticket.replies[ticket.replies.length - 1]?.message
+                      ?.length > 120
+                      ? '...'
+                      : ''}
+                  </p>
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1150,28 +1209,93 @@ const TicketCard = ({ ticket, onOpenMessages, onEdit, onDelete, isOpening, dropd
   );
 };
 
-// ============================================================
-// Stat Card
-// ============================================================
-function StatCard({ label, value, icon, color = 'text-ink-700', bg = 'bg-ink-50' }) {
+/* ============================================================
+   STAT CARD
+============================================================ */
+
+function StatCard({ label, value, icon: Icon, tone = 'ink' }) {
+  const tones = {
+    ink: { color: 'text-ink-900', bg: 'bg-ink-50' },
+    warning: { color: 'text-warning-600', bg: 'bg-warning-50' },
+    success: { color: 'text-success-600', bg: 'bg-success-50' },
+    danger: { color: 'text-danger-600', bg: 'bg-danger-50' },
+    primary: { color: 'text-primary-600', bg: 'bg-primary-50' },
+  };
+  const style = tones[tone] || tones.ink;
+
   return (
-    <div className="group rounded-2xl border border-ink-100/80 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+    <div className="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-bold text-ink-500">{label}</p>
-        <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${bg}`}>
-          <i className={`bi ${icon} ${color} text-sm`} />
-        </div>
+        <p className="truncate text-xs font-bold text-ink-500">{label}</p>
+
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${style.bg}`}
+        >
+          <Icon size={15} className={style.color} />
+        </span>
       </div>
-      <p className={`mt-2 text-2xl font-extrabold tracking-[-0.03em] ${color}`}>
+
+      <p className={`mt-2 text-2xl font-black tracking-tight ${style.color}`}>
         {typeof value === 'number' ? value.toLocaleString() : value}
       </p>
     </div>
   );
 }
 
-// ============================================================
-// Pagination
-// ============================================================
+/* ============================================================
+   EMPTY STATE
+============================================================ */
+
+function EmptyState({ variant = 'empty', onReset, onCreate }) {
+  const isFiltered = variant === 'filtered';
+
+  return (
+    <div className="flex min-h-[420px] items-center justify-center rounded-[28px] border border-dashed border-ink-200 bg-white px-6 py-12">
+      <div className="mx-auto max-w-md text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-primary-50 text-primary-600">
+          {isFiltered ? <Search size={27} /> : <Inbox size={27} />}
+        </div>
+
+        <h2 className="mt-5 text-lg font-black text-ink-950">
+          {isFiltered ? 'No matching tickets' : 'No support tickets yet'}
+        </h2>
+
+        <p className="mt-2 text-sm font-medium leading-6 text-ink-500">
+          {isFiltered
+            ? 'Try adjusting your search or filters to find the ticket you are looking for.'
+            : 'Need help? Create a support ticket and our team will assist you.'}
+        </p>
+
+        <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
+          {isFiltered ? (
+            <button
+              type="button"
+              onClick={onReset}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50"
+            >
+              <RefreshCw size={15} />
+              Clear filters
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onCreate}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 text-sm font-extrabold text-white transition hover:bg-primary-700"
+            >
+              <Plus size={16} />
+              Create ticket
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   PAGINATION
+============================================================ */
+
 function Pagination({ currentPage, totalPages, onPageChange }) {
   const getPageNumbers = () => {
     const pages = [];
@@ -1181,6 +1305,7 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
       for (let i = 1; i <= totalPages; i++) pages.push(i);
     } else {
       pages.push(1);
+
       if (currentPage > 3) pages.push('...');
 
       const start = Math.max(2, currentPage - 1);
@@ -1189,6 +1314,7 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
       for (let i = start; i <= end; i++) pages.push(i);
 
       if (currentPage < totalPages - 2) pages.push('...');
+
       pages.push(totalPages);
     }
 
@@ -1198,22 +1324,27 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
   if (totalPages <= 1) return null;
 
   return (
-    <div className="flex items-center gap-1 rounded-xl border border-ink-100/80 bg-white p-1 shadow-sm">
+    <div className="flex items-center gap-1 rounded-2xl border border-ink-100 bg-white p-1 shadow-sm">
       <button
         type="button"
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
         aria-label="Previous page"
-        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
-          currentPage === 1 ? 'cursor-not-allowed text-ink-200' : 'text-ink-500 hover:bg-primary-50/60 hover:text-primary-600'
+        className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${
+          currentPage === 1
+            ? 'cursor-not-allowed text-ink-200'
+            : 'text-ink-500 hover:bg-primary-50 hover:text-primary-600'
         }`}
       >
-        <i className="bi bi-chevron-left text-xs" />
+        <ChevronLeft size={14} />
       </button>
 
       {getPageNumbers().map((page, index) =>
         page === '...' ? (
-          <span key={`dots-${index}`} className="flex h-8 w-8 items-center justify-center text-xs font-medium text-ink-300">
+          <span
+            key={`dots-${index}`}
+            className="flex h-8 w-8 items-center justify-center text-xs font-bold text-ink-300"
+          >
             …
           </span>
         ) : (
@@ -1221,8 +1352,10 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
             type="button"
             key={page}
             onClick={() => onPageChange(page)}
-            className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-extrabold transition-all ${
-              currentPage === page ? 'bg-gradient-to-r from-primary-500 to-brand-600 text-white shadow-sm' : 'text-ink-500 hover:bg-ink-50 hover:text-primary-600'
+            className={`flex h-8 w-8 items-center justify-center rounded-xl text-xs font-extrabold transition ${
+              currentPage === page
+                ? 'bg-primary-600 text-white shadow-sm'
+                : 'text-ink-500 hover:bg-ink-50 hover:text-primary-600'
             }`}
           >
             {page}
@@ -1235,11 +1368,13 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
         aria-label="Next page"
-        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
-          currentPage === totalPages ? 'cursor-not-allowed text-ink-200' : 'text-ink-500 hover:bg-primary-50/60 hover:text-primary-600'
+        className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${
+          currentPage === totalPages
+            ? 'cursor-not-allowed text-ink-200'
+            : 'text-ink-500 hover:bg-primary-50 hover:text-primary-600'
         }`}
       >
-        <i className="bi bi-chevron-right text-xs" />
+        <ChevronRight size={14} />
       </button>
     </div>
   );

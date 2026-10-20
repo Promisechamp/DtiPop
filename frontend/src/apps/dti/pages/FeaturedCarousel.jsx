@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { DTI_BASE, makePaths } from "@/utils/routeBases";
 
 import {
   AnimatePresence,
@@ -23,6 +24,7 @@ import { SHIPPING_OPTIONS } from '@/utils/constants';
 const AUTOPLAY_MS = 6000;
 const RESUME_DELAY_MS = 1400;
 const SWIPE_THRESHOLD = 60;
+const { to } = makePaths(DTI_BASE);
 
 /* =========================================================
    HELPERS
@@ -973,7 +975,7 @@ const FeaturedCarousel = ({
                   )}
 
                   <Link
-                    to={`/item/${item.id}`}
+                    to={to(`/item/${item.id}`)}
                     aria-label={`View ${item.title || 'featured item'}`}
                     className="
                       group

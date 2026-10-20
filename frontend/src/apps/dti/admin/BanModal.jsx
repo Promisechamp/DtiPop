@@ -1,7 +1,21 @@
+// src/admin/BanModal.jsx
+
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import {
+  User,
+  UserX,
+  UserCheck,
+  AlertTriangle,
+  Info,
+} from 'lucide-react';
+
 import Modal from '@/reusables/Modal';
 import Select from '@/reusables/Select';
+
+/* ============================================================
+   BAN MODAL
+============================================================ */
 
 const BanModal = ({
   isOpen,
@@ -18,7 +32,7 @@ const BanModal = ({
   const [customDays, setCustomDays] = useState(7);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Reset form when modal opens or user changes
+  /* Reset form when modal opens or user changes */
   useEffect(() => {
     if (isOpen && user) {
       setBanReason(user.ban_reason || '');
@@ -29,34 +43,36 @@ const BanModal = ({
 
   const formatDate = (date) => {
     if (!date) return 'N/A';
+
     return new Date(date).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
 
   const handleSubmit = async () => {
     if (!user) return;
 
-    // If banning, validate reason
+    /* If banning, validate reason */
     if (user.ban_status !== 'banned' && !banReason.trim()) {
       toast.error('Please provide a reason for banning');
       return;
     }
 
     setIsSubmitting(true);
+
     try {
       const banStatus = user.ban_status === 'banned' ? 'active' : 'banned';
-      
-      let banData = {
+
+      const banData = {
         ban_status: banStatus,
         reason: banReason,
       };
 
-      // If banning, include duration
+      /* If banning, include duration */
       if (banStatus === 'banned') {
         let durationValue = banDuration;
         if (banDuration === 'custom') {
@@ -90,8 +106,9 @@ const BanModal = ({
   if (!user) return null;
 
   const isBanned = user.ban_status === 'banned';
+  const isBusy = isSubmitting || loading;
 
-  // Duration options for Select
+  /* Duration options for Select */
   const durationOptions = [
     { value: 'permanent', label: 'Permanent' },
     { value: '1', label: '1 Day' },
@@ -112,104 +129,147 @@ const BanModal = ({
       size={size}
     >
       <div className="space-y-4">
-        {/* User Info */}
-        <div className="flex items-center gap-3 p-3 bg-ink-50/50 rounded-xl border border-ink-100/60 shadow-sm">
+        {/* USER INFO */}
+        <div className="flex items-center gap-3 rounded-2xl border border-ink-100 bg-ink-50/50 p-3">
           {user.avatar_url ? (
-            <img 
-              src={user.avatar_url} 
-              alt={user.full_name || 'User'} 
-              className="w-10 h-10 rounded-full object-cover shrink-0 border border-ink-100"
+            <img
+              src={user.avatar_url}
+              alt={user.full_name || 'User'}
+              className="h-10 w-10 shrink-0 rounded-full border border-ink-100 object-cover"
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-ink-100 flex items-center justify-center shrink-0 border border-ink-200">
-              <i className="bi bi-person text-ink-500"></i>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-ink-100 bg-ink-50 text-ink-400">
+              <User size={16} />
             </div>
           )}
-          <div>
-            <p className="text-sm font-extrabold text-ink-900">
+
+          <div className="min-w-0">
+            <p className="truncate text-sm font-extrabold text-ink-950">
               {user.full_name || 'Anonymous'}
             </p>
-            <p className="text-xs font-medium text-ink-500">{user.email || 'No email'}</p>
+
+            <p className="truncate text-[11px] font-bold text-ink-400">
+              {user.email || 'No email'}
+            </p>
           </div>
         </div>
 
-        {/* Status Badge */}
-        <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border shadow-sm ${
-          isBanned ? 'bg-rose-50 border-rose-200/60' : 'bg-emerald-50 border-emerald-200/60'
-        }`}>
-          <i className={`bi ${isBanned ? 'bi-person-x text-rose-500' : 'bi-person-check text-emerald-500'}`}></i>
-          <span className={`text-sm font-extrabold ${isBanned ? 'text-rose-700' : 'text-emerald-700'}`}>
+        {/* STATUS BADGE */}
+        <div
+          className={`flex items-center gap-2 rounded-2xl border p-3 ${
+            isBanned
+              ? 'border-danger-200 bg-danger-50'
+              : 'border-success-200 bg-success-50'
+          }`}
+        >
+          {isBanned ? (
+            <UserX size={15} className="shrink-0 text-danger-600" />
+          ) : (
+            <UserCheck size={15} className="shrink-0 text-success-600" />
+          )}
+
+          <span
+            className={`text-sm font-extrabold ${
+              isBanned ? 'text-danger-900' : 'text-success-700'
+            }`}
+          >
             {isBanned ? 'Currently Banned' : 'Currently Active'}
           </span>
+
           {isBanned && user.ban_count > 0 && (
-            <span className="text-xs font-bold text-rose-400 ml-auto">
+            <span className="ml-auto text-[10px] font-extrabold uppercase tracking-wider text-danger-500">
               Ban #{user.ban_count}
             </span>
           )}
         </div>
 
-        {/* Ban History Warning */}
+        {/* BAN HISTORY WARNING */}
         {!isBanned && user.ban_count > 0 && (
-          <div className="bg-amber-50 border border-amber-200/60 rounded-xl p-3 shadow-sm">
-            <p className="text-xs font-bold text-amber-700 flex items-center gap-1.5">
-              <i className="bi bi-exclamation-triangle"></i>
-              This user has been banned {user.ban_count} time{user.ban_count > 1 ? 's' : ''} before.
-              {user.ban_count >= 3 && ' Multiple violations may result in permanent suspension.'}
+          <div className="flex items-start gap-2 rounded-2xl border border-warning-200 bg-warning-50 p-3">
+            <AlertTriangle
+              size={14}
+              className="mt-0.5 shrink-0 text-warning-600"
+            />
+
+            <p className="text-[11px] font-bold leading-5 text-warning-700">
+              This user has been banned{' '}
+              <span className="font-extrabold">{user.ban_count}</span>{' '}
+              time{user.ban_count > 1 ? 's' : ''} before.
+              {user.ban_count >= 3 &&
+                ' Multiple violations may result in permanent suspension.'}
             </p>
           </div>
         )}
 
-        {/* Current Ban Details (if banned) */}
+        {/* CURRENT BAN DETAILS */}
         {isBanned && (
-          <div className="bg-ink-50/50 rounded-xl border border-ink-100/60 p-3 space-y-1 shadow-sm">
-            <p className="text-[10px] font-extrabold text-ink-500 uppercase tracking-wider">Current Ban Details</p>
-            <p className="text-sm font-bold text-ink-700">
-              <span className="font-extrabold">Reason:</span> {user.ban_reason || 'No reason provided'}
+          <div className="space-y-1.5 rounded-2xl border border-ink-100 bg-ink-50/50 p-3">
+            <p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-500">
+              Current Ban Details
             </p>
+
+            <p className="text-sm font-bold text-ink-700">
+              <span className="font-extrabold text-ink-950">Reason:</span>{' '}
+              {user.ban_reason || 'No reason provided'}
+            </p>
+
             {user.banned_at && (
-              <p className="text-xs font-medium text-ink-500">
-                <span className="font-extrabold">Banned at:</span> {formatDate(user.banned_at)}
+              <p className="text-[11px] font-bold text-ink-500">
+                <span className="font-extrabold text-ink-700">
+                  Banned at:
+                </span>{' '}
+                {formatDate(user.banned_at)}
               </p>
             )}
+
             {user.ban_duration && user.ban_duration !== 'permanent' && (
-              <p className="text-xs font-medium text-ink-500">
-                <span className="font-extrabold">Duration:</span> {user.ban_duration}
+              <p className="text-[11px] font-bold text-ink-500">
+                <span className="font-extrabold text-ink-700">Duration:</span>{' '}
+                {user.ban_duration}
               </p>
             )}
+
             {user.banned_until && user.ban_duration !== 'permanent' && (
-              <p className="text-xs font-bold text-sky-600">
-                <span className="font-extrabold">Auto-unban:</span> {formatDate(user.banned_until)}
+              <p className="text-[11px] font-extrabold text-primary-600">
+                <span className="font-extrabold text-ink-700">
+                  Auto-unban:
+                </span>{' '}
+                {formatDate(user.banned_until)}
               </p>
             )}
+
             {user.banned_by_name && (
-              <p className="text-xs font-medium text-ink-500">
-                <span className="font-extrabold">Banned by:</span> {user.banned_by_name}
+              <p className="text-[11px] font-bold text-ink-500">
+                <span className="font-extrabold text-ink-700">
+                  Banned by:
+                </span>{' '}
+                {user.banned_by_name}
               </p>
             )}
           </div>
         )}
 
-        {/* Ban Form (if not banned) */}
+        {/* BAN FORM */}
         {!isBanned && (
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-extrabold text-ink-700 block mb-1">
-                Reason <span className="text-rose-500">*</span>
+              <label className="label">
+                Reason <span className="text-danger-500">*</span>
               </label>
+
               <textarea
                 value={banReason}
                 onChange={(e) => setBanReason(e.target.value)}
                 placeholder="Enter reason for banning..."
-                className="w-full px-3 py-2 border border-ink-200 rounded-xl focus:ring-2 focus:ring-rose-500/30 focus:border-rose-400 outline-none text-sm text-ink-900 placeholder:text-ink-400 bg-white transition shadow-sm"
+                className="input-field resize-none"
                 rows={2}
                 required
               />
             </div>
 
             <div>
-              <label className="text-sm font-extrabold text-ink-700 block mb-1">
-                Duration
-              </label>
+              <label className="label">Duration</label>
+
               <Select
                 value={banDuration}
                 onChange={(value) => setBanDuration(value)}
@@ -222,78 +282,103 @@ const BanModal = ({
 
             {banDuration === 'custom' && (
               <div>
-                <label className="text-sm font-extrabold text-ink-700 block mb-1">
-                  Number of Days
-                </label>
+                <label className="label">Number of Days</label>
+
                 <input
                   type="number"
                   value={customDays}
-                  onChange={(e) => setCustomDays(Math.max(1, parseInt(e.target.value) || 1))}
+                  onChange={(e) =>
+                    setCustomDays(Math.max(1, parseInt(e.target.value) || 1))
+                  }
                   min="1"
                   max="365"
-                  className="w-full px-3 py-2 border border-ink-200 rounded-xl focus:ring-2 focus:ring-rose-500/30 focus:border-rose-400 outline-none text-sm text-ink-900 placeholder:text-ink-400 bg-white transition shadow-sm"
+                  className="input-field"
                 />
-                <p className="text-xs font-medium text-ink-400 mt-1">
+
+                <p className="mt-1 text-[11px] font-bold text-ink-400">
                   User will be automatically unbanned after {customDays} days
                 </p>
               </div>
             )}
 
             {banDuration !== 'permanent' && banDuration !== 'custom' && (
-              <div className="bg-sky-50 border border-sky-200/60 rounded-xl p-3 shadow-sm">
-                <p className="text-xs font-bold text-sky-600 flex items-center gap-1.5">
-                  <i className="bi bi-info-circle"></i>
-                  This user will be automatically unbanned after {banDuration} day{parseInt(banDuration) > 1 ? 's' : ''}
+              <div className="flex items-start gap-2 rounded-2xl border border-primary-200 bg-primary-50 p-3">
+                <Info
+                  size={14}
+                  className="mt-0.5 shrink-0 text-primary-600"
+                />
+
+                <p className="text-[11px] font-bold leading-5 text-primary-700">
+                  This user will be automatically unbanned after{' '}
+                  {banDuration} day{parseInt(banDuration) > 1 ? 's' : ''}
                 </p>
               </div>
             )}
 
             {user.ban_count > 0 && (
-              <div className="bg-rose-50 border border-rose-200/60 rounded-xl p-3 shadow-sm">
-                <p className="text-xs font-bold text-rose-600 flex items-center gap-1.5">
-                  <i className="bi bi-exclamation-triangle"></i>
-                  This is ban #{user.ban_count + 1} for this user. 
-                  {user.ban_count >= 2 && ' Repeat bans may result in permanent suspension.'}
+              <div className="flex items-start gap-2 rounded-2xl border border-danger-200 bg-danger-50 p-3">
+                <AlertTriangle
+                  size={14}
+                  className="mt-0.5 shrink-0 text-danger-600"
+                />
+
+                <p className="text-[11px] font-bold leading-5 text-danger-700">
+                  This is ban #{user.ban_count + 1} for this user.
+                  {user.ban_count >= 2 &&
+                    ' Repeat bans may result in permanent suspension.'}
                 </p>
               </div>
             )}
           </div>
         )}
 
-        {/* Unban Confirmation */}
+        {/* UNBAN CONFIRMATION */}
         {isBanned && (
-          <div className="bg-emerald-50 border border-emerald-200/60 rounded-xl p-3 shadow-sm">
-            <p className="text-sm font-bold text-emerald-700 flex items-center gap-1.5">
-              <i className="bi bi-info-circle"></i>
-              Are you sure you want to unban this user? They will regain full access to the platform.
+          <div className="flex items-start gap-2 rounded-2xl border border-success-200 bg-success-50 p-3">
+            <Info size={14} className="mt-0.5 shrink-0 text-success-600" />
+
+            <p className="text-[11px] font-bold leading-5 text-success-700">
+              Are you sure you want to unban this user? They will regain full
+              access to the platform.
             </p>
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="flex gap-3 pt-2">
+        {/* ACTION BUTTONS */}
+        <div className="flex flex-col-reverse gap-2 border-t border-ink-100 pt-4 sm:flex-row sm:justify-end">
           <button
+            type="button"
             onClick={handleClose}
-            disabled={isSubmitting || loading}
-            className="flex-1 px-4 py-2 bg-ink-100 hover:bg-ink-200 text-ink-700 rounded-xl font-bold transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            disabled={isBusy}
+            className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Cancel
           </button>
+
           <button
+            type="button"
             onClick={handleSubmit}
-            disabled={isSubmitting || loading || (!isBanned && !banReason.trim())}
-            className={`flex-1 px-4 py-2 rounded-xl font-extrabold transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${
+            disabled={isBusy || (!isBanned && !banReason.trim())}
+            className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-extrabold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
               isBanned
-                ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:shadow-md text-white'
-                : 'bg-gradient-to-r from-rose-500 to-rose-600 hover:shadow-md text-white'
+                ? 'bg-success-600 hover:bg-success-700'
+                : 'bg-danger-600 hover:bg-danger-700'
             }`}
           >
-            {isSubmitting || loading ? (
-              <span className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></span>
+            {isBusy ? (
+              <>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                {isBanned ? 'Unbanning...' : 'Banning...'}
+              </>
+            ) : isBanned ? (
+              <>
+                <UserCheck size={15} />
+                Unban User
+              </>
             ) : (
               <>
-                <i className={`bi ${isBanned ? 'bi-person-check' : 'bi-person-x'}`}></i>
-                {isBanned ? 'Unban User' : 'Ban User'}
+                <UserX size={15} />
+                Ban User
               </>
             )}
           </button>

@@ -5,6 +5,8 @@ import React, {
   useState,
 } from 'react';
 
+import { DTI_BASE, makePaths } from "@/utils/routeBases";
+
 import {
   AnimatePresence,
   motion,
@@ -15,9 +17,31 @@ import {
   useSearchParams,
 } from 'react-router-dom';
 
+import { toast } from 'sonner';
+
 import {
-  itemsAPI,
-} from '@/services/api/dtiApi';
+  ArrowUpRight,
+  ArrowLeft,
+  ArrowRight,
+  BadgeCheck,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Gift,
+  Globe,
+  Heart,
+  Image as ImageIcon,
+  Loader2,
+  Package,
+  Plus,
+  RefreshCw,
+  Search,
+  X,
+  AlertCircle,
+} from 'lucide-react';
+
+import { useAuth } from '@/context/AuthContext';
+import { itemsAPI, favoritesAPI } from '@/services/api/dtiApi';
 
 import {
   ITEM_CATEGORIES,
@@ -31,6 +55,7 @@ import FeaturedCarousel from './FeaturedCarousel';
 /* =========================================================
    HELPERS
 ========================================================= */
+const { to } = makePaths(DTI_BASE);
 
 const getItemImage = (item) => {
   if (!item?.images) return null;
@@ -132,7 +157,7 @@ const EmptyState = ({ onReset }) => {
       className="rounded-3xl border border-dashed border-ink-200 bg-ink-50/40 px-6 py-16 text-center"
     >
       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-ink-100 text-ink-400">
-        <i className="bi bi-box-seam text-2xl" />
+        <Package size={26} />
       </div>
 
       <h3 className="mt-5 text-lg font-black tracking-tight text-ink-950">
@@ -140,17 +165,16 @@ const EmptyState = ({ onReset }) => {
       </h3>
 
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-ink-500">
-        We couldn't find anything matching your current search or
-        filters. Try widening your search and see what the community
-        has to offer.
+        We couldn't find anything matching your current search or filters.
+        Try widening your search and see what the community has to offer.
       </p>
 
       <button
         type="button"
         onClick={onReset}
-        className="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-500/20"
+        className="mt-6 inline-flex h-11 items-center gap-2 rounded-xl bg-primary-600 px-5 text-sm font-extrabold text-white shadow-sm transition hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-500/20"
       >
-        <i className="bi bi-arrow-counterclockwise" />
+        <RefreshCw size={15} />
         Clear filters
       </button>
     </motion.div>
@@ -165,60 +189,32 @@ const ItemCard = ({
   item,
   index,
   isFavorite,
+  isFavoriteBusy,
   onToggleFavorite,
 }) => {
   const image = getItemImage(item);
   const condition = getConditionLabel(item?.condition);
-  const shipping = getShippingLabel(
-    item?.shipping_regions?.region
-  );
+  const shipping = getShippingLabel(item?.shipping_regions?.region);
 
   return (
     <motion.article
       layout
-      initial={{
-        opacity: 0,
-        y: 16,
-      }}
-      animate={{
-        opacity: 1,
-        y: 0,
-      }}
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{
         duration: 0.35,
         delay: Math.min(index, 8) * 0.035,
       }}
-      className="
-        group
-        overflow-hidden
-        rounded-2xl
-        border
-        border-ink-100
-        bg-white
-        transition-all
-        duration-300
-        hover:-translate-y-1
-        hover:border-ink-200
-        hover:shadow-lg
-      "
+      className="group overflow-hidden rounded-2xl border border-ink-100 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-ink-200 hover:shadow-lg"
     >
       {/* IMAGE */}
-
       <div className="relative aspect-square overflow-hidden bg-ink-100">
         {image ? (
           <img
             src={image}
             alt={item?.title || 'Community item'}
             loading="lazy"
-            className="
-              h-full
-              w-full
-              object-cover
-              transition-transform
-              duration-700
-              ease-out
-              group-hover:scale-[1.045]
-            "
+            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.045]"
             onError={(event) => {
               event.currentTarget.style.display = 'none';
             }}
@@ -226,13 +222,12 @@ const ItemCard = ({
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-ink-300 shadow-sm">
-              <i className="bi bi-image text-xl" />
+              <ImageIcon size={22} />
             </div>
           </div>
         )}
 
         {/* CATEGORY */}
-
         <div className="absolute bottom-3 left-3">
           <span className="inline-flex rounded-lg bg-ink-950/75 px-2.5 py-1.5 text-[10px] font-extrabold text-white backdrop-blur-md">
             {getCategoryLabel(item?.category)}
@@ -240,55 +235,32 @@ const ItemCard = ({
         </div>
 
         {/* FAVORITE */}
-
         <button
           type="button"
           onClick={() => onToggleFavorite(item.id)}
+          disabled={isFavoriteBusy}
           aria-label={
-            isFavorite
-              ? 'Remove item from saved items'
-              : 'Save item for later'
+            isFavorite ? 'Remove item from saved items' : 'Save item for later'
           }
           aria-pressed={isFavorite}
-          className="
-            absolute
-            right-3
-            top-3
-            flex
-            h-9
-            w-9
-            items-center
-            justify-center
-            rounded-full
-            border
-            border-white/40
-            bg-white/90
-            text-ink-500
-            shadow-sm
-            backdrop-blur-md
-            transition-all
-            hover:scale-105
-            hover:text-ink-900
-            focus:outline-none
-            focus:ring-4
-            focus:ring-primary-500/20
-          "
+          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/40 bg-white/90 text-ink-500 shadow-sm backdrop-blur-md transition-all hover:scale-105 hover:text-ink-900 focus:outline-none focus:ring-4 focus:ring-primary-500/20 disabled:cursor-wait disabled:opacity-80"
         >
-          <i
-            className={`bi ${
-              isFavorite
-                ? 'bi-heart-fill text-primary-600'
-                : 'bi-heart'
-            }`}
-          />
+          {isFavoriteBusy ? (
+            <Loader2 size={14} className="animate-spin text-primary-600" />
+          ) : (
+            <Heart
+              size={15}
+              fill={isFavorite ? 'currentColor' : 'none'}
+              className={isFavorite ? 'text-primary-600' : ''}
+            />
+          )}
         </button>
       </div>
 
       {/* CONTENT */}
-
       <div className="p-3.5 sm:p-4">
         <Link
-          to={`/item/${item.id}`}
+          to={to(`/item/${item.id}`)}
           className="block rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/30"
         >
           <h3 className="line-clamp-2 text-sm font-extrabold leading-5 tracking-[-0.01em] text-ink-950 transition-colors group-hover:text-primary-700 sm:text-[15px]">
@@ -297,19 +269,18 @@ const ItemCard = ({
         </Link>
 
         {/* DETAILS */}
-
         {(condition || item?.donor_pays_shipping) && (
           <div className="mt-3 flex flex-wrap gap-1.5">
             {condition && (
               <span className="inline-flex items-center gap-1 rounded-md bg-ink-50 px-2 py-1 text-[10px] font-bold text-ink-500">
-                <i className="bi bi-patch-check text-primary-500" />
+                <BadgeCheck size={11} className="text-primary-500" />
                 {condition}
               </span>
             )}
 
             {item?.donor_pays_shipping && (
               <span className="inline-flex items-center gap-1 rounded-md bg-primary-50 px-2 py-1 text-[10px] font-bold text-primary-700">
-                <i className="bi bi-gift" />
+                <Gift size={11} />
                 Free delivery
               </span>
             )}
@@ -317,7 +288,6 @@ const ItemCard = ({
         )}
 
         {/* FOOTER */}
-
         <div className="mt-4 flex items-end justify-between gap-3">
           <div className="min-w-0">
             {item?.donor?.full_name ? (
@@ -332,35 +302,18 @@ const ItemCard = ({
 
             {shipping && (
               <p className="mt-1 flex items-center gap-1 truncate text-[10px] font-medium text-ink-400">
-                <i className="bi bi-globe2" />
+                <Globe size={10} />
                 {shipping}
               </p>
             )}
           </div>
 
           <Link
-            to={`/item/${item.id}`}
+            to={to(`/item/${item.id}`)}
             aria-label={`See ${item?.title || 'item'}`}
-            className="
-              flex
-              h-9
-              w-9
-              shrink-0
-              items-center
-              justify-center
-              rounded-xl
-              bg-ink-50
-              text-ink-500
-              transition-all
-              duration-300
-              group-hover:bg-primary-600
-              group-hover:text-white
-              focus:outline-none
-              focus:ring-4
-              focus:ring-primary-500/20
-            "
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ink-50 text-ink-500 transition-all duration-300 group-hover:bg-primary-600 group-hover:text-white focus:outline-none focus:ring-4 focus:ring-primary-500/20"
           >
-            <i className="bi bi-arrow-up-right text-xs" />
+            <ArrowUpRight size={13} />
           </Link>
         </div>
       </div>
@@ -373,6 +326,8 @@ const ItemCard = ({
 ========================================================= */
 
 const BrowseItemsPage = () => {
+  const { isAuthenticated } = useAuth();
+
   const [searchParams, setSearchParams] = useSearchParams();
 
   /* -------------------------------------------------------
@@ -384,23 +339,21 @@ const BrowseItemsPage = () => {
   const currentCondition = searchParams.get('condition') || '';
   const currentRegion = searchParams.get('region') || '';
   const currentShipping = searchParams.get('shipping') || '';
-  const currentPage =
-    parseInt(searchParams.get('page'), 10) || 0;
+  const currentPage = parseInt(searchParams.get('page'), 10) || 0;
 
   /* -------------------------------------------------------
      LOCAL UI STATE
   ------------------------------------------------------- */
 
-  const [searchInput, setSearchInput] =
-    useState(currentSearch);
+  const [searchInput, setSearchInput] = useState(currentSearch);
 
   const [filtersVisible, setFiltersVisible] = useState(() => {
     return Boolean(
       currentSearch ||
-      currentCategory ||
-      currentCondition ||
-      currentRegion ||
-      currentShipping
+        currentCategory ||
+        currentCondition ||
+        currentRegion ||
+        currentShipping
     );
   });
 
@@ -409,8 +362,7 @@ const BrowseItemsPage = () => {
   ------------------------------------------------------- */
 
   const [featuredItems, setFeaturedItems] = useState([]);
-  const [featuredLoading, setFeaturedLoading] =
-    useState(true);
+  const [featuredLoading, setFeaturedLoading] = useState(true);
 
   /* -------------------------------------------------------
      ITEMS
@@ -422,18 +374,12 @@ const BrowseItemsPage = () => {
   const [error, setError] = useState('');
 
   /* -------------------------------------------------------
-     FAVORITES
+     FAVORITES — server-backed
+     Set of item IDs the current user has saved.
   ------------------------------------------------------- */
 
-  const [favorites, setFavorites] = useState(() => {
-    try {
-      const saved = localStorage.getItem('dti_favorites');
-
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [favoriteIds, setFavoriteIds] = useState(() => new Set());
+  const [favoriteBusyIds, setFavoriteBusyIds] = useState(() => new Set());
 
   const limit = 20;
 
@@ -453,17 +399,9 @@ const BrowseItemsPage = () => {
 
       const payload = response?.data;
 
-      setFeaturedItems(
-        Array.isArray(payload?.items)
-          ? payload.items
-          : []
-      );
+      setFeaturedItems(Array.isArray(payload?.items) ? payload.items : []);
     } catch (err) {
-      console.error(
-        'Failed to fetch featured items:',
-        err
-      );
-
+      console.error('Failed to fetch featured items:', err);
       setFeaturedItems([]);
     } finally {
       setFeaturedLoading(false);
@@ -511,18 +449,10 @@ const BrowseItemsPage = () => {
       const response = await itemsAPI.getAll(params);
       const payload = response?.data;
 
-      setItems(
-        Array.isArray(payload?.items)
-          ? payload.items
-          : []
-      );
-
+      setItems(Array.isArray(payload?.items) ? payload.items : []);
       setTotal(Number(payload?.total) || 0);
     } catch (err) {
-      console.error(
-        'Failed to fetch items:',
-        err
-      );
+      console.error('Failed to fetch items:', err);
 
       setError(
         err?.response?.data?.error ||
@@ -548,6 +478,98 @@ const BrowseItemsPage = () => {
   }, [fetchItems]);
 
   /* =======================================================
+     FAVORITES — fetch from server
+  ======================================================= */
+
+  const fetchFavorites = useCallback(async () => {
+    if (!isAuthenticated) {
+      setFavoriteIds(new Set());
+      return;
+    }
+
+    try {
+      const response = await favoritesAPI.getAll();
+      const list = response?.data?.favorites || [];
+
+      setFavoriteIds(
+        new Set(
+          list
+            .map((fav) => fav.item_id)
+            .filter(Boolean)
+        )
+      );
+    } catch (err) {
+      /*
+       * Non-fatal — favorites are a convenience, not a
+       * requirement for browsing. Log and move on.
+       */
+      console.error('Failed to fetch favorites:', err);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    fetchFavorites();
+  }, [fetchFavorites]);
+
+  /* =======================================================
+     FAVORITES — toggle with optimistic update
+  ======================================================= */
+
+  const toggleFavorite = useCallback(
+    async (itemId) => {
+      if (!itemId) return;
+
+      if (!isAuthenticated) {
+        toast.error('Please sign in to save items');
+        return;
+      }
+
+      if (favoriteBusyIds.has(itemId)) return;
+
+      const wasFavorited = favoriteIds.has(itemId);
+
+      /* Optimistic update */
+      setFavoriteIds((prev) => {
+        const next = new Set(prev);
+        if (wasFavorited) next.delete(itemId);
+        else next.add(itemId);
+        return next;
+      });
+
+      setFavoriteBusyIds((prev) => new Set(prev).add(itemId));
+
+      try {
+        if (wasFavorited) {
+          await favoritesAPI.remove(itemId);
+          toast.success('Removed from saved items');
+        } else {
+          await favoritesAPI.add(itemId);
+          toast.success('Saved for later');
+        }
+      } catch (err) {
+        /* Rollback on failure */
+        setFavoriteIds((prev) => {
+          const next = new Set(prev);
+          if (wasFavorited) next.add(itemId);
+          else next.delete(itemId);
+          return next;
+        });
+
+        toast.error(
+          err?.response?.data?.error || 'Failed to update saved items'
+        );
+      } finally {
+        setFavoriteBusyIds((prev) => {
+          const next = new Set(prev);
+          next.delete(itemId);
+          return next;
+        });
+      }
+    },
+    [favoriteIds, favoriteBusyIds, isAuthenticated]
+  );
+
+  /* =======================================================
      URL HELPERS
   ======================================================= */
 
@@ -555,19 +577,13 @@ const BrowseItemsPage = () => {
     (newParams) => {
       const params = new URLSearchParams(searchParams);
 
-      Object.entries(newParams).forEach(
-        ([key, value]) => {
-          if (
-            value !== undefined &&
-            value !== null &&
-            value !== ''
-          ) {
-            params.set(key, String(value));
-          } else {
-            params.delete(key);
-          }
+      Object.entries(newParams).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.set(key, String(value));
+        } else {
+          params.delete(key);
         }
-      );
+      });
 
       setSearchParams(params);
     },
@@ -593,11 +609,7 @@ const BrowseItemsPage = () => {
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [
-    searchInput,
-    currentSearch,
-    updateUrlParams,
-  ]);
+  }, [searchInput, currentSearch, updateUrlParams]);
 
   /* =======================================================
      FILTERS
@@ -617,45 +629,17 @@ const BrowseItemsPage = () => {
   };
 
   /* =======================================================
-     FAVORITES
-  ======================================================= */
-
-  const toggleFavorite = (itemId) => {
-    setFavorites((current) =>
-      current.includes(itemId)
-        ? current.filter((id) => id !== itemId)
-        : [...current, itemId]
-    );
-  };
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        'dti_favorites',
-        JSON.stringify(favorites)
-      );
-    } catch {
-      // Ignore localStorage errors.
-    }
-  }, [favorites]);
-
-  /* =======================================================
      PAGINATION
   ======================================================= */
 
   const totalPages = Math.ceil(total / limit);
 
   const hasPrevious = currentPage > 0;
-
-  const hasNext =
-    currentPage + 1 < totalPages;
+  const hasNext = currentPage + 1 < totalPages;
 
   const handlePageChange = (page) => {
     updateUrlParams({ page });
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth',
-    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   /* =======================================================
@@ -670,21 +654,15 @@ const BrowseItemsPage = () => {
     }
 
     if (currentCategory) {
-      filters.push(
-        getCategoryLabel(currentCategory)
-      );
+      filters.push(getCategoryLabel(currentCategory));
     }
 
     if (currentCondition) {
-      filters.push(
-        getConditionLabel(currentCondition)
-      );
+      filters.push(getConditionLabel(currentCondition));
     }
 
     if (currentRegion) {
-      filters.push(
-        getShippingLabel(currentRegion)
-      );
+      filters.push(getShippingLabel(currentRegion));
     }
 
     if (currentShipping) {
@@ -711,39 +689,22 @@ const BrowseItemsPage = () => {
 
     const text = activeFilters.join(' · ');
 
-    return text.length > 34
-      ? `${text.slice(0, 34)}…`
-      : text;
+    return text.length > 34 ? `${text.slice(0, 34)}…` : text;
   }, [activeFilters]);
 
   /* =======================================================
      OPTIONS
   ======================================================= */
 
-  const categoryOptions = useMemo(
-    () => ITEM_CATEGORIES || [],
-    []
-  );
+  const categoryOptions = useMemo(() => ITEM_CATEGORIES || [], []);
 
-  const conditionOptions = useMemo(
-    () => ITEM_CONDITIONS || [],
-    []
-  );
+  const conditionOptions = useMemo(() => ITEM_CONDITIONS || [], []);
 
   const shippingOptions = useMemo(
     () => [
-      {
-        value: '',
-        label: 'Delivery',
-      },
-      {
-        value: 'true',
-        label: 'Giver Pays',
-      },
-      {
-        value: 'false',
-        label: 'Recipient Pays',
-      },
+      { value: '', label: 'Delivery' },
+      { value: 'true', label: 'Giver Pays' },
+      { value: 'false', label: 'Recipient Pays' },
     ],
     []
   );
@@ -754,7 +715,6 @@ const BrowseItemsPage = () => {
 
   return (
     <main className="min-h-screen bg-ink-50/30 pb-20">
-
       {/* =====================================================
           FEATURED
       ===================================================== */}
@@ -770,26 +730,12 @@ const BrowseItemsPage = () => {
 
       <section className="mx-auto max-w-7xl px-4 pt-12 sm:px-6 sm:pt-16 lg:px-8 lg:pt-20">
         <motion.div
-          initial={{
-            opacity: 0,
-            y: 12,
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-          }}
-          transition={{
-            duration: 0.45,
-          }}
-          className="
-            grid
-            gap-8
-            lg:grid-cols-[1fr_auto]
-            lg:items-end
-          "
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45 }}
+          className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end"
         >
           <div className="max-w-3xl">
-
             <div className="mb-3 flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-primary-500" />
 
@@ -798,63 +744,25 @@ const BrowseItemsPage = () => {
               </span>
             </div>
 
-            <h1 className="
-              max-w-3xl
-              text-3xl
-              font-black
-              leading-[1.02]
-              tracking-[-0.045em]
-              text-ink-950
-              sm:text-4xl
-              lg:text-[3.35rem]
-            ">
+            <h1 className="max-w-3xl text-3xl font-black leading-[1.02] tracking-[-0.045em] text-ink-950 sm:text-4xl lg:text-[3.35rem]">
               Give what you no longer need.
               <span className="block text-ink-400">
                 Find what someone else can use.
               </span>
             </h1>
 
-            <p className="
-              mt-4
-              max-w-2xl
-              text-sm
-              leading-6
-              text-ink-500
-              sm:text-[15px]
-            ">
-              Useful things deserve another life. Browse
-              items people in the community are freely
-              offering, or pass something you no longer
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-ink-500 sm:text-[15px]">
+              Useful things deserve another life. Browse items people in the
+              community are freely offering, or pass something you no longer
               need on to someone who does.
             </p>
           </div>
 
           <Link
-            to="/create"
-            className="
-              inline-flex
-              h-12
-              shrink-0
-              items-center
-              justify-center
-              gap-2
-              rounded-xl
-              bg-primary-600
-              px-5
-              text-sm
-              font-extrabold
-              text-white
-              shadow-sm
-              transition-all
-              hover:-translate-y-0.5
-              hover:bg-primary-700
-              hover:shadow-md
-              focus:outline-none
-              focus:ring-4
-              focus:ring-primary-500/20
-            "
+            to={to("/create")}
+            className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 text-sm font-extrabold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-primary-700 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-primary-500/20"
           >
-            <i className="bi bi-plus-lg" />
+            <Plus size={16} />
             Give an Item
           </Link>
         </motion.div>
@@ -881,67 +789,28 @@ const BrowseItemsPage = () => {
       ===================================================== */}
 
       <section className="mx-auto max-w-7xl px-4 pt-7 sm:px-6 lg:px-8">
-        <div className="
-          overflow-hidden
-          rounded-2xl
-          border
-          border-ink-100
-          bg-white
-          shadow-sm
-        ">
-
+        <div className="overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm">
           {/* FILTER HEADER */}
 
           <div className="flex items-center justify-between gap-4 p-3 sm:p-4">
-
             <button
               type="button"
-              onClick={() =>
-                setFiltersVisible((current) => !current)
-              }
+              onClick={() => setFiltersVisible((current) => !current)}
               aria-expanded={filtersVisible}
-              className="
-                flex
-                min-w-0
-                items-center
-                gap-2
-                rounded-lg
-                text-sm
-                font-extrabold
-                text-ink-600
-                transition-colors
-                hover:text-ink-950
-                focus:outline-none
-                focus:ring-2
-                focus:ring-primary-500/30
-              "
+              className="flex min-w-0 items-center gap-2 rounded-lg text-sm font-extrabold text-ink-600 transition-colors hover:text-ink-950 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
             >
-              <i
-                className={`bi bi-chevron-${
-                  filtersVisible ? 'up' : 'down'
-                } text-xs`}
-              />
+              {filtersVisible ? (
+                <ChevronUp size={14} />
+              ) : (
+                <ChevronDown size={14} />
+              )}
 
               <span className="truncate">
-                {filtersVisible
-                  ? 'Hide filters'
-                  : filterDisplayText}
+                {filtersVisible ? 'Hide filters' : filterDisplayText}
               </span>
 
               {activeFilters.length > 0 && (
-                <span className="
-                  flex
-                  h-5
-                  min-w-5
-                  items-center
-                  justify-center
-                  rounded-full
-                  bg-primary-100
-                  px-1.5
-                  text-[10px]
-                  font-black
-                  text-primary-700
-                ">
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-100 px-1.5 text-[10px] font-black text-primary-700">
                   {activeFilters.length}
                 </span>
               )}
@@ -951,21 +820,7 @@ const BrowseItemsPage = () => {
               <button
                 type="button"
                 onClick={resetFilters}
-                className="
-                  shrink-0
-                  rounded-lg
-                  px-2
-                  py-1.5
-                  text-xs
-                  font-bold
-                  text-ink-400
-                  transition-colors
-                  hover:bg-ink-50
-                  hover:text-ink-700
-                  focus:outline-none
-                  focus:ring-2
-                  focus:ring-primary-500/30
-                "
+                className="shrink-0 rounded-lg px-2 py-1.5 text-xs font-bold text-ink-400 transition-colors hover:bg-ink-50 hover:text-ink-700 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
               >
                 Clear
               </button>
@@ -977,39 +832,20 @@ const BrowseItemsPage = () => {
           <AnimatePresence initial={false}>
             {filtersVisible && (
               <motion.div
-                initial={{
-                  height: 0,
-                  opacity: 0,
-                }}
-                animate={{
-                  height: 'auto',
-                  opacity: 1,
-                }}
-                exit={{
-                  height: 0,
-                  opacity: 0,
-                }}
-                transition={{
-                  duration: 0.25,
-                  ease: 'easeInOut',
-                }}
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: 'easeInOut' }}
                 className="overflow-hidden"
               >
                 <div className="border-t border-ink-100 p-3 sm:p-4">
-
                   {/* SEARCH */}
 
                   <div className="relative">
-                    <i className="
-                      bi
-                      bi-search
-                      pointer-events-none
-                      absolute
-                      left-4
-                      top-1/2
-                      -translate-y-1/2
-                      text-ink-400
-                    " />
+                    <Search
+                      size={16}
+                      className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-400"
+                    />
 
                     <input
                       type="search"
@@ -1017,26 +853,7 @@ const BrowseItemsPage = () => {
                       onChange={handleSearchChange}
                       placeholder="Search gifts from the community..."
                       aria-label="Search community gifts"
-                      className="
-                        h-12
-                        w-full
-                        rounded-xl
-                        border
-                        border-ink-200
-                        bg-ink-50/50
-                        pl-11
-                        pr-11
-                        text-sm
-                        font-medium
-                        text-ink-900
-                        outline-none
-                        transition
-                        placeholder:text-ink-400
-                        focus:border-primary-400
-                        focus:bg-white
-                        focus:ring-4
-                        focus:ring-primary-500/10
-                      "
+                      className="h-12 w-full rounded-xl border border-ink-200 bg-ink-50/50 pl-11 pr-11 text-sm font-medium text-ink-900 outline-none transition placeholder:text-ink-400 focus:border-primary-400 focus:bg-white focus:ring-4 focus:ring-primary-500/10"
                     />
 
                     {searchInput && (
@@ -1044,54 +861,23 @@ const BrowseItemsPage = () => {
                         type="button"
                         onClick={() => {
                           setSearchInput('');
-
-                          updateUrlParams({
-                            search: '',
-                            page: 0,
-                          });
+                          updateUrlParams({ search: '', page: 0 });
                         }}
                         aria-label="Clear search"
-                        className="
-                          absolute
-                          right-3
-                          top-1/2
-                          flex
-                          h-8
-                          w-8
-                          -translate-y-1/2
-                          items-center
-                          justify-center
-                          rounded-lg
-                          text-ink-400
-                          transition
-                          hover:bg-ink-100
-                          hover:text-ink-700
-                          focus:outline-none
-                          focus:ring-2
-                          focus:ring-primary-500/30
-                        "
+                        className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-ink-400 transition hover:bg-ink-100 hover:text-ink-700 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
                       >
-                        <i className="bi bi-x-lg text-xs" />
+                        <X size={13} />
                       </button>
                     )}
                   </div>
 
                   {/* SELECTS */}
 
-                  <div className="
-                    mt-3
-                    grid
-                    grid-cols-2
-                    gap-2
-                    sm:grid-cols-4
-                  ">
+                  <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <Select
                       value={currentCategory}
                       onChange={(value) =>
-                        handleFilterChange(
-                          'category',
-                          value
-                        )
+                        handleFilterChange('category', value)
                       }
                       options={categoryOptions}
                       placeholder="Category"
@@ -1103,10 +889,7 @@ const BrowseItemsPage = () => {
                     <Select
                       value={currentCondition}
                       onChange={(value) =>
-                        handleFilterChange(
-                          'condition',
-                          value
-                        )
+                        handleFilterChange('condition', value)
                       }
                       options={conditionOptions}
                       placeholder="Condition"
@@ -1118,10 +901,7 @@ const BrowseItemsPage = () => {
                     <Select
                       value={currentRegion}
                       onChange={(value) =>
-                        handleFilterChange(
-                          'region',
-                          value
-                        )
+                        handleFilterChange('region', value)
                       }
                       options={SHIPPING_OPTIONS}
                       placeholder="Region"
@@ -1133,10 +913,7 @@ const BrowseItemsPage = () => {
                     <Select
                       value={currentShipping}
                       onChange={(value) =>
-                        handleFilterChange(
-                          'shipping',
-                          value
-                        )
+                        handleFilterChange('shipping', value)
                       }
                       options={shippingOptions}
                       placeholder="Delivery"
@@ -1157,37 +934,17 @@ const BrowseItemsPage = () => {
       ===================================================== */}
 
       <section className="mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-8">
-        <div className="
-          flex
-          flex-col
-          gap-3
-          sm:flex-row
-          sm:items-end
-          sm:justify-between
-        ">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="
-                text-xl
-                font-black
-                tracking-[-0.025em]
-                text-ink-950
-              ">
+              <h2 className="text-xl font-black tracking-[-0.025em] text-ink-950">
                 {currentSearch
                   ? `Gifts matching "${currentSearch}"`
                   : 'Recently offered'}
               </h2>
 
               {!loading && (
-                <span className="
-                  rounded-full
-                  bg-ink-100
-                  px-2
-                  py-0.5
-                  text-[10px]
-                  font-black
-                  text-ink-500
-                ">
+                <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-black text-ink-500">
                   {total}
                 </span>
               )}
@@ -1198,25 +955,8 @@ const BrowseItemsPage = () => {
             </p>
           </div>
 
-          {/* SORT PLACEHOLDER */}
-
-          <div className="
-            inline-flex
-            items-center
-            gap-2
-            self-start
-            rounded-lg
-            border
-            border-ink-100
-            bg-white
-            px-3
-            py-2
-            text-xs
-            font-bold
-            text-ink-500
-            sm:self-auto
-          ">
-            <i className="bi bi-clock-history" />
+          <div className="inline-flex items-center gap-2 self-start rounded-lg border border-ink-100 bg-white px-3 py-2 text-xs font-bold text-ink-500 sm:self-auto">
+            <Clock size={12} />
             Newest first
           </div>
         </div>
@@ -1229,38 +969,13 @@ const BrowseItemsPage = () => {
       <AnimatePresence>
         {error && !loading && (
           <motion.section
-            initial={{
-              opacity: 0,
-              y: 8,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
             className="mx-auto max-w-7xl px-4 pt-5 sm:px-6 lg:px-8"
           >
-            <div className="
-              flex
-              items-center
-              gap-3
-              rounded-2xl
-              border
-              border-ink-100
-              bg-white
-              p-4
-            ">
-              <div className="
-                flex
-                h-10
-                w-10
-                shrink-0
-                items-center
-                justify-center
-                rounded-xl
-                bg-ink-50
-                text-ink-500
-              ">
-                <i className="bi bi-exclamation-circle" />
+            <div className="flex items-center gap-3 rounded-2xl border border-ink-100 bg-white p-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ink-50 text-ink-500">
+                <AlertCircle size={16} />
               </div>
 
               <div className="min-w-0 flex-1">
@@ -1268,28 +983,13 @@ const BrowseItemsPage = () => {
                   We couldn't load the gifts
                 </p>
 
-                <p className="mt-0.5 text-xs text-ink-500">
-                  {error}
-                </p>
+                <p className="mt-0.5 text-xs text-ink-500">{error}</p>
               </div>
 
               <button
                 type="button"
                 onClick={fetchItems}
-                className="
-                  rounded-lg
-                  bg-ink-950
-                  px-3
-                  py-2
-                  text-xs
-                  font-extrabold
-                  text-white
-                  transition
-                  hover:bg-ink-800
-                  focus:outline-none
-                  focus:ring-4
-                  focus:ring-primary-500/20
-                "
+                className="rounded-lg bg-ink-950 px-3 py-2 text-xs font-extrabold text-white transition hover:bg-ink-800 focus:outline-none focus:ring-4 focus:ring-primary-500/20"
               >
                 Retry
               </button>
@@ -1307,40 +1007,25 @@ const BrowseItemsPage = () => {
         className="mx-auto max-w-7xl px-4 pt-5 sm:px-6 lg:px-8"
       >
         {loading ? (
-          <div className="
-            grid
-            grid-cols-2
-            gap-3
-            sm:grid-cols-3
-            sm:gap-4
-            lg:grid-cols-4
-          ">
-            {Array.from({ length: 8 }).map(
-              (_, index) => (
-                <ItemCardSkeleton key={index} />
-              )
-            )}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <ItemCardSkeleton key={index} />
+            ))}
           </div>
         ) : items.length === 0 ? (
           <EmptyState onReset={resetFilters} />
         ) : (
           <motion.div
             layout
-            className="
-              grid
-              grid-cols-2
-              gap-3
-              sm:grid-cols-3
-              sm:gap-4
-              lg:grid-cols-4
-            "
+            className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4"
           >
             {items.map((item, index) => (
               <ItemCard
                 key={item.id}
                 item={item}
                 index={index}
-                isFavorite={favorites.includes(item.id)}
+                isFavorite={favoriteIds.has(item.id)}
+                isFavoriteBusy={favoriteBusyIds.has(item.id)}
                 onToggleFavorite={toggleFavorite}
               />
             ))}
@@ -1352,101 +1037,37 @@ const BrowseItemsPage = () => {
           PAGINATION
       ===================================================== */}
 
-      {!loading &&
-        items.length > 0 &&
-        totalPages > 1 && (
-          <section className="mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-8">
-            <div className="
-              flex
-              items-center
-              justify-between
-              border-t
-              border-ink-100
-              pt-5
-            ">
-              <button
-                type="button"
-                disabled={!hasPrevious}
-                onClick={() =>
-                  handlePageChange(
-                    currentPage - 1
-                  )
-                }
-                className="
-                  inline-flex
-                  items-center
-                  gap-2
-                  rounded-xl
-                  border
-                  border-ink-200
-                  bg-white
-                  px-4
-                  py-2.5
-                  text-xs
-                  font-extrabold
-                  text-ink-600
-                  transition
-                  hover:bg-ink-50
-                  disabled:cursor-not-allowed
-                  disabled:opacity-40
-                  focus:outline-none
-                  focus:ring-4
-                  focus:ring-primary-500/20
-                "
-              >
-                <i className="bi bi-arrow-left" />
-                Previous
-              </button>
+      {!loading && items.length > 0 && totalPages > 1 && (
+        <section className="mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between border-t border-ink-100 pt-5">
+            <button
+              type="button"
+              disabled={!hasPrevious}
+              onClick={() => handlePageChange(currentPage - 1)}
+              className="inline-flex items-center gap-2 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-xs font-extrabold text-ink-600 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus:ring-4 focus:ring-primary-500/20"
+            >
+              <ArrowLeft size={13} />
+              Previous
+            </button>
 
-              <div className="
-                text-center
-                text-xs
-                font-bold
-                text-ink-400
-              ">
-                <span className="text-ink-700">
-                  {currentPage + 1}
-                </span>
-                {' / '}
-                {totalPages}
-              </div>
-
-              <button
-                type="button"
-                disabled={!hasNext}
-                onClick={() =>
-                  handlePageChange(
-                    currentPage + 1
-                  )
-                }
-                className="
-                  inline-flex
-                  items-center
-                  gap-2
-                  rounded-xl
-                  border
-                  border-ink-200
-                  bg-white
-                  px-4
-                  py-2.5
-                  text-xs
-                  font-extrabold
-                  text-ink-600
-                  transition
-                  hover:bg-ink-50
-                  disabled:cursor-not-allowed
-                  disabled:opacity-40
-                  focus:outline-none
-                  focus:ring-4
-                  focus:ring-primary-500/20
-                "
-              >
-                Next
-                <i className="bi bi-arrow-right" />
-              </button>
+            <div className="text-center text-xs font-bold text-ink-400">
+              <span className="text-ink-700">{currentPage + 1}</span>
+              {' / '}
+              {totalPages}
             </div>
-          </section>
-        )}
+
+            <button
+              type="button"
+              disabled={!hasNext}
+              onClick={() => handlePageChange(currentPage + 1)}
+              className="inline-flex items-center gap-2 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-xs font-extrabold text-ink-600 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus:ring-4 focus:ring-primary-500/20"
+            >
+              Next
+              <ArrowRight size={13} />
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* =====================================================
           BOTTOM PHILOSOPHY
@@ -1454,77 +1075,25 @@ const BrowseItemsPage = () => {
 
       {!loading && items.length > 0 && (
         <section className="mx-auto max-w-7xl px-4 pt-16 sm:px-6 lg:px-8">
-          <div className="
-            overflow-hidden
-            rounded-3xl
-            border
-            border-ink-100
-            bg-white
-            px-6
-            py-10
-            text-center
-            sm:px-10
-          ">
-            <div className="
-              mx-auto
-              flex
-              h-11
-              w-11
-              items-center
-              justify-center
-              rounded-full
-              bg-primary-50
-              text-primary-600
-            ">
-              <i className="bi bi-arrow-repeat text-lg" />
+          <div className="overflow-hidden rounded-3xl border border-ink-100 bg-white px-6 py-10 text-center sm:px-10">
+            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-primary-50 text-primary-600">
+              <RefreshCw size={18} />
             </div>
 
-            <h2 className="
-              mt-4
-              text-xl
-              font-black
-              tracking-[-0.025em]
-              text-ink-950
-              sm:text-2xl
-            ">
-              One person's unused can be
-              another person's useful.
+            <h2 className="mt-4 text-xl font-black tracking-[-0.025em] text-ink-950 sm:text-2xl">
+              One person's unused can be another person's useful.
             </h2>
 
-            <p className="
-              mx-auto
-              mt-2
-              max-w-xl
-              text-sm
-              leading-6
-              text-ink-500
-            ">
-              Have something sitting around that someone
-              else could use? Give it another life.
+            <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-ink-500">
+              Have something sitting around that someone else could use? Give
+              it another life.
             </p>
 
             <Link
-              to="/create"
-              className="
-                mt-6
-                inline-flex
-                items-center
-                gap-2
-                rounded-xl
-                bg-primary-600
-                px-5
-                py-3
-                text-sm
-                font-extrabold
-                text-white
-                transition
-                hover:bg-primary-700
-                focus:outline-none
-                focus:ring-4
-                focus:ring-primary-500/20
-              "
+              to={to("/create")}
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-3 text-sm font-extrabold text-white transition hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-500/20"
             >
-              <i className="bi bi-gift" />
+              <Gift size={15} />
               Give Something
             </Link>
           </div>

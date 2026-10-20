@@ -1,15 +1,27 @@
-@import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap');
+/* =========================================================
+   POP — GLOBAL DESIGN SYSTEM
+   Cross-browser foundations
+   Eight themes: default, green, blue, orange, pink, teal,
+                 dark, black
+   ========================================================= */
+
+/* Google Fonts */
+@import url("https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ────────────────────────────────────────────────
-   ☀️ LIGHT THEME — shared neutrals + shadows
-   All light themes inherit these defaults
-   ──────────────────────────────────────────────── */
+
+/* =========================================================
+   1. ROOT DESIGN TOKENS
+   Shared light-theme neutrals and shadow fallbacks
+   ========================================================= */
+
 :root {
-  /* Neutral ink (slate) */
+  color-scheme: light;
+
+  /* Neutral palette */
   --color-ink-50: #f8fafc;
   --color-ink-100: #f1f5f9;
   --color-ink-200: #e2e8f0;
@@ -22,8 +34,22 @@
   --color-ink-900: #0f172a;
   --color-ink-950: #080d1c;
 
-  /* Light-mode shadows */
-  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
+  /* Semantic surface tokens */
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-surface-muted: var(--color-ink-100);
+  --color-page-background: var(--color-ink-50);
+  --color-text-primary: var(--color-ink-900);
+  --color-text-secondary: var(--color-ink-600);
+  --color-border: var(--color-ink-200);
+
+  /* Theme background effects */
+  --theme-background-glow: transparent;
+  --theme-background-image: none;
+
+  /* Shadow tokens */
+  --shadow-xs:
+    0 1px 2px rgba(15, 23, 42, 0.05);
 
   --shadow-card:
     0 1px 3px rgba(15, 23, 42, 0.06),
@@ -59,14 +85,29 @@
     0 6px 20px rgba(15, 23, 42, 0.05);
 
   --shadow-actionMenu:
-    0 0 12px #0002;
+    0 0 12px rgba(0, 0, 0, 0.13);
+
+  --shadow-glow:
+    0 0 24px rgba(99, 102, 241, 0.18);
+
+  /* General transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+
+  /* Focus ring */
+  --focus-ring-color: var(--color-primary-500, #6366f1);
 }
 
-/* ────────────────────────────────────────────────
-   🎨 DEFAULT THEME
+
+/* =========================================================
+   2. DEFAULT THEME
    Indigo + Purple
-   ──────────────────────────────────────────────── */
+   ========================================================= */
+
 [data-theme="default"] {
+  color-scheme: light;
+
   --color-primary-50: #eef2ff;
   --color-primary-100: #e0e7ff;
   --color-primary-200: #c7d2fe;
@@ -88,12 +129,18 @@
   --color-brand-700: #6d28d9;
   --color-brand-800: #5b21b6;
   --color-brand-900: #4c1d95;
+
+  --focus-ring-color: var(--color-primary-500);
 }
 
-/* ────────────────────────────────────────────────
-   🟢 GREEN THEME
-   ──────────────────────────────────────────────── */
+
+/* =========================================================
+   3. GREEN THEME
+   ========================================================= */
+
 [data-theme="green"] {
+  color-scheme: light;
+
   --color-primary-50: #ecfdf5;
   --color-primary-100: #d1fae5;
   --color-primary-200: #a7f3d0;
@@ -115,12 +162,18 @@
   --color-brand-700: #15803d;
   --color-brand-800: #166534;
   --color-brand-900: #14532d;
+
+  --focus-ring-color: var(--color-primary-500);
 }
 
-/* ────────────────────────────────────────────────
-   🔵 BLUE THEME
-   ──────────────────────────────────────────────── */
+
+/* =========================================================
+   4. BLUE THEME
+   ========================================================= */
+
 [data-theme="blue"] {
+  color-scheme: light;
+
   --color-primary-50: #eff6ff;
   --color-primary-100: #dbeafe;
   --color-primary-200: #bfdbfe;
@@ -142,12 +195,18 @@
   --color-brand-700: #0369a1;
   --color-brand-800: #075985;
   --color-brand-900: #0c4a6e;
+
+  --focus-ring-color: var(--color-primary-500);
 }
 
-/* ────────────────────────────────────────────────
-   🟠 ORANGE THEME
-   ──────────────────────────────────────────────── */
+
+/* =========================================================
+   5. ORANGE THEME
+   ========================================================= */
+
 [data-theme="orange"] {
+  color-scheme: light;
+
   --color-primary-50: #fff7ed;
   --color-primary-100: #ffedd5;
   --color-primary-200: #fed7aa;
@@ -169,12 +228,18 @@
   --color-brand-700: #b45309;
   --color-brand-800: #92400e;
   --color-brand-900: #78350f;
+
+  --focus-ring-color: var(--color-primary-500);
 }
 
-/* ────────────────────────────────────────────────
-   🩷 PINK THEME
-   ──────────────────────────────────────────────── */
+
+/* =========================================================
+   6. PINK THEME
+   ========================================================= */
+
 [data-theme="pink"] {
+  color-scheme: light;
+
   --color-primary-50: #fdf2f8;
   --color-primary-100: #fce7f3;
   --color-primary-200: #fbcfe8;
@@ -196,13 +261,18 @@
   --color-brand-700: #be123c;
   --color-brand-800: #9f1239;
   --color-brand-900: #881337;
+
+  --focus-ring-color: var(--color-primary-500);
 }
 
-/* ────────────────────────────────────────────────
-   🩵 TEAL THEME — NEW LIGHT THEME
-   Teal + Cyan
-   ──────────────────────────────────────────────── */
+
+/* =========================================================
+   7. TEAL THEME
+   ========================================================= */
+
 [data-theme="teal"] {
+  color-scheme: light;
+
   --color-primary-50: #f0fdfa;
   --color-primary-100: #ccfbf1;
   --color-primary-200: #99f6e4;
@@ -224,14 +294,19 @@
   --color-brand-700: #0e7490;
   --color-brand-800: #155e75;
   --color-brand-900: #164e63;
+
+  --focus-ring-color: var(--color-primary-500);
 }
 
-/* ────────────────────────────────────────────────
-   🌙 GLOSSY DEEP SLATE DARK THEME
-   Existing dark theme
-   ──────────────────────────────────────────────── */
+
+/* =========================================================
+   8. DARK THEME
+   Deep Slate
+   ========================================================= */
+
 [data-theme="dark"] {
-  /* Primary Tint Inversion */
+  color-scheme: dark;
+
   --color-primary-50: #1e1b4b;
   --color-primary-100: #312e81;
   --color-primary-200: #3730a3;
@@ -243,7 +318,6 @@
   --color-primary-800: #c7d2fe;
   --color-primary-900: #e0e7ff;
 
-  /* Brand Violet Tint Inversion */
   --color-brand-50: #2e1065;
   --color-brand-100: #4c1d95;
   --color-brand-200: #5b21b6;
@@ -255,7 +329,6 @@
   --color-brand-800: #ddd6fe;
   --color-brand-900: #f5f3ff;
 
-  /* Hierarchical Slate Token Architecture */
   --color-ink-950: #ffffff;
   --color-ink-900: #f1f5f9;
   --color-ink-800: #cbd5e1;
@@ -268,25 +341,26 @@
   --color-ink-100: #0f172a;
   --color-ink-50: #0a0f1d;
 
-  /* Shiny Layered Shadow Tokens */
+  --color-surface: #10182a;
+  --color-surface-raised: #131b2e;
+  --color-surface-muted: #0f172a;
+  --color-page-background: var(--color-ink-50);
+  --color-text-primary: var(--color-ink-900);
+  --color-text-secondary: var(--color-ink-700);
+  --color-border: rgba(148, 163, 184, 0.07);
+
+  --theme-background-glow: rgba(99, 102, 241, 0.07);
+
   --shadow-xs:
     0 1px 2px rgba(0, 0, 0, 0.6);
 
   --shadow-card:
     0 4px 14px rgba(0, 0, 0, 0.45),
-    0 0 0 1px color-mix(
-      in srgb,
-      var(--color-ink-400) 25%,
-      transparent
-    );
+    0 0 0 1px rgba(148, 163, 184, 0.08);
 
   --shadow-card-hover:
     0 12px 32px rgba(0, 0, 0, 0.55),
-    0 0 0 1px color-mix(
-      in srgb,
-      var(--color-primary-500) 35%,
-      transparent
-    );
+    0 0 0 1px rgba(99, 102, 241, 0.3);
 
   --shadow-soft:
     0 8px 32px rgba(0, 0, 0, 0.4);
@@ -314,26 +388,27 @@
     0 8px 24px rgba(0, 0, 0, 0.35);
 
   --shadow-navbar:
-    0 1px 0 color-mix(
-      in srgb,
-      var(--color-ink-400) 35%,
-      transparent
-    ),
+    0 1px 0 rgba(148, 163, 184, 0.14),
     0 8px 20px rgba(0, 0, 0, 0.3);
 
   --shadow-actionMenu:
-    0 0 30px #002;
+    0 0 30px rgba(0, 0, 20, 0.65);
 
-  color-scheme: dark;
+  --shadow-glow:
+    0 0 28px rgba(99, 102, 241, 0.24);
+
+  --focus-ring-color: var(--color-primary-500);
 }
 
-/* ────────────────────────────────────────────────
-   🖤 TRUE BLACK THEME — NEW DARK THEME
+
+/* =========================================================
+   9. BLACK THEME
    True Black + Graphite
-   Different from the existing Deep Slate theme
-   ──────────────────────────────────────────────── */
+   ========================================================= */
+
 [data-theme="black"] {
-  /* Primary: unchanged inversion */
+  color-scheme: dark;
+
   --color-primary-50: #1e1b4b;
   --color-primary-100: #312e81;
   --color-primary-200: #3730a3;
@@ -345,7 +420,6 @@
   --color-primary-800: #c7d2fe;
   --color-primary-900: #e0e7ff;
 
-  /* Brand violet: unchanged */
   --color-brand-50: #2e1065;
   --color-brand-100: #4c1d95;
   --color-brand-200: #5b21b6;
@@ -357,7 +431,6 @@
   --color-brand-800: #ddd6fe;
   --color-brand-900: #f5f3ff;
 
-  /* Ink: cool blue-black, nothing at #000 or #fff */
   --color-ink-950: #f8f8fb;
   --color-ink-900: #ececf1;
   --color-ink-800: #d0d0da;
@@ -370,7 +443,16 @@
   --color-ink-100: #0f0f15;
   --color-ink-50: #08080c;
 
-  /* Shadows: blue-black tint, depth carried by rings + highlights */
+  --color-surface: #101016;
+  --color-surface-raised: #17171f;
+  --color-surface-muted: #0f0f15;
+  --color-page-background: var(--color-ink-50);
+  --color-text-primary: var(--color-ink-900);
+  --color-text-secondary: var(--color-ink-700);
+  --color-border: rgba(255, 255, 255, 0.08);
+
+  --theme-background-glow: rgba(99, 102, 241, 0.055);
+
   --shadow-xs:
     0 1px 2px rgba(3, 3, 8, 0.8),
     0 0 0 1px rgba(255, 255, 255, 0.04);
@@ -426,282 +508,473 @@
     0 0 0 1px rgba(255, 255, 255, 0.1),
     0 20px 48px rgba(3, 3, 8, 0.9);
 
+  --shadow-glow:
+    0 0 28px rgba(99, 102, 241, 0.2);
+
+  --focus-ring-color: var(--color-primary-500);
+}
+
+
+/* =========================================================
+   10. THEME SCOPE SUPPORT
+   Supports theme attributes on html, body, or app containers.
+
+   Keep your theme attribute on <html> if possible:
+   <html data-theme="dark">
+   ========================================================= */
+
+html[data-theme],
+body[data-theme],
+#root[data-theme] {
+  color-scheme: light;
+}
+
+html[data-theme="dark"],
+html[data-theme="black"],
+body[data-theme="dark"],
+body[data-theme="black"],
+#root[data-theme="dark"],
+#root[data-theme="black"] {
   color-scheme: dark;
 }
 
 
+/* =========================================================
+   11. GLOBAL RESET AND THEME-AWARE PAGE BACKGROUNDS
+   ========================================================= */
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    width: 100%;
+    min-height: 100%;
+    margin: 0;
+    padding: 0;
+
+    background-color: var(--color-ink-50, #f8fafc);
+    color: var(--color-ink-900, #0f172a);
+
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+
+    scroll-behavior: smooth;
+  }
+
+  body {
+    width: 100%;
+    min-width: 320px;
+    min-height: 100vh;
+    min-height: 100dvh;
+
+    margin: 0;
+    padding: 0;
+
+    background-color: var(--color-ink-50, #f8fafc);
+    background-image: none;
+
+    color: var(--color-ink-900, #0f172a);
+
+    font-family: "Nunito", system-ui, -apple-system, BlinkMacSystemFont,
+      "Segoe UI", sans-serif;
+
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  #root {
+    width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+
+    margin: 0;
+    padding: 0;
+
+    background-color: var(--color-ink-50, #f8fafc);
+    color: var(--color-ink-900, #0f172a);
+  }
+
+  /* Form controls inherit the application's font. */
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  button,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button {
+    color: inherit;
+  }
+
+  img,
+  picture,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+  }
+
+  img,
+  picture,
+  video {
+    height: auto;
+  }
+
+  img {
+    vertical-align: middle;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: inherit;
+  }
+
+  textarea {
+    resize: vertical;
+  }
+
+  ::selection {
+    background-color: var(--color-primary-200, #c7d2fe);
+    color: var(--color-ink-900, #0f172a);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus-ring-color, #6366f1);
+    outline-offset: 3px;
+  }
+
+  :disabled {
+    cursor: not-allowed;
+  }
+}
 
 
-/* ────────────────────────────────────────────────
-   🧩 DARK THEME COMPATIBILITY ENGINE
-   Applies to both dark and black themes
-   ──────────────────────────────────────────────── */
+/* =========================================================
+   12. DARK AND BLACK PAGE BACKGROUNDS
+   The gradient is layered over the theme's own background.
+   ========================================================= */
 
-[data-theme="dark"] body,
-[data-theme="black"] body {
+html[data-theme="dark"],
+html[data-theme="black"],
+body[data-theme="dark"],
+body[data-theme="black"],
+#root[data-theme="dark"],
+#root[data-theme="black"] {
   background-color: var(--color-ink-50);
   color: var(--color-ink-900);
-
-  background-image: radial-gradient(
-    ellipse at top,
-    color-mix(
-      in srgb,
-      var(--color-primary-500) 7%,
-      transparent
-    ) 0%,
-    transparent 65%
-  );
 }
 
-/* Base component backgrounds */
-[data-theme="dark"] .bg-white,
-[data-theme="dark"] [class*="bg-slate-"],
-[data-theme="dark"] [class*="bg-gray-"],
-[data-theme="dark"] [class*="bg-zinc-"],
-[data-theme="dark"] [class*="bg-neutral-"],
-[data-theme="black"] .bg-white,
-[data-theme="black"] [class*="bg-slate-"],
-[data-theme="black"] [class*="bg-gray-"],
-[data-theme="black"] [class*="bg-zinc-"],
-[data-theme="black"] [class*="bg-neutral-"] {
-  background-color: var(--color-ink-200);
+/* When data-theme is on <html>, these selectors also work. */
+html[data-theme="dark"] body,
+html[data-theme="black"] body,
+html[data-theme="dark"] #root,
+html[data-theme="black"] #root {
+  background-color: var(--color-ink-50);
+  color: var(--color-ink-900);
 }
 
-/* High-elevation sheets */
-[data-theme="dark"] select,
-[data-theme="dark"] [role="menu"],
-[data-theme="dark"] [role="dialog"],
-[data-theme="dark"] .dropdown-content,
-[data-theme="black"] select,
-[data-theme="black"] [role="menu"],
-[data-theme="black"] [role="dialog"],
-[data-theme="black"] .dropdown-content {
-  background-color: var(--color-ink-300) !important;
+/* Add a subtle glow without replacing the theme background. */
+html[data-theme="dark"] body,
+html[data-theme="black"] body {
+  background-image:
+    radial-gradient(
+      ellipse at top,
+      var(--theme-background-glow) 0%,
+      transparent 65%
+    );
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
-/* Blurry frosted glass */
-[data-theme="dark"] [class*="bg-white/"],
-[data-theme="black"] [class*="bg-white/"] {
-  background-color: color-mix(
-    in srgb,
-    var(--color-ink-200) 75%,
-    transparent
-  ) !important;
+/* Also support a theme set directly on body. */
+body[data-theme="dark"],
+body[data-theme="black"] {
+  background-image:
+    radial-gradient(
+      ellipse at top,
+      var(--theme-background-glow) 0%,
+      transparent 65%
+    );
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
 
+
+/* =========================================================
+   13. DARK THEME LEGACY UTILITY COMPATIBILITY
+   Carefully targets conventional neutral background classes.
+   ========================================================= */
+
+/* Solid white surfaces become dark surfaces. */
+html[data-theme="dark"] .bg-white,
+html[data-theme="black"] .bg-white,
+body[data-theme="dark"] .bg-white,
+body[data-theme="black"] .bg-white,
+#root[data-theme="dark"] .bg-white,
+#root[data-theme="black"] .bg-white {
+  background-color: var(--color-surface-raised);
+}
+
+/* Neutral Tailwind surfaces.
+   These selectors intentionally avoid changing primary colors. */
+html[data-theme="dark"] [class~="bg-gray-50"],
+html[data-theme="dark"] [class~="bg-gray-100"],
+html[data-theme="dark"] [class~="bg-slate-50"],
+html[data-theme="dark"] [class~="bg-slate-100"],
+html[data-theme="dark"] [class~="bg-zinc-50"],
+html[data-theme="dark"] [class~="bg-zinc-100"],
+html[data-theme="dark"] [class~="bg-neutral-50"],
+html[data-theme="dark"] [class~="bg-neutral-100"],
+html[data-theme="black"] [class~="bg-gray-50"],
+html[data-theme="black"] [class~="bg-gray-100"],
+html[data-theme="black"] [class~="bg-slate-50"],
+html[data-theme="black"] [class~="bg-slate-100"],
+html[data-theme="black"] [class~="bg-zinc-50"],
+html[data-theme="black"] [class~="bg-zinc-100"],
+html[data-theme="black"] [class~="bg-neutral-50"],
+html[data-theme="black"] [class~="bg-neutral-100"] {
+  background-color: var(--color-surface-muted);
+}
+
+/* Frosted glass surfaces.
+   Fallback first, then the modern color-mix version. */
+html[data-theme="dark"] [class*="bg-white/"],
+html[data-theme="black"] [class*="bg-white/"] {
+  background-color: var(--color-surface);
+  background-color: rgba(19, 27, 46, 0.82);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
 }
 
-/* ────────────────────────────────────────────────
-   Base Semantic Typography Overrides
-   ──────────────────────────────────────────────── */
+@supports (background-color: color-mix(in srgb, black, white)) {
+  html[data-theme="dark"] [class*="bg-white/"],
+  html[data-theme="black"] [class*="bg-white/"] {
+    background-color: color-mix(
+      in srgb,
+      var(--color-surface-raised) 78%,
+      transparent
+    );
+  }
+}
 
-[data-theme="dark"] .text-gray-950,
-[data-theme="dark"] .text-slate-950,
-[data-theme="dark"] .text-gray-900,
-[data-theme="dark"] .text-slate-900,
-[data-theme="black"] .text-gray-950,
-[data-theme="black"] .text-slate-950,
-[data-theme="black"] .text-gray-900,
-[data-theme="black"] .text-slate-900 {
+
+/* =========================================================
+   14. DARK THEME SEMANTIC TEXT COMPATIBILITY
+   ========================================================= */
+
+html[data-theme="dark"] .text-gray-950,
+html[data-theme="dark"] .text-slate-950,
+html[data-theme="dark"] .text-gray-900,
+html[data-theme="dark"] .text-slate-900,
+html[data-theme="black"] .text-gray-950,
+html[data-theme="black"] .text-slate-950,
+html[data-theme="black"] .text-gray-900,
+html[data-theme="black"] .text-slate-900 {
   color: var(--color-ink-950);
 }
 
-[data-theme="dark"] .text-gray-800,
-[data-theme="dark"] .text-slate-800,
-[data-theme="dark"] .text-gray-700,
-[data-theme="dark"] .text-slate-700,
-[data-theme="black"] .text-gray-800,
-[data-theme="black"] .text-slate-800,
-[data-theme="black"] .text-gray-700,
-[data-theme="black"] .text-slate-700 {
+html[data-theme="dark"] .text-gray-800,
+html[data-theme="dark"] .text-slate-800,
+html[data-theme="dark"] .text-gray-700,
+html[data-theme="dark"] .text-slate-700,
+html[data-theme="black"] .text-gray-800,
+html[data-theme="black"] .text-slate-800,
+html[data-theme="black"] .text-gray-700,
+html[data-theme="black"] .text-slate-700 {
   color: var(--color-ink-900);
 }
 
-[data-theme="dark"] .text-gray-600,
-[data-theme="dark"] .text-slate-600,
-[data-theme="dark"] .text-gray-500,
-[data-theme="dark"] .text-slate-500,
-[data-theme="black"] .text-gray-600,
-[data-theme="black"] .text-slate-600,
-[data-theme="black"] .text-gray-500,
-[data-theme="black"] .text-slate-500 {
+html[data-theme="dark"] .text-gray-600,
+html[data-theme="dark"] .text-slate-600,
+html[data-theme="dark"] .text-gray-500,
+html[data-theme="dark"] .text-slate-500,
+html[data-theme="black"] .text-gray-600,
+html[data-theme="black"] .text-slate-600,
+html[data-theme="black"] .text-gray-500,
+html[data-theme="black"] .text-slate-500 {
   color: var(--color-ink-800);
 }
 
-[data-theme="dark"] .text-gray-400,
-[data-theme="dark"] .text-slate-400,
-[data-theme="dark"] .text-gray-300,
-[data-theme="dark"] .text-slate-300,
-[data-theme="black"] .text-gray-400,
-[data-theme="black"] .text-slate-400,
-[data-theme="black"] .text-gray-300,
-[data-theme="black"] .text-slate-300 {
+html[data-theme="dark"] .text-gray-400,
+html[data-theme="dark"] .text-slate-400,
+html[data-theme="dark"] .text-gray-300,
+html[data-theme="dark"] .text-slate-300,
+html[data-theme="black"] .text-gray-400,
+html[data-theme="black"] .text-slate-400,
+html[data-theme="black"] .text-gray-300,
+html[data-theme="black"] .text-slate-300 {
   color: var(--color-ink-700);
 }
 
-/* Direct Ink text mappings */
-[data-theme="dark"] .text-ink-900,
-[data-theme="black"] .text-ink-900 {
+/* Ink utilities use the active theme's ink palette. */
+html[data-theme="dark"] .text-ink-900,
+html[data-theme="black"] .text-ink-900 {
   color: var(--color-ink-900);
 }
 
-[data-theme="dark"] .text-ink-800,
-[data-theme="black"] .text-ink-800 {
+html[data-theme="dark"] .text-ink-800,
+html[data-theme="black"] .text-ink-800 {
   color: var(--color-ink-800);
 }
 
-[data-theme="dark"] .text-ink-700,
-[data-theme="black"] .text-ink-700 {
+html[data-theme="dark"] .text-ink-700,
+html[data-theme="black"] .text-ink-700 {
   color: var(--color-ink-700);
 }
 
-[data-theme="dark"] .text-ink-600,
-[data-theme="black"] .text-ink-600 {
+html[data-theme="dark"] .text-ink-600,
+html[data-theme="black"] .text-ink-600 {
   color: var(--color-ink-600);
 }
 
-[data-theme="dark"] .text-ink-500,
-[data-theme="black"] .text-ink-500 {
+html[data-theme="dark"] .text-ink-500,
+html[data-theme="black"] .text-ink-500 {
   color: var(--color-ink-500);
 }
 
-/* ────────────────────────────────────────────────
-   Standardized Borders
-   ──────────────────────────────────────────────── */
 
-[data-theme="dark"] [class*="border-gray-"],
-[data-theme="dark"] [class*="border-slate-"],
-[data-theme="dark"] [class*="divide-gray-"],
-[data-theme="dark"] [class*="divide-slate-"],
-[data-theme="black"] [class*="border-gray-"],
-[data-theme="black"] [class*="border-slate-"],
-[data-theme="black"] [class*="divide-gray-"],
-[data-theme="black"] [class*="divide-slate-"] {
-  border-color: color-mix(
-    in srgb,
-    var(--color-ink-400) 30%,
-    transparent
-  ) !important;
+/* =========================================================
+   15. DARK THEME BORDERS
+   Neutral border and divide utilities map to --color-border.
+   ========================================================= */
+
+html[data-theme="dark"] [class*="border-gray-"],
+html[data-theme="dark"] [class*="border-slate-"],
+html[data-theme="dark"] [class*="border-ink-"],
+html[data-theme="black"] [class*="border-gray-"],
+html[data-theme="black"] [class*="border-slate-"],
+html[data-theme="black"] [class*="border-ink-"] {
+  border-color: var(--color-border);
 }
 
-/* ────────────────────────────────────────────────
-   Native Component Targetings
-   ──────────────────────────────────────────────── */
-
-[data-theme="dark"] .card,
-[data-theme="dark"] [class*="rounded-xl"],
-[data-theme="dark"] [class*="rounded-2xl"],
-[data-theme="black"] .card,
-[data-theme="black"] [class*="rounded-xl"],
-[data-theme="black"] [class*="rounded-2xl"] {
-  border: 1px solid color-mix(
-    in srgb,
-    var(--color-ink-400) 25%,
-    transparent
-  );
+/* divide-* borders live on the children */
+html[data-theme="dark"] [class*="divide-gray-"] > :not([hidden]) ~ :not([hidden]),
+html[data-theme="dark"] [class*="divide-slate-"] > :not([hidden]) ~ :not([hidden]),
+html[data-theme="dark"] [class*="divide-ink-"] > :not([hidden]) ~ :not([hidden]),
+html[data-theme="black"] [class*="divide-gray-"] > :not([hidden]) ~ :not([hidden]),
+html[data-theme="black"] [class*="divide-slate-"] > :not([hidden]) ~ :not([hidden]),
+html[data-theme="black"] [class*="divide-ink-"] > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--color-border);
 }
 
-/* ────────────────────────────────────────────────
-   Input Focus Glows
-   ──────────────────────────────────────────────── */
 
-[data-theme="dark"] .ring-gray-100,
-[data-theme="dark"] .ring-slate-100,
-[data-theme="black"] .ring-gray-100,
-[data-theme="black"] .ring-slate-100 {
-  --tw-ring-color: var(--color-ink-400);
+/* =========================================================
+   16. DARK THEME INPUTS, MENUS, AND DIALOGS
+   ========================================================= */
+
+html[data-theme="dark"] select,
+html[data-theme="dark"] [role="menu"],
+html[data-theme="dark"] [role="dialog"],
+html[data-theme="dark"] .dropdown-content,
+html[data-theme="black"] select,
+html[data-theme="black"] [role="menu"],
+html[data-theme="black"] [role="dialog"],
+html[data-theme="black"] .dropdown-content {
+  color: var(--color-ink-900);
+  border-color: var(--color-border);
 }
 
-/* Placeholder */
-[data-theme="dark"] ::placeholder,
-[data-theme="black"] ::placeholder {
-  color: var(--color-ink-600) !important;
+/* Native selects need an explicit dark surface. */
+html[data-theme="dark"] select,
+html[data-theme="black"] select {
+  background-color: var(--color-surface-raised);
+}
+
+/* Native option rendering varies by browser and OS. */
+html[data-theme="dark"] option,
+html[data-theme="black"] option {
+  background-color: var(--color-surface-raised);
+  color: var(--color-ink-900);
+}
+
+/* Placeholder contrast */
+html[data-theme="dark"] ::placeholder,
+html[data-theme="black"] ::placeholder {
+  color: var(--color-ink-600);
+  opacity: 1;
 }
 
 /* Selection */
-[data-theme="dark"] ::selection,
-[data-theme="black"] ::selection {
+html[data-theme="dark"] ::selection,
+html[data-theme="black"] ::selection {
   background-color: var(--color-primary-500);
   color: #ffffff;
 }
 
-/* ────────────────────────────────────────────────
-   Custom Scrollbars
-   ──────────────────────────────────────────────── */
-
-[data-theme="dark"],
-[data-theme="black"] {
-  scrollbar-color:
-    var(--color-ink-400)
-    var(--color-ink-100);
+/* Focus rings */
+html[data-theme="dark"] .ring-gray-100,
+html[data-theme="dark"] .ring-slate-100,
+html[data-theme="black"] .ring-gray-100,
+html[data-theme="black"] .ring-slate-100 {
+  --tw-ring-color: var(--color-ink-400);
 }
 
-[data-theme="dark"] ::-webkit-scrollbar,
-[data-theme="black"] ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
 
-[data-theme="dark"] ::-webkit-scrollbar-track,
-[data-theme="black"] ::-webkit-scrollbar-track {
-  background: var(--color-ink-100);
-}
-
-[data-theme="dark"] ::-webkit-scrollbar-thumb,
-[data-theme="black"] ::-webkit-scrollbar-thumb {
-  background-color: var(--color-ink-400);
-  border-radius: 99px;
-  border: 2px solid var(--color-ink-100);
-}
-
-[data-theme="dark"] ::-webkit-scrollbar-thumb:hover,
-[data-theme="black"] ::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-ink-500);
-}
-
-/* ────────────────────────────────────────────────
-   🏗️ BASE LAYER
-   ──────────────────────────────────────────────── */
-
-@layer base {
-  html,
-  body,
-  #root {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    min-height: 100vh;
-  }
-
-  body {
-    @apply bg-ink-50 text-ink-900 antialiased;
-    font-family: 'Nunito', system-ui, sans-serif;
-  }
-}
-
-/* ────────────────────────────────────────────────
-   🧩 COMPONENTS LAYER
-   ──────────────────────────────────────────────── */
+/* =========================================================
+   17. COMPONENTS
+   ========================================================= */
 
 @layer components {
   .btn-primary {
-    @apply bg-primary-600 text-white px-6 py-2 rounded-xl hover:bg-primary-700 transition-colors font-bold;
+    @apply inline-flex items-center justify-center gap-2;
+    @apply bg-primary-600 text-white px-6 py-2 rounded-xl;
+    @apply hover:bg-primary-700 transition-colors font-bold;
+    @apply focus-visible:outline-none focus-visible:ring-2;
+    @apply focus-visible:ring-primary-400 focus-visible:ring-offset-2;
+
+    transition-duration: var(--transition-fast);
   }
 
   .btn-secondary {
-    @apply bg-ink-100 text-ink-800 px-6 py-2 rounded-xl hover:bg-ink-200 transition-colors font-bold;
+    @apply inline-flex items-center justify-center gap-2;
+    @apply bg-ink-100 text-ink-800 px-6 py-2 rounded-xl;
+    @apply hover:bg-ink-200 transition-colors font-bold;
+    @apply focus-visible:outline-none focus-visible:ring-2;
+    @apply focus-visible:ring-primary-400 focus-visible:ring-offset-2;
+
+    transition-duration: var(--transition-fast);
   }
 
   .btn-success {
-    @apply bg-success-500 text-white px-6 py-2 rounded-xl hover:bg-success-600 transition-colors font-bold;
+    @apply inline-flex items-center justify-center gap-2;
+    @apply bg-success-500 text-white px-6 py-2 rounded-xl;
+    @apply hover:bg-success-600 transition-colors font-bold;
+    @apply focus-visible:outline-none focus-visible:ring-2;
+    @apply focus-visible:ring-primary-400 focus-visible:ring-offset-2;
+
+    transition-duration: var(--transition-fast);
   }
 
   .card {
-    @apply bg-white rounded-xl shadow-card hover:shadow-card-hover transition-shadow p-6 border border-ink-100;
+    @apply bg-white rounded-xl shadow-card;
+    @apply hover:shadow-card-hover transition-shadow;
+    @apply p-6 border border-ink-200;
+
+    transition-duration: var(--transition-normal);
   }
 
   .input-field {
-    @apply w-full px-4 py-2.5 border border-ink-200 rounded-xl focus:ring-2 focus:ring-primary-200 focus:border-primary-400 outline-none transition bg-white text-ink-900 placeholder:text-ink-400;
+    @apply w-full px-4 py-2.5;
+    @apply border border-ink-200 rounded-xl;
+    @apply focus:ring-2 focus:ring-primary-200;
+    @apply focus:border-primary-400;
+    @apply outline-none transition;
+    @apply bg-white text-ink-900;
+    @apply placeholder:text-ink-400;
+
+    min-width: 0;
+    transition-duration: var(--transition-fast);
   }
 
   .label {
@@ -709,40 +982,40 @@
   }
 }
 
-/* ────────────────────────────────────────────────
-   ✨ CUSTOM ANIMATIONS & UTILITIES
-   ──────────────────────────────────────────────── */
 
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-  }
+/* =========================================================
+   18. DARK THEME COMPONENT SURFACES
+   Only target known component classes, not every rounded item.
+   ========================================================= */
 
-  to {
-    transform: translateX(0);
-  }
+html[data-theme="dark"] .card,
+html[data-theme="black"] .card {
+  background-color: var(--color-surface-raised);
+  border-color: var(--color-border);
 }
 
-.animate-slide-in {
-  animation: slideIn 0.3s ease-out;
+html[data-theme="dark"] .input-field,
+html[data-theme="black"] .input-field {
+  background-color: var(--color-surface);
+  color: var(--color-ink-900);
+  border-color: var(--color-border);
 }
 
-/* ────────────────────────────────────────────────
-   🖼️ GLOBAL IMAGE / AVATAR SHADOW
-   ──────────────────────────────────────────────── */
-
-img,
-.img {
-  box-shadow: 0 0 2.5px rgba(0, 0, 0, 0.1) !important;
+html[data-theme="dark"] .btn-secondary,
+html[data-theme="black"] .btn-secondary {
+  background-color: var(--color-ink-200);
+  color: var(--color-ink-900);
 }
 
-.logo {
-  box-shadow: none !important;
+html[data-theme="dark"] .btn-secondary:hover,
+html[data-theme="black"] .btn-secondary:hover {
+  background-color: var(--color-ink-300);
 }
 
-/* ────────────────────────────────────────────────
-   ☀️ LIGHT THEME SHADOW UTILITIES
-   ──────────────────────────────────────────────── */
+
+/* =========================================================
+   19. SHADOW UTILITIES
+   ========================================================= */
 
 .shadow-xs {
   box-shadow: var(--shadow-xs);
@@ -788,14 +1061,16 @@ img,
   box-shadow: var(--shadow-navbar);
 }
 
+.shadow-actionMenu {
+  box-shadow: var(--shadow-actionMenu);
+}
+
 .shadow-glow {
   box-shadow: var(--shadow-glow);
 }
 
-/* ────────────────────────────────────────────────
-   Dynamic shadow transitions
-   ──────────────────────────────────────────────── */
 
+/* Tailwind-compatible escaped hover utilities. */
 .hover\:shadow-card-hover:hover {
   box-shadow: var(--shadow-card-hover);
 }
@@ -809,65 +1084,166 @@ img,
 }
 
 
+/* =========================================================
+   20. IMAGE AND LOGO UTILITIES
+   ========================================================= */
+
+/* Keep image shadows subtle and avoid forcing them on logos. */
+img,
+.img {
+  box-shadow: 0 0 2.5px rgba(0, 0, 0, 0.1);
+}
+
+.logo,
+.logo img {
+  box-shadow: none;
+}
+
+/* Avoid accidental distortion in avatars. */
+.avatar,
+.avatar img {
+  object-fit: cover;
+}
 
 
+/* =========================================================
+   21. ANIMATIONS
+   ========================================================= */
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slideIn 300ms ease-out both;
+}
+
+@keyframes typing-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
 
 .typing-dot {
   display: inline-block;
   width: 5px;
   height: 5px;
+
   border-radius: 9999px;
-  background: currentColor;
-  color: #94a3b8; /* ink-400 */
+  background-color: currentColor;
+
+  color: var(--color-ink-400, #94a3b8);
+
   animation: typing-bounce 1s infinite ease-in-out;
 }
 
-@keyframes typing-bounce {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
-  30%           { transform: translateY(-3px); opacity: 1; }
+
+/* =========================================================
+   22. REDUCED MOTION ACCESSIBILITY
+   Respect the operating system's reduced-motion setting.
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 
+/* =========================================================
+   23. HIDDEN SCROLLBARS
+   Preserves scrolling while hiding scrollbar indicators.
+   This intentionally takes precedence over visible
+   dark-theme scrollbar styling.
+   ========================================================= */
 
-
-
-/* ────────────────────────────────────────────────
-🚫 GLOBAL HIDDEN SCROLLBARS
-Hides scrollbar indicators while preserving scrolling
-Works across light, dark, and black themes
-──────────────────────────────────────────────── */
-
-/* Firefox and legacy Edge */
-
+/* Firefox */
 * {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-  }
+  scrollbar-width: none;
+}
 
-/* Chrome, Safari, Edge, Opera, and WebKit browsers */
-*::-webkit-scrollbar,
+/* Legacy Microsoft browsers */
+* {
+  -ms-overflow-style: none;
+}
+
+/* Chrome, Safari, Edge, Opera */
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 *::-webkit-scrollbar-track,
 *::-webkit-scrollbar-thumb,
 *::-webkit-scrollbar-corner,
 *::-webkit-scrollbar-button {
-display: none !important;
-width: 0 !important;
-height: 0 !important;
-background: transparent !important;
+  display: none;
+  width: 0;
+  height: 0;
+  background: transparent;
 }
 
-/* Document-level scrolling */
+/* Document scrolling */
 html,
 body,
 #root {
-scrollbar-width: none !important;
--ms-overflow-style: none !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 html::-webkit-scrollbar,
 body::-webkit-scrollbar,
 #root::-webkit-scrollbar {
-display: none !important;
-width: 0 !important;
-height: 0 !important;
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+
+/* =========================================================
+   24. SMALL SCREEN SAFETY
+   ========================================================= */
+
+@media (max-width: 359px) {
+  html,
+  body,
+  #root {
+    min-width: 320px;
+  }
+}
+
+
+/* =========================================================
+   25. COLOR SCHEME FALLBACKS
+   Keep native form controls aligned with the active theme.
+   ========================================================= */
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) {
+    color-scheme: light;
+  }
 }

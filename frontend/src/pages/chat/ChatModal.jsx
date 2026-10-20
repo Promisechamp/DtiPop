@@ -93,8 +93,8 @@ const getContextTitle = (conversation) =>
 const getContextLabel = (conversation) => {
   const type = getContextType(conversation);
 
-  if (type === 'item') return 'Item';
-  if (type === 'request') return 'Request';
+  if (type === 'dti_donor_applicant') return 'Item';
+  if (type === 'pop_request') return 'Request';
   return 'Conversation';
 };
 

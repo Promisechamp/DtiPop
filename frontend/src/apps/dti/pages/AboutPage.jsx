@@ -1,192 +1,252 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import {
+  Heart,
+  ShieldCheck,
+  Globe,
+  RefreshCw,
+  Target,
+  Eye,
+  Sparkles,
+  Users,
+  Recycle,
+  Code,
+  ArrowUpRight,
+  ArrowRight,
+  Grid3x3,
+  Boxes,
+} from 'lucide-react';
 
+
+/* =========================================================
+   DATA
+========================================================= */
+
+const founder = {
+  name: 'Promise Uche',
+  role: 'Founder & Lead Developer',
+  bio: 'Passionate about reducing waste and connecting communities through technology.',
+  avatar:
+    'https://res.cloudinary.com/djda2nagd/image/upload/v1785845286/kam5bpxnjtkxy9rtnjzy.jpg',
+};
+
+const values = [
+  {
+    icon: Heart,
+    number: '01',
+    title: 'Generosity',
+    description:
+      'We believe giving should feel natural. When something is no longer useful to you, it can still mean everything to someone else.',
+  },
+  {
+    icon: ShieldCheck,
+    number: '02',
+    title: 'Transparency',
+    description:
+      'Trust grows when people can see what is happening. We aim to make every meaningful handoff clear and accountable.',
+  },
+  {
+    icon: Globe,
+    number: '03',
+    title: 'Global community',
+    description:
+      'Need does not stop at a border. We connect people across cities, countries and cultures around things that still have value.',
+  },
+  {
+    icon: RefreshCw,
+    number: '04',
+    title: 'Second lives',
+    description:
+      'We want useful things to stay useful for as long as possible, reducing unnecessary waste through reuse.',
+  },
+];
+
+const missionTags = ['Give', 'Connect', 'Reuse', 'Impact'];
+
+/* =========================================================
+   PAGE
+========================================================= */
 
 const AboutPage = () => {
-  const founder = {
-    name: 'Promise Uche',
-    role: 'Founder & Lead Developer',
-    bio: 'Passionate about reducing waste and connecting communities through technology.',
-    avatar:
-      'https://res.cloudinary.com/djda2nagd/image/upload/v1785845286/kam5bpxnjtkxy9rtnjzy.jpg',
-  };
-
-  const values = [
-    {
-      icon: 'bi bi-heart-fill',
-      number: '01',
-      title: 'Generosity',
-      description:
-        'We believe giving should feel natural. When something is no longer useful to you, it can still mean everything to someone else.',
-    },
-    {
-      icon: 'bi bi-shield-check',
-      number: '02',
-      title: 'Transparency',
-      description:
-        'Trust grows when people can see what is happening. We aim to make every meaningful handoff clear and accountable.',
-    },
-    {
-      icon: 'bi bi-globe2',
-      number: '03',
-      title: 'Global community',
-      description:
-        'Need does not stop at a border. We connect people across cities, countries and cultures around things that still have value.',
-    },
-    {
-      icon: 'bi bi-arrow-repeat',
-      number: '04',
-      title: 'Second lives',
-      description:
-        'We want useful things to stay useful for as long as possible, reducing unnecessary waste through reuse.',
-    },
-  ];
-
   return (
-    <div className="rounded overflow-hidden ">
+    <div className="min-h-full bg-transparent">
 
-      {/* ── HERO ── */}
-      <section className="relative overflow-hidden bg-white">
-        <div className="pointer-events-none absolute -left-40 -top-40 h-[32rem] w-[32rem] rounded-full bg-primary-100/70 blur-3xl" />
-        <div className="pointer-events-none absolute -right-40 top-20 h-[30rem] w-[30rem] rounded-full bg-brand-50/80 blur-3xl" />
+      <div className="mx-auto w-full max-w-[1500px] py-5 lg:py-7">
+        {/* =========================================================
+            HERO
+        ========================================================= */}
 
-        <div className="relative z-10 mx-auto max-w-7xl px-5 pb-20 pt-14 sm:px-8 lg:px-10 lg:pb-28 lg:pt-20">
-          <div className="grid items-center gap-14 lg:grid-cols-[1fr_0.75fr]">
+        <section className="relative mb-7 overflow-hidden ">
+          <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+            <div className="absolute -left-32 -top-32 h-80 w-80 rounded-full bg-primary-100/60 blur-3xl" />
+            <div className="absolute -right-32 top-20 h-80 w-80 rounded-full bg-brand-50/80 blur-3xl" />
+          </div>
+
+          <div className="grid items-center gap-10 p-6 sm:p-10 lg:grid-cols-[1fr_0.85fr] lg:gap-14 lg:p-14">
             <motion.div
-              initial={{ opacity: 0, x: -25 }}
+              initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.7 }}
+              transition={{ duration: 0.6 }}
+              className="max-w-2xl"
             >
-              <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-primary-200 bg-white/80 px-3.5 py-2 text-xs font-bold uppercase tracking-[0.18em] text-primary-700 shadow-sm backdrop-blur">
-                <span className="h-2 w-2 rounded-full bg-primary-500" />
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary-100 bg-primary-50 px-3.5 py-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary-500" />
                 About Don't Trash It
               </div>
 
-              <h1 className="max-w-4xl text-[3.7rem] font-black leading-[0.94] tracking-[-0.055em] text-ink-900 sm:text-6xl md:text-7xl lg:text-[5.7rem]">
-                Useful things
-                <br />
-                deserve
-                <br />
+              <h1 className="mt-6 text-3xl font-black leading-tight tracking-tight text-ink-950 sm:text-4xl lg:text-5xl">
+                Useful things deserve{' '}
                 <span className="text-primary-600">another life.</span>
               </h1>
 
-              <p className="mt-7 max-w-xl text-lg leading-8 text-ink-500 sm:text-xl">
-                Don't Trash It exists to make one simple idea possible:
-                when you no longer need something, someone else should have
-                the chance to use it.
+              <p className="mt-5 max-w-xl text-sm font-medium leading-7 text-ink-500 sm:text-base">
+                Don't Trash It exists to make one simple idea possible: when
+                you no longer need something, someone else should have the
+                chance to use it.
               </p>
 
-              <div className="mt-9 flex flex-wrap gap-3">
+              <div className="mt-7 flex flex-col gap-2 sm:flex-row">
                 <Link
                   to="/register"
-                  className="group inline-flex items-center gap-3 rounded-xl bg-primary-600 px-6 py-3.5 text-sm font-bold text-white shadow-primary transition hover:-translate-y-0.5 hover:bg-primary-700"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 text-sm font-extrabold text-white transition hover:bg-primary-700"
                 >
                   Join the mission
-                  <i className="bi bi-arrow-up-right transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  <ArrowUpRight size={15} />
                 </Link>
 
                 <Link
                   to="/how-it-works"
-                  className="inline-flex items-center gap-3 rounded-xl border border-ink-300 bg-white px-6 py-3.5 text-sm font-bold text-ink-700 shadow-sm transition hover:border-primary-300 hover:bg-primary-50"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white px-5 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50"
                 >
                   See how it works
-                  <i className="bi bi-arrow-right" />
+                  <ArrowRight size={15} />
                 </Link>
               </div>
             </motion.div>
 
-            {/* Hero visual */}
+            {/* Belief visual */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              initial={{ opacity: 0, scale: 0.96, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.15 }}
-              className="relative mx-auto w-full max-w-[480px]"
+              transition={{ duration: 0.7, delay: 0.15 }}
+              className="relative mx-auto w-full max-w-[440px]"
             >
-              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-600 via-primary-700 to-brand-700 p-7 shadow-card sm:p-9">
-                <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-brand-300/20 blur-3xl" />
+              <div className="relative overflow-hidden rounded-[26px] bg-primary-600 p-6 shadow-sm sm:p-8">
+                <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
+
                 <div className="relative">
                   <div className="flex items-center justify-between">
-                    <span className="rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-primary-200">
+                    <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/90 backdrop-blur">
                       Our belief
                     </span>
-                    <i className="bi bi-stars text-lg text-primary-200" />
+
+                    <Sparkles size={16} className="text-white/70" />
                   </div>
-                  <div className="py-16">
-                    <p className="text-3xl font-black leading-tight tracking-[-0.04em] text-white sm:text-4xl">
-                      "Don't throw away
-                      <span className="text-primary-200"> what someone else
-                      might need.</span>"
+
+                  <div className="py-10">
+                    <p className="text-2xl font-black leading-tight tracking-tight text-white sm:text-3xl">
+                      "Don't throw away{' '}
+                      <span className="text-white/70">
+                        what someone else might need.
+                      </span>
+                      "
                     </p>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl bg-white/10 p-4">
-                      <i className="bi bi-recycle text-xl text-primary-200" />
-                      <p className="mt-8 text-xs font-bold text-white">Less waste</p>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
+                      <Recycle size={18} className="text-white/70" />
+
+                      <p className="mt-6 text-xs font-extrabold text-white">
+                        Less waste
+                      </p>
                     </div>
-                    <div className="rounded-2xl bg-white/10 p-4">
-                      <i className="bi bi-people text-xl text-primary-200" />
-                      <p className="mt-8 text-xs font-bold text-white">More opportunity</p>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
+                      <Users size={18} className="text-white/70" />
+
+                      <p className="mt-6 text-xs font-extrabold text-white">
+                        More opportunity
+                      </p>
                     </div>
                   </div>
                 </div>
               </div>
             </motion.div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── BIG STATEMENT ── */}
-      <section className="border-y border-ink-200 bg-white py-20 lg:py-28">
-        <div className="mx-auto max-w-5xl px-5 text-center sm:px-8">
+        {/* =========================================================
+            BIG STATEMENT
+        ========================================================= */}
+
+        <section className="mb-7 overflow-hidden rounded-[26px] border border-ink-100 bg-white px-6 py-12 shadow-sm sm:px-10 sm:py-16 lg:py-20">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
+            className="mx-auto max-w-3xl text-center"
           >
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-600">Why we exist</p>
-            <h2 className="mt-5 text-4xl font-black leading-tight tracking-[-0.045em] text-ink-900 sm:text-5xl lg:text-6xl">
-              The distance between
-              <span className="text-primary-600"> surplus </span>
-              and
-              <span className="text-primary-600"> need </span>
-              shouldn't be a dead end.
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary-600">
+              Why we exist
+            </p>
+
+            <h2 className="mt-4 text-2xl font-black leading-tight tracking-tight text-ink-950 sm:text-3xl lg:text-4xl">
+              The distance between{' '}
+              <span className="text-primary-600">surplus</span> and{' '}
+              <span className="text-primary-600">need</span> shouldn't be a
+              dead end.
             </h2>
-            <p className="mx-auto mt-7 max-w-2xl text-base leading-8 text-ink-500">
+
+            <p className="mx-auto mt-5 max-w-2xl text-sm font-medium leading-7 text-ink-500 sm:text-base">
               Around us are perfectly useful things sitting unused because
               their owners no longer need them. At the same time, other people
               are searching for exactly those things.
             </p>
           </motion.div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── MISSION + VISION ── */}
-      <section className="bg-primary py-20 lg:py-28">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
-          <div className="grid gap-5 md:grid-cols-2">
+        {/* =========================================================
+            MISSION + VISION
+        ========================================================= */}
+
+        <section className="mb-7">
+          <div className="grid gap-4 md:grid-cols-2">
             {/* Mission */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-600 via-primary-700 to-brand-700 p-8 text-white shadow-card sm:p-10"
+              className="relative overflow-hidden rounded-[26px] bg-primary-600 p-7 text-white shadow-sm sm:p-9"
             >
-              <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-brand-300/20 blur-3xl" />
+              <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
+
               <div className="relative">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 text-white">
-                  <i className="bi bi-bullseye text-xl" />
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20 text-white">
+                  <Target size={18} />
                 </div>
-                <p className="mt-9 text-xs font-bold uppercase tracking-[0.2em] text-primary-200">Our mission</p>
-                <h3 className="mt-2 text-3xl font-black tracking-tight">Connect surplus with need.</h3>
-                <p className="mt-5 max-w-lg text-sm leading-7 text-primary-100">
+
+                <p className="mt-6 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/70">
+                  Our mission
+                </p>
+
+                <h3 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">
+                  Connect surplus with need.
+                </h3>
+
+                <p className="mt-4 max-w-lg text-sm font-medium leading-6 text-white/80">
                   We are building a global community where giving is simple,
                   transparent and meaningful. Our goal is to help useful items
                   find people who can actually use them.
                 </p>
-                <div className="mt-8 flex flex-wrap gap-2">
-                  {['Give', 'Connect', 'Reuse', 'Impact'].map((item) => (
-                    <span key={item} className="rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-bold text-primary-100">
+
+                <div className="mt-6 flex flex-wrap gap-2">
+                  {missionTags.map((item) => (
+                    <span
+                      key={item}
+                      className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-extrabold text-white/90"
+                    >
                       {item}
                     </span>
                   ))}
@@ -199,212 +259,292 @@ const AboutPage = () => {
               initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              className="relative overflow-hidden rounded-2xl border border-ink-200 bg-white p-8 shadow-card sm:p-10"
+              className="relative overflow-hidden rounded-[26px] border border-ink-100 bg-white p-7 shadow-sm sm:p-9"
             >
               <div className="relative">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
-                  <i className="bi bi-eye text-xl" />
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-50 text-primary-600">
+                  <Eye size={18} />
                 </div>
-                <p className="mt-9 text-xs font-bold uppercase tracking-[0.2em] text-primary-600">Our vision</p>
-                <h3 className="mt-2 text-3xl font-black tracking-tight text-ink-900">A world where useful things keep moving.</h3>
-                <p className="mt-5 max-w-lg text-sm leading-7 text-ink-500">
+
+                <p className="mt-6 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary-600">
+                  Our vision
+                </p>
+
+                <h3 className="mt-1 text-2xl font-black tracking-tight text-ink-950 sm:text-3xl">
+                  A world where useful things keep moving.
+                </h3>
+
+                <p className="mt-4 max-w-lg text-sm font-medium leading-6 text-ink-500">
                   We imagine a more circular world where people have easier
                   access to resources, communities trust one another and fewer
                   useful things become waste.
                 </p>
-                <div className="mt-8 flex items-center gap-3 rounded-2xl bg-surface-100 p-4">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-primary-600 shadow-sm">
-                    <i className="bi bi-arrow-repeat" />
+
+                <div className="mt-6 flex items-center gap-3 rounded-2xl border border-ink-100 bg-ink-50/50 p-3.5">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-primary-600 shadow-sm">
+                    <RefreshCw size={14} />
                   </div>
-                  <p className="text-xs font-bold text-ink-600">Keep useful things in circulation.</p>
+
+                  <p className="text-xs font-extrabold text-ink-600">
+                    Keep useful things in circulation.
+                  </p>
                 </div>
               </div>
             </motion.div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── VALUES ── */}
-      <section className="bg-white py-20 lg:py-32">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
+        {/* =========================================================
+            VALUES
+        ========================================================= */}
+
+        <section className="mb-7">
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="mb-14 max-w-2xl"
+            className="mb-6 max-w-2xl"
           >
-            <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-primary-600">What guides us</p>
-            <h2 className="text-4xl font-black tracking-[-0.045em] text-ink-900 sm:text-5xl">The principles behind DTI.</h2>
-            <p className="mt-5 text-base leading-7 text-ink-500">
+            <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary-600">
+              What guides us
+            </p>
+
+            <h2 className="text-2xl font-black tracking-tight text-ink-950 sm:text-3xl">
+              The principles behind DTI.
+            </h2>
+
+            <p className="mt-3 text-sm font-medium leading-6 text-ink-500">
               Technology is only the tool. The real foundation is how people
               treat one another and the world around them.
             </p>
           </motion.div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {values.map((value, index) => (
-              <motion.div
-                key={value.number}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.07 }}
-                viewport={{ once: true }}
-                className="group relative overflow-hidden rounded-xl border border-ink-200 bg-white p-7 shadow-card transition-all hover:-translate-y-1 hover:border-primary-200 hover:shadow-md"
-              >
-                <span className="absolute right-5 top-3 text-6xl font-black tracking-[-0.08em] text-ink-100 transition-colors group-hover:text-primary-50">
-                  {value.number}
-                </span>
-                <div className="relative">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
-                    <i className={`${value.icon} text-lg`} />
-                  </div>
-                  <h3 className="mt-8 text-lg font-black text-ink-900">{value.title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-ink-500">{value.description}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+            {values.map((value, index) => {
+              const Icon = value.icon;
 
-      {/* ── FOUNDER ── */}
-      <section className="bg-brand py-20 lg:py-28">
-        <div className="mx-auto max-w-6xl px-5 sm:px-8">
-          <div className="grid items-center gap-12 lg:grid-cols-[0.8fr_1.2fr]">
+              return (
+                <motion.div
+                  key={value.number}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.07 }}
+                  viewport={{ once: true }}
+                  className="group relative overflow-hidden rounded-2xl border border-ink-100 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-ink-200 hover:shadow-md"
+                >
+                  <span className="absolute right-4 top-2 text-5xl font-black tracking-tight text-ink-50 transition-colors group-hover:text-primary-50">
+                    {value.number}
+                  </span>
+
+                  <div className="relative">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary-50 text-primary-600">
+                      <Icon size={16} />
+                    </div>
+
+                    <h3 className="mt-6 text-sm font-black text-ink-950">
+                      {value.title}
+                    </h3>
+
+                    <p className="mt-2 text-xs font-medium leading-5 text-ink-500">
+                      {value.description}
+                    </p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* =========================================================
+            FOUNDER
+        ========================================================= */}
+
+        <section className="mb-7">
+          <div className="grid items-center gap-8 lg:grid-cols-[0.75fr_1.25fr] lg:gap-12">
             {/* Founder image */}
             <motion.div
-              initial={{ opacity: 0, x: -25 }}
+              initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               className="relative mx-auto w-full max-w-sm"
             >
-              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-600 via-primary-700 to-brand-700 p-4 shadow-card">
-                <div className="overflow-hidden rounded-xl bg-ink-200">
+              <div className="relative overflow-hidden rounded-[26px] bg-primary-600 p-4 shadow-sm">
+                <div className="overflow-hidden rounded-2xl bg-ink-100">
                   <img
                     src={founder.avatar}
                     alt={founder.name}
                     className="aspect-[4/5] w-full object-cover"
                   />
                 </div>
-                <div className="absolute bottom-8 left-8 rounded-xl bg-white px-4 py-3 shadow-card">
-                  <p className="text-xs font-black text-ink-900">Founder & Lead Developer</p>
-                  <p className="mt-0.5 text-[10px] text-ink-400">Don't Trash It</p>
+
+                <div className="absolute bottom-7 left-7 rounded-xl border border-ink-100 bg-white px-3.5 py-2.5 shadow-md">
+                  <p className="text-xs font-black text-ink-950">
+                    Founder & Lead Developer
+                  </p>
+
+                  <p className="mt-0.5 text-[10px] font-bold text-ink-400">
+                    Don't Trash It
+                  </p>
                 </div>
               </div>
             </motion.div>
 
             {/* Founder story */}
             <motion.div
-              initial={{ opacity: 0, x: 25 }}
+              initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
             >
-              <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-primary-600">The person behind the idea</p>
-              <h2 className="text-4xl font-black tracking-[-0.045em] text-ink-900 sm:text-5xl">Built from a simple belief.</h2>
-              <p className="mt-6 text-base leading-8 text-ink-500">
-                Don't Trash It was founded by{' '}
-                <span className="font-bold text-ink-900">{founder.name}</span>, a developer passionate about using technology to solve practical problems and create stronger communities.
+              <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary-600">
+                The person behind the idea
               </p>
-              <p className="mt-4 text-base leading-8 text-ink-500">
+
+              <h2 className="text-2xl font-black tracking-tight text-ink-950 sm:text-3xl">
+                Built from a simple belief.
+              </h2>
+
+              <p className="mt-5 text-sm font-medium leading-7 text-ink-500 sm:text-base">
+                Don't Trash It was founded by{' '}
+                <span className="font-extrabold text-ink-800">
+                  {founder.name}
+                </span>
+                , a developer passionate about using technology to solve
+                practical problems and create stronger communities.
+              </p>
+
+              <p className="mt-3 text-sm font-medium leading-7 text-ink-500 sm:text-base">
                 The idea behind DTI is simple: there are countless useful
                 things sitting unused while other people are looking for those
                 exact resources. The challenge is connecting the two.
               </p>
-              <div className="mt-8 border-l-2 border-primary-500 pl-5">
-                <p className="text-lg font-bold leading-7 text-ink-900">
+
+              <div className="mt-6 border-l-2 border-primary-500 pl-4">
+                <p className="text-base font-black leading-7 text-ink-900 sm:text-lg">
                   "If something still has value, its story shouldn't end just
                   because its current owner is finished with it."
                 </p>
               </div>
-              <div className="mt-8 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 text-primary-600">
-                  <i className="bi bi-code-slash" />
+
+              <div className="mt-6 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary-50 text-primary-600">
+                  <Code size={16} />
                 </div>
+
                 <div>
-                  <p className="text-sm font-black text-ink-900">{founder.name}</p>
-                  <p className="text-xs text-ink-400">{founder.role}</p>
+                  <p className="text-sm font-black text-ink-950">
+                    {founder.name}
+                  </p>
+
+                  <p className="text-[11px] font-bold text-ink-400">
+                    {founder.role}
+                  </p>
                 </div>
               </div>
             </motion.div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── MANIFESTO ── */}
-      <section className="bg-white py-20 lg:py-28">
-        <div className="mx-auto max-w-5xl px-5 sm:px-8">
-          <div className="rounded-2xl bg-gradient-to-br from-primary-600 via-primary-700 to-brand-700 p-8 shadow-card sm:p-12 lg:p-16">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-white">
-                <i className="bi bi-stars" />
-              </div>
-              <span className="text-xs font-bold uppercase tracking-[0.2em] text-primary-200">Our manifesto</span>
-            </div>
-            <div className="mt-10 max-w-4xl">
-              <p className="text-3xl font-black leading-tight tracking-[-0.04em] text-white sm:text-4xl lg:text-5xl">
-                We believe that
-                <span className="text-primary-200"> generosity </span>
-                can scale.
-              </p>
-              <p className="mt-7 text-base leading-8 text-primary-100 sm:text-lg">
-                That technology can make giving easier. That transparency can
-                make communities stronger. That a laptop, a bicycle, a book or
-                a sewing machine can mean something completely different to
-                someone who genuinely needs it.
-              </p>
-              <p className="mt-5 text-base font-bold leading-8 text-white sm:text-lg">
-                And most importantly, we believe the things we no longer need
-                don't have to become waste.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+        {/* =========================================================
+            MANIFESTO
+        ========================================================= */}
 
-      {/* ── CTA ── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary-600 via-primary-700 to-brand-700 py-24 lg:py-32">
-        <div className="pointer-events-none absolute -left-32 -top-32 h-80 w-80 rounded-full bg-brand-300/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-32 -right-32 h-80 w-80 rounded-full bg-primary-300/10 blur-3xl" />
-
-        <div className="relative z-10 mx-auto max-w-4xl px-5 text-center sm:px-8">
+        <section className="mb-7">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
+            className="relative overflow-hidden rounded-[26px] bg-primary-600 p-7 shadow-sm sm:p-10 lg:p-12"
           >
-            <div className="mx-auto mb-7 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-xl font-black text-primary-600 shadow-lg">
-              DTI
-            </div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-200">Be part of it</p>
-            <h2 className="mt-4 text-4xl font-black leading-tight tracking-[-0.045em] text-white sm:text-6xl">
-              A better destination
-              <br />
-              starts with <span className="text-primary-200">one item.</span>
-            </h2>
-            <p className="mx-auto mt-6 max-w-xl text-base leading-7 text-primary-100">
-              Give something useful another chance. Find something you need.
-              Help us build a world where good things keep moving.
-            </p>
-            <div className="mt-9 flex flex-wrap justify-center gap-3">
-              <Link
-                to="/register"
-                className="inline-flex items-center gap-3 rounded-xl bg-white px-6 py-3.5 text-sm font-bold text-primary-700 shadow-lg transition hover:bg-primary-50"
-              >
-                Join the mission
-                <i className="bi bi-arrow-up-right" />
-              </Link>
-              <Link
-                to="/browse"
-                className="inline-flex items-center gap-3 rounded-xl border border-white/30 bg-white/10 px-6 py-3.5 text-sm font-bold text-white backdrop-blur transition hover:bg-white/20"
-              >
-                Explore items
-                <i className="bi bi-grid" />
-              </Link>
+            <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
+
+            <div className="relative">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/20 text-white">
+                  <Sparkles size={16} />
+                </div>
+
+                <span className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/70">
+                  Our manifesto
+                </span>
+              </div>
+
+              <div className="mt-8 max-w-3xl">
+                <p className="text-2xl font-black leading-tight tracking-tight text-white sm:text-3xl lg:text-4xl">
+                  We believe that{' '}
+                  <span className="text-white/70">generosity</span> can scale.
+                </p>
+
+                <p className="mt-5 text-sm font-medium leading-7 text-white/80 sm:text-base">
+                  That technology can make giving easier. That transparency can
+                  make communities stronger. That a laptop, a bicycle, a book
+                  or a sewing machine can mean something completely different
+                  to someone who genuinely needs it.
+                </p>
+
+                <p className="mt-4 text-sm font-extrabold leading-7 text-white sm:text-base">
+                  And most importantly, we believe the things we no longer need
+                  don't have to become waste.
+                </p>
+              </div>
             </div>
           </motion.div>
-        </div>
-      </section>
-						
+        </section>
+
+        {/* =========================================================
+            CTA
+        ========================================================= */}
+
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="overflow-hidden rounded-[26px] bg-primary-600 shadow-sm"
+        >
+          <div className="relative px-6 py-12 text-center sm:px-10 sm:py-16">
+            <div className="pointer-events-none absolute -left-24 -top-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-24 -right-24 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
+
+            <div className="relative z-10">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 text-white">
+                <Boxes size={24} />
+              </div>
+
+              <p className="mt-6 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/70">
+                Be part of it
+              </p>
+
+              <h2 className="mx-auto mt-3 max-w-2xl text-2xl font-black leading-tight tracking-tight text-white sm:text-3xl lg:text-4xl">
+                A better destination starts with{' '}
+                <span className="text-white/80">one item.</span>
+              </h2>
+
+              <p className="mx-auto mt-4 max-w-xl text-sm font-medium leading-6 text-white/80">
+                Give something useful another chance. Find something you need.
+                Help us build a world where good things keep moving.
+              </p>
+
+              <div className="mt-7 flex flex-wrap justify-center gap-3">
+                <Link
+                  to="/register"
+                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-extrabold text-primary-700 transition hover:bg-primary-50"
+                >
+                  Join the mission
+                  <ArrowUpRight size={15} />
+                </Link>
+
+                <Link
+                  to="/browse"
+                  className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/30 bg-transparent px-5 text-sm font-extrabold text-white transition hover:border-white/60 hover:bg-white/10"
+                >
+                  Explore items
+                  <Grid3x3 size={15} />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </motion.section>
+      </div>
     </div>
   );
 };

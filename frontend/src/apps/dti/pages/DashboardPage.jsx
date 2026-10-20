@@ -1,11 +1,33 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { DTI_BASE, makePaths } from "@/utils/routeBases";
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Gift,
+  Package,
+  LayoutGrid,
+  Clock,
+  Search,
+  Plus,
+  ArrowRight,
+  ArrowUpRight,
+  ChevronRight,
+  Image as ImageIcon,
+  Send,
+  User,
+  Heart,
+  BadgeCheck,
+  MailWarning,
+  Info,
+  Loader2,
+} from 'lucide-react';
+
 import { useAuth } from '@/context/AuthContext';
 import { authAPI } from '@/services/api/dtiApi';
 import { supabase } from '@/services/api/supabase';
 import { toast } from 'sonner';
-import WinnerNoticeModal from './WinnerNoticeModal';
+import Modal from '@/reusables/Modal';
+import WinnerNoticeModal from '../components/common/WinnerNoticeModal';
 
 /* =========================================================
    HELPERS
@@ -37,42 +59,32 @@ const getStatusMeta = (status) => {
     case 'active':
     case 'accepted':
       return {
-        bg: 'bg-emerald-50',
-        text: 'text-emerald-700',
-        border: 'border-emerald-200',
-        dot: 'bg-emerald-500',
+        wrapper: 'border-success-200 bg-success-50 text-success-700',
+        dot: 'bg-success-500',
       };
 
     case 'pending':
       return {
-        bg: 'bg-amber-50',
-        text: 'text-amber-700',
-        border: 'border-amber-200',
-        dot: 'bg-amber-500',
+        wrapper: 'border-warning-200 bg-warning-50 text-warning-700',
+        dot: 'bg-warning-500',
       };
 
     case 'rejected':
       return {
-        bg: 'bg-rose-50',
-        text: 'text-rose-700',
-        border: 'border-rose-200',
-        dot: 'bg-rose-500',
+        wrapper: 'border-danger-200 bg-danger-50 text-danger-700',
+        dot: 'bg-danger-500',
       };
 
     case 'completed':
       return {
-        bg: 'bg-indigo-50',
-        text: 'text-indigo-700',
-        border: 'border-indigo-200',
-        dot: 'bg-indigo-500',
+        wrapper: 'border-primary-200 bg-primary-50 text-primary-700',
+        dot: 'bg-primary-500',
       };
 
     default:
       return {
-        bg: 'bg-slate-50',
-        text: 'text-slate-600',
-        border: 'border-slate-200',
-        dot: 'bg-slate-400',
+        wrapper: 'border-ink-200 bg-ink-50 text-ink-600',
+        dot: 'bg-ink-400',
       };
   }
 };
@@ -86,7 +98,7 @@ const StatusBadge = ({ status }) => {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-[0.08em] ${meta.bg} ${meta.text} ${meta.border}`}
+      className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.08em] ${meta.wrapper}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
       {status || 'Unknown'}
@@ -99,120 +111,136 @@ const StatusBadge = ({ status }) => {
 ========================================================= */
 
 const DashboardSkeleton = () => (
-  <div className="min-h-screen">
-    <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 lg:px-8 lg:pt-8">
-      <div className="animate-pulse space-y-7">
+  <div className="min-h-full bg-transparent">
+    <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+      <div className="space-y-7">
         {/* Header */}
-        <div className="flex flex-col gap-4 border-b border-slate-100 pb-7 sm:flex-row sm:items-end sm:justify-between">
-          <div className="space-y-3">
-            <div className="h-3 w-24 rounded bg-slate-100" />
-            <div className="h-8 w-64 rounded-lg bg-slate-100" />
-            <div className="h-4 w-80 rounded bg-slate-100" />
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <div className="mb-2 flex items-center gap-2">
+              <div className="h-3.5 w-3.5 animate-pulse rounded bg-ink-200" />
+              <div className="h-3 w-28 animate-pulse rounded bg-ink-200" />
+            </div>
+            <div className="h-8 w-72 animate-pulse rounded bg-ink-200" />
+            <div className="mt-3 h-4 w-96 max-w-full animate-pulse rounded bg-ink-200" />
           </div>
-
-          <div className="flex gap-3">
-            <div className="h-11 w-28 rounded-xl bg-slate-100" />
-            <div className="h-11 w-36 rounded-xl bg-slate-100" />
+          <div className="flex gap-2.5">
+            <div className="h-12 w-28 animate-pulse rounded-2xl bg-ink-200" />
+            <div className="h-12 w-36 animate-pulse rounded-2xl bg-ink-200" />
           </div>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
+          {Array.from({ length: 4 }).map((_, i) => (
             <div
-              key={index}
-              className="h-32 rounded-2xl border border-slate-100 bg-slate-50"
-            />
+              key={i}
+              className="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="h-3 w-20 animate-pulse rounded-full bg-ink-100" />
+                <div className="h-9 w-9 animate-pulse rounded-xl bg-ink-100" />
+              </div>
+              <div className="mt-2 h-8 w-12 animate-pulse rounded bg-ink-100" />
+            </div>
           ))}
         </div>
 
-        {/* Content */}
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+        {/* Content grid */}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-6">
-            <div className="h-[500px] rounded-2xl bg-slate-50" />
-            <div className="h-[330px] rounded-2xl bg-slate-50" />
+            <div className="rounded-[26px] border border-ink-100 bg-white p-4 shadow-sm">
+              <div className="h-4 w-32 animate-pulse rounded bg-ink-100" />
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-52 animate-pulse rounded-2xl bg-ink-100"
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[26px] border border-ink-100 bg-white p-4 shadow-sm">
+              <div className="h-4 w-32 animate-pulse rounded bg-ink-100" />
+              <div className="mt-4 space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-14 animate-pulse rounded-2xl bg-ink-100"
+                  />
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="space-y-6">
-            <div className="h-64 rounded-2xl bg-slate-50" />
-            <div className="h-64 rounded-2xl bg-slate-50" />
+            <div className="h-44 animate-pulse rounded-[26px] bg-ink-100" />
+            <div className="h-64 animate-pulse rounded-[26px] bg-ink-100" />
           </div>
         </div>
       </div>
-    </main>
+    </div>
   </div>
 );
 
 /* =========================================================
-   STAT CARD
+   STAT CARD (mirrors MyApplicationsPage StatCard)
 ========================================================= */
 
-const ModernStat = ({
-  label,
-  value,
-  icon,
-  iconClass,
-  delay = 0,
-}) => (
-  <motion.div
-    initial={{ opacity: 0, y: 10 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{
-      duration: 0.35,
-      delay,
-    }}
-    whileHover={{
-      y: -2,
-    }}
-    className="group rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5"
-  >
-    <div className="flex items-center justify-between">
-      <div
-        className={`flex h-10 w-10 items-center justify-center rounded-xl ${iconClass}`}
-      >
-        <i className={`bi ${icon} text-base`} />
+const StatCard = ({ label, value, icon: Icon, tone = 'ink', delay = 0 }) => {
+  const tones = {
+    ink: { color: 'text-ink-900', bg: 'bg-ink-50' },
+    warning: { color: 'text-warning-600', bg: 'bg-warning-50' },
+    success: { color: 'text-success-600', bg: 'bg-success-50' },
+    danger: { color: 'text-danger-600', bg: 'bg-danger-50' },
+    primary: { color: 'text-primary-600', bg: 'bg-primary-50' },
+  };
+  const style = tones[tone] || tones.ink;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay }}
+      className="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <p className="truncate text-xs font-bold text-ink-500">{label}</p>
+
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${style.bg}`}
+        >
+          <Icon size={15} className={style.color} />
+        </span>
       </div>
 
-      <span className="text-2xl font-bold tracking-tight text-slate-950">
-        {value}
-      </span>
-    </div>
-
-    <div className="mt-4 flex items-center justify-between">
-      <p className="text-xs font-medium text-slate-500">
-        {label}
+      <p className={`mt-2 text-2xl font-black tracking-tight ${style.color}`}>
+        {typeof value === 'number' ? value.toLocaleString() : value}
       </p>
-
-      <i className="bi bi-arrow-up-right text-[10px] text-slate-200 transition-colors group-hover:text-slate-400" />
-    </div>
-  </motion.div>
-);
+    </motion.div>
+  );
+};
 
 /* =========================================================
    SECTION HEADER
 ========================================================= */
 
-const SectionHeader = ({
-  eyebrow,
-  title,
-  count,
-  action,
-  onAction,
-}) => (
-  <div className="flex items-center justify-between px-5 py-4">
+const SectionHeader = ({ eyebrow, title, count, action, onAction }) => (
+  <div className="flex items-center justify-between gap-3 px-5 py-4">
     <div className="flex min-w-0 items-center gap-3">
       <div className="min-w-0">
-        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">
+        <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary-600">
           {eyebrow}
         </p>
 
-        <h2 className="mt-0.5 truncate text-base font-bold tracking-tight text-slate-900">
+        <h2 className="mt-0.5 truncate text-base font-black tracking-tight text-ink-950">
           {title}
         </h2>
       </div>
 
       {typeof count === 'number' && (
-        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500">
+        <span className="rounded-full bg-ink-100 px-2.5 py-1 text-[10px] font-extrabold text-ink-600">
           {count}
         </span>
       )}
@@ -222,10 +250,10 @@ const SectionHeader = ({
       <button
         type="button"
         onClick={onAction}
-        className="ml-3 inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-primary-600 transition-colors hover:text-primary-700"
+        className="ml-3 inline-flex shrink-0 items-center gap-1.5 text-xs font-extrabold text-primary-600 transition-colors hover:text-primary-700"
       >
         <span className="hidden sm:inline">{action}</span>
-        <i className="bi bi-arrow-right text-[10px]" />
+        <ArrowRight size={12} />
       </button>
     )}
   </div>
@@ -235,34 +263,32 @@ const SectionHeader = ({
    QUICK LINK
 ========================================================= */
 
-const QuickLink = ({
-  icon,
-  label,
-  description,
-  onClick,
-}) => (
+const QuickLink = ({ icon: Icon, label, description, onClick }) => (
   <button
     type="button"
     onClick={onClick}
-    className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-slate-50"
+    className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-ink-50"
   >
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-colors group-hover:bg-primary-50 group-hover:text-primary-600">
-      <i className={`bi ${icon} text-sm`} />
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ink-100 text-ink-500 transition-colors group-hover:bg-primary-50 group-hover:text-primary-600">
+      <Icon size={15} />
     </span>
 
     <span className="min-w-0 flex-1">
-      <span className="block text-sm font-medium text-slate-700 group-hover:text-slate-900">
+      <span className="block text-sm font-extrabold text-ink-800 group-hover:text-ink-950">
         {label}
       </span>
 
       {description && (
-        <span className="mt-0.5 block truncate text-[10px] text-slate-400">
+        <span className="mt-0.5 block truncate text-[10px] font-medium text-ink-400">
           {description}
         </span>
       )}
     </span>
 
-    <i className="bi bi-chevron-right text-[10px] text-slate-300 transition-colors group-hover:text-slate-500" />
+    <ChevronRight
+      size={13}
+      className="text-ink-300 transition-colors group-hover:text-ink-500"
+    />
   </button>
 );
 
@@ -270,58 +296,34 @@ const QuickLink = ({
    LISTING CARD
 ========================================================= */
 
-const ModernListingCard = ({
-  item,
-  index,
-  onClick,
-}) => {
+const ModernListingCard = ({ item, index, onClick }) => {
   return (
     <motion.button
       type="button"
       onClick={onClick}
-      initial={{
-        opacity: 0,
-        y: 12,
-      }}
-      animate={{
-        opacity: 1,
-        y: 0,
-      }}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{
-        duration: 0.35,
-        delay: index * 0.06,
+        type: 'spring',
+        stiffness: 300,
+        damping: 30,
+        delay: index * 0.05,
       }}
-      whileHover={{
-        y: -3,
-      }}
-      whileTap={{
-        scale: 0.99,
-      }}
-      className="group w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-left transition-shadow hover:shadow-lg"
+      className="group w-full overflow-hidden rounded-2xl border border-ink-100 bg-white text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-ink-200 hover:shadow-md"
     >
       {/* Image */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
+      <div className="relative aspect-[4/3] overflow-hidden bg-ink-50">
         {item.images?.[0] ? (
-          <motion.img
+          <img
             src={item.images[0]}
             alt={item.title || ''}
-            className="h-full w-full object-cover"
-            whileHover={{
-              scale: 1.04,
-            }}
-            transition={{
-              duration: 0.5,
-              ease: [0.22, 1, 0.36, 1],
-            }}
+            className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-slate-100 text-slate-300">
-            <i className="bi bi-image text-3xl" />
+          <div className="flex h-full w-full items-center justify-center text-ink-300">
+            <ImageIcon size={26} />
           </div>
         )}
-
-        {/* Overlay */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
         {/* Status */}
         <div className="absolute left-3 top-3">
@@ -329,23 +331,26 @@ const ModernListingCard = ({
         </div>
 
         {/* Hover action */}
-        <div className="absolute bottom-3 right-3 flex h-9 w-9 translate-y-1 items-center justify-center rounded-lg bg-white text-slate-700 opacity-0 shadow-md transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
-          <i className="bi bi-arrow-up-right text-xs" />
+        <div className="absolute bottom-3 right-3 flex h-9 w-9 translate-y-1 items-center justify-center rounded-xl bg-white text-ink-700 opacity-0 shadow-md transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+          <ArrowUpRight size={14} />
         </div>
       </div>
 
       {/* Content */}
       <div className="p-4">
-        <h3 className="truncate text-sm font-bold text-slate-900">
+        <h3 className="truncate text-sm font-black text-ink-950 transition group-hover:text-primary-600">
           {item.title || 'Untitled item'}
         </h3>
 
         <div className="mt-2.5 flex items-center justify-between">
-          <span className="text-[10px] font-medium text-slate-400">
+          <span className="text-[10px] font-bold text-ink-400">
             Listed {formatDate(item.created_at)}
           </span>
 
-          <i className="bi bi-arrow-right text-xs text-slate-300 transition-colors group-hover:text-primary-600" />
+          <ArrowRight
+            size={13}
+            className="text-ink-300 transition-colors group-hover:text-primary-600"
+          />
         </div>
       </div>
     </motion.button>
@@ -356,87 +361,61 @@ const ModernListingCard = ({
    APPLICATION ROW
 ========================================================= */
 
-const ModernApplicationRow = ({
-  app,
-  index,
-  onClick,
-}) => {
+const ModernApplicationRow = ({ app, index, onClick }) => {
   return (
     <motion.button
       type="button"
       onClick={onClick}
-      initial={{
-        opacity: 0,
-        x: -6,
-      }}
-      animate={{
-        opacity: 1,
-        x: 0,
-      }}
-      transition={{
-        duration: 0.25,
-        delay: index * 0.05,
-      }}
-      className="group flex w-full items-center gap-3 border-b border-slate-100 px-5 py-4 text-left transition-colors last:border-0 hover:bg-slate-50/70"
+      initial={{ opacity: 0, x: -6 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.25, delay: index * 0.05 }}
+      className="group flex w-full items-center gap-3 border-b border-ink-100 px-5 py-4 text-left transition-colors last:border-0 hover:bg-ink-50/70"
     >
-      {/* Icon */}
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition-colors group-hover:bg-primary-50 group-hover:text-primary-600">
-        <i className="bi bi-box-seam text-sm" />
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ink-100 text-ink-500 transition-colors group-hover:bg-primary-50 group-hover:text-primary-600">
+        <Package size={15} />
       </div>
 
-      {/* Info */}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-slate-900">
+        <p className="truncate text-sm font-extrabold text-ink-950">
           {app.items?.title || 'Unknown item'}
         </p>
 
-        <p className="mt-1 truncate text-[10px] text-slate-400">
+        <p className="mt-1 truncate text-[10px] font-medium text-ink-400">
           Request #{String(app.id).slice(0, 6).toUpperCase()}
           {' · '}
           {formatDate(app.created_at)}
         </p>
       </div>
 
-      {/* Status */}
       <div className="hidden sm:block">
         <StatusBadge status={app.status} />
       </div>
 
-      {/* Arrow */}
-      <i className="bi bi-chevron-right text-[10px] text-slate-300 transition-colors group-hover:text-slate-600" />
+      <ChevronRight
+        size={13}
+        className="text-ink-300 transition-colors group-hover:text-ink-600"
+      />
     </motion.button>
   );
 };
 
 /* =========================================================
-   EMPTY STATE
+   EMPTY STATE (matches MyApplicationsPage EmptyState pattern)
 ========================================================= */
 
-const EmptyState = ({
-  icon,
-  title,
-  description,
-  actionLabel,
-  onAction,
-}) => (
+const EmptyState = ({ icon: Icon, title, description, actionLabel, onAction }) => (
   <motion.div
-    initial={{
-      opacity: 0,
-    }}
-    animate={{
-      opacity: 1,
-    }}
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
     className="flex min-h-[280px] flex-col items-center justify-center px-6 py-14 text-center"
   >
-    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200">
-      <i className={`bi ${icon} text-xl`} />
+    <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-primary-50 text-primary-600">
+      <Icon size={27} />
     </div>
 
-    <h3 className="mt-4 text-base font-bold text-slate-900">
-      {title}
-    </h3>
+    <h3 className="mt-5 text-lg font-black text-ink-950">{title}</h3>
 
-    <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
+    <p className="mx-auto mt-2 max-w-sm text-sm font-medium leading-6 text-ink-500">
       {description}
     </p>
 
@@ -444,15 +423,11 @@ const EmptyState = ({
       <motion.button
         type="button"
         onClick={onAction}
-        whileHover={{
-          y: -1,
-        }}
-        whileTap={{
-          scale: 0.98,
-        }}
-        className="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-xs font-semibold text-white shadow-sm shadow-primary-500/20 transition hover:bg-primary-700"
+        whileHover={{ y: -1 }}
+        whileTap={{ scale: 0.98 }}
+        className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-primary-600 px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-primary-700"
       >
-        <i className="bi bi-plus-lg" />
+        <Plus size={16} strokeWidth={2.5} />
         {actionLabel}
       </motion.button>
     )}
@@ -466,7 +441,7 @@ const EmptyState = ({
 const DashboardPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-
+  const { to } = makePaths(DTI_BASE);
   const [loading, setLoading] = useState(true);
 
   const [stats, setStats] = useState({
@@ -484,11 +459,8 @@ const DashboardPage = () => {
 
   const [profile, setProfile] = useState(null);
 
-  const [showVerificationModal, setShowVerificationModal] =
-    useState(false);
-
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
-
   const [resending, setResending] = useState(false);
 
   /* =========================================================
@@ -505,165 +477,85 @@ const DashboardPage = () => {
     try {
       setLoading(true);
 
-      /* -------------------------------------------------------
-         PROFILE
-      ------------------------------------------------------- */
-
-      const {
-        data: profileData,
-        error: profileError,
-      } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
 
       if (profileError) {
-        console.error(
-          'Dashboard profile error:',
-          profileError
-        );
+        console.error('Dashboard profile error:', profileError);
       }
 
       setProfile(profileData);
 
-      /* -------------------------------------------------------
-         DONOR ITEMS
-      ------------------------------------------------------- */
-
-      const {
-        data: itemsData,
-        error: itemsError,
-      } = await supabase
+      const { data: itemsData, error: itemsError } = await supabase
         .from('items')
         .select('*')
         .eq('donor_id', user.id)
-        .order('created_at', {
-          ascending: false,
-        });
+        .order('created_at', { ascending: false });
 
       if (itemsError) {
-        console.error(
-          'Dashboard items error:',
-          itemsError
-        );
+        console.error('Dashboard items error:', itemsError);
       }
 
-      /* -------------------------------------------------------
-         RECEIVED ITEMS
-      ------------------------------------------------------- */
-
-      const {
-        data: receivedItemsData,
-        error: receivedItemsError,
-      } = await supabase
-        .from('items')
-        .select('*')
-        .eq('winner_id', user.id)
-        .eq('status', 'completed')
-        .order('created_at', {
-          ascending: false,
-        });
+      const { data: receivedItemsData, error: receivedItemsError } =
+        await supabase
+          .from('items')
+          .select('*')
+          .eq('winner_id', user.id)
+          .eq('status', 'completed')
+          .order('created_at', { ascending: false });
 
       if (receivedItemsError) {
-        console.error(
-          'Dashboard received items error:',
-          receivedItemsError
-        );
+        console.error('Dashboard received items error:', receivedItemsError);
       }
 
-      /* -------------------------------------------------------
-         APPLICATIONS
-      ------------------------------------------------------- */
-
-      const {
-        data: applicationsData,
-        error: applicationsError,
-      } = await supabase
-        .from('applications')
-        .select(`
-          *,
-          items:item_id (
-            title,
-            images,
-            status
-          )
-        `)
-        .eq('applicant_id', user.id)
-        .order('created_at', {
-          ascending: false,
-        });
+      const { data: applicationsData, error: applicationsError } =
+        await supabase
+          .from('applications')
+          .select(`
+            *,
+            items:item_id (
+              title,
+              images,
+              status
+            )
+          `)
+          .eq('applicant_id', user.id)
+          .order('created_at', { ascending: false });
 
       if (applicationsError) {
-        console.error(
-          'Dashboard applications error:',
-          applicationsError
-        );
+        console.error('Dashboard applications error:', applicationsError);
       }
 
-      /* -------------------------------------------------------
-         NORMALIZE
-      ------------------------------------------------------- */
-
       const allItems = itemsData || [];
-
       const receivedItems = receivedItemsData || [];
-
       const allApplications = applicationsData || [];
 
-      const activeItems = allItems.filter(
-        (item) => item.status === 'active'
-      );
-
+      const activeItems = allItems.filter((item) => item.status === 'active');
       const completedItems = allItems.filter(
         (item) => item.status === 'completed'
       );
-
       const pendingApplications = allApplications.filter(
-        (application) =>
-          application.status === 'pending'
+        (application) => application.status === 'pending'
       );
-
-      /* -------------------------------------------------------
-         STATS
-      ------------------------------------------------------- */
 
       setStats({
         itemsGiven: completedItems.length,
         itemsReceived: receivedItems.length,
-        pendingApplications:
-          pendingApplications.length,
+        pendingApplications: pendingApplications.length,
         activeItems: activeItems.length,
       });
 
-      /* -------------------------------------------------------
-         LISTINGS
-      ------------------------------------------------------- */
-
       setListedItems(activeItems.slice(0, 6));
-
       setTotalListedItems(activeItems.length);
 
-      /* -------------------------------------------------------
-         APPLICATIONS
-      ------------------------------------------------------- */
-
-      setRecentApplications(
-        allApplications.slice(0, 5)
-      );
-
-      setTotalApplications(
-        allApplications.length
-      );
+      setRecentApplications(allApplications.slice(0, 5));
+      setTotalApplications(allApplications.length);
     } catch (error) {
-      console.error(
-        'Error fetching dashboard data:',
-        error
-      );
-
-      toast.error(
-        'Unable to load your dashboard'
-      );
+      console.error('Error fetching dashboard data:', error);
+      toast.error('Unable to load your dashboard');
     } finally {
       setTimeout(() => {
         setLoading(false);
@@ -677,29 +569,20 @@ const DashboardPage = () => {
 
   const handleResendVerification = async () => {
     if (!user?.email) {
-      toast.error(
-        'Unable to determine your email address.'
-      );
+      toast.error('Unable to determine your email address.');
       return;
     }
 
     setResending(true);
 
     try {
-      await authAPI.resendVerification(
-        user.email
-      );
-
-      toast.success(
-        'Verification email resent! Check your inbox.'
-      );
-
+      await authAPI.resendVerification(user.email);
+      toast.success('Verification email resent! Check your inbox.');
       setShowVerificationModal(false);
       setPendingAction(null);
     } catch (error) {
       toast.error(
-        error.response?.data?.error ||
-          'Failed to resend verification email'
+        error.response?.data?.error || 'Failed to resend verification email'
       );
     } finally {
       setResending(false);
@@ -708,27 +591,24 @@ const DashboardPage = () => {
 
   const checkVerification = (action) => {
     if (
-      (action === 'create' ||
-        action === 'request') &&
+      (action === 'create' || action === 'request') &&
       !profile?.email_verified
     ) {
       setPendingAction(action);
       setShowVerificationModal(true);
-
       return false;
     }
-
     return true;
   };
 
   const handleCreateItem = () => {
     if (checkVerification('create')) {
-      navigate('/create');
+      navigate(to('/create'));
     }
   };
 
   const handleBrowse = () => {
-    navigate('/browse');
+    navigate(to('/browse'));
   };
 
   /* =========================================================
@@ -753,73 +633,54 @@ const DashboardPage = () => {
 
   return (
     <>
-      <div className="min-h-screen text-slate-900">
-
-        <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 lg:px-8 lg:pt-8">
-
+      <div className="min-h-full bg-transparent">
+        <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
           {/* =================================================
               HEADER
           ================================================== */}
 
           <motion.section
-            initial={{
-              opacity: 0,
-              y: 8,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            className="mb-7 border-b border-slate-100 pb-7"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="mb-7"
           >
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-primary-500" />
-
-                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary-600">
-                    Dashboard
-                  </span>
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0">
+                <div className="mb-2 flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary-600">
+                  <LayoutGrid size={14} />
+                  <span>Your dashboard</span>
                 </div>
 
-                <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+                <h1 className="text-2xl font-black tracking-tight text-ink-950 sm:text-3xl">
                   Welcome back, {firstName}
                 </h1>
 
-                <p className="mt-1.5 text-sm text-slate-500">
-                  Here's what's happening with your items
-                  and requests.
+                <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-ink-500">
+                  Here's what's happening with your items and requests.
                 </p>
               </div>
 
-              <div className="flex gap-2.5">
+              <div className="flex shrink-0 gap-2.5">
                 <motion.button
                   type="button"
                   onClick={handleBrowse}
-                  whileHover={{
-                    y: -1,
-                  }}
-                  whileTap={{
-                    scale: 0.98,
-                  }}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-ink-200 bg-white px-5 py-3 text-sm font-extrabold text-ink-700 shadow-sm transition hover:bg-ink-50"
                 >
-                  <i className="bi bi-search" />
+                  <Search size={16} strokeWidth={2.5} />
                   Browse
                 </motion.button>
 
                 <motion.button
                   type="button"
                   onClick={handleCreateItem}
-                  whileHover={{
-                    y: -1,
-                  }}
-                  whileTap={{
-                    scale: 0.98,
-                  }}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-primary-500/20 transition hover:bg-primary-700"
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-600 px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-primary-700"
                 >
-                  <i className="bi bi-plus-lg" />
+                  <Plus size={17} strokeWidth={2.5} />
                   List an item
                 </motion.button>
               </div>
@@ -831,35 +692,35 @@ const DashboardPage = () => {
           ================================================== */}
 
           <section className="mb-7 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <ModernStat
+            <StatCard
               label="Items given"
               value={stats.itemsGiven}
-              icon="bi-gift"
-              iconClass="bg-primary-50 text-primary-600"
+              icon={Gift}
+              tone="success"
               delay={0}
             />
 
-            <ModernStat
+            <StatCard
               label="Items received"
               value={stats.itemsReceived}
-              icon="bi-box-seam"
-              iconClass="bg-sky-50 text-sky-600"
+              icon={Package}
+              tone="primary"
               delay={0.05}
             />
 
-            <ModernStat
+            <StatCard
               label="Active listings"
               value={stats.activeItems}
-              icon="bi-grid"
-              iconClass="bg-emerald-50 text-emerald-600"
+              icon={LayoutGrid}
+              tone="ink"
               delay={0.1}
             />
 
-            <ModernStat
+            <StatCard
               label="Pending requests"
               value={stats.pendingApplications}
-              icon="bi-clock"
-              iconClass="bg-amber-50 text-amber-600"
+              icon={Clock}
+              tone="warning"
               delay={0.15}
             />
           </section>
@@ -868,98 +729,71 @@ const DashboardPage = () => {
               CONTENT GRID
           ================================================== */}
 
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
             {/* =================================================
                 MAIN COLUMN
             ================================================== */}
 
             <div className="min-w-0 space-y-6">
-
-              {/* =================================================
-                  LISTINGS
-              ================================================== */}
-
-              <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+              {/* LISTINGS */}
+              <section className="overflow-hidden rounded-[26px] border border-ink-100 bg-white shadow-sm">
                 <SectionHeader
                   eyebrow="Your items"
                   title="Active listings"
                   count={totalListedItems}
                   action="View all"
-                  onAction={() =>
-                    navigate('/my-listed-items')
-                  }
+                  onAction={() => navigate(to('/my-listed-items'))}
                 />
 
                 {listedItems.length > 0 ? (
-                  <div className="grid gap-4 border-t border-slate-100 p-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {listedItems.map(
-                      (item, index) => (
-                        <ModernListingCard
-                          key={item.id}
-                          item={item}
-                          index={index}
-                          onClick={() =>
-                            navigate(
-                              `/item/${item.id}`
-                            )
-                          }
-                        />
-                      )
-                    )}
+                  <div className="grid gap-4 border-t border-ink-100 p-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {listedItems.map((item, index) => (
+                      <ModernListingCard
+                        key={item.id}
+                        item={item}
+                        index={index}
+                        onClick={() => navigate(to(`/item/${item.id}`))}
+                      />
+                    ))}
                   </div>
                 ) : (
-                  <div className="border-t border-slate-100">
+                  <div className="border-t border-ink-100">
                     <EmptyState
-                      icon="bi-box-seam"
+                      icon={Package}
                       title="Nothing listed yet"
                       description="List something useful and give it another life in the community."
                       actionLabel="Start listing"
-                      onAction={
-                        handleCreateItem
-                      }
+                      onAction={handleCreateItem}
                     />
                   </div>
                 )}
               </section>
 
-              {/* =================================================
-                  RECENT APPLICATIONS
-              ================================================== */}
-
-              <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+              {/* RECENT APPLICATIONS */}
+              <section className="overflow-hidden rounded-[26px] border border-ink-100 bg-white shadow-sm">
                 <SectionHeader
                   eyebrow="Activity"
                   title="Recent requests"
                   count={totalApplications}
                   action="View all"
-                  onAction={() =>
-                    navigate('/my-applications')
-                  }
+                  onAction={() => navigate(to('/my-applications'))}
                 />
 
-                {recentApplications.length >
-                0 ? (
-                  <div className="border-t border-slate-100">
-                    {recentApplications.map(
-                      (app, index) => (
-                        <ModernApplicationRow
-                          key={app.id}
-                          app={app}
-                          index={index}
-                          onClick={() =>
-                            navigate(
-                              `/item/${app.item_id}`
-                            )
-                          }
-                        />
-                      )
-                    )}
+                {recentApplications.length > 0 ? (
+                  <div className="border-t border-ink-100">
+                    {recentApplications.map((app, index) => (
+                      <ModernApplicationRow
+                        key={app.id}
+                        app={app}
+                        index={index}
+                        onClick={() => navigate(to(`/item/${app.item_id}`))}
+                      />
+                    ))}
                   </div>
                 ) : (
-                  <div className="border-t border-slate-100">
+                  <div className="border-t border-ink-100">
                     <EmptyState
-                      icon="bi-send"
+                      icon={Send}
                       title="No requests yet"
                       description="Browse the community to find something useful."
                       actionLabel="Browse items"
@@ -975,83 +809,63 @@ const DashboardPage = () => {
             ================================================== */}
 
             <aside className="space-y-6">
-
-              {/* =================================================
-                  PROFILE
-              ================================================== */}
-
+              {/* PROFILE */}
               <motion.div
-                initial={{
-                  opacity: 0,
-                  x: 8,
-                }}
-                animate={{
-                  opacity: 1,
-                  x: 0,
-                }}
-                transition={{
-                  duration: 0.35,
-                }}
-                className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm"
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                className="overflow-hidden rounded-[26px] border border-ink-100 bg-white shadow-sm"
               >
                 <div className="p-5">
                   <div className="flex items-center gap-3">
-
                     {profile?.avatar_url ? (
                       <img
                         src={profile.avatar_url}
                         alt=""
-                        className="h-12 w-12 rounded-xl object-cover ring-1 ring-slate-200"
+                        className="h-12 w-12 rounded-2xl object-cover ring-1 ring-ink-100"
                       />
                     ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-50 text-primary-600 ring-1 ring-primary-100">
-                        <span className="font-bold">
-                          {getInitials(
-                            profile?.full_name
-                          )}
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-600 ring-1 ring-primary-100">
+                        <span className="text-sm font-black">
+                          {getInitials(profile?.full_name)}
                         </span>
                       </div>
                     )}
 
                     <div className="min-w-0 flex-1">
-                      <h3 className="truncate text-sm font-bold text-slate-900">
-                        {profile?.full_name ||
-                          'User'}
+                      <h3 className="truncate text-sm font-black text-ink-950">
+                        {profile?.full_name || 'User'}
                       </h3>
 
-                      <p className="mt-0.5 truncate text-xs text-slate-400">
-                        {profile?.email ||
-                          user?.email ||
-                          'Account'}
+                      <p className="mt-0.5 truncate text-xs font-medium text-ink-400">
+                        {profile?.email || user?.email || 'Account'}
                       </p>
                     </div>
 
                     <button
                       type="button"
-                      onClick={() =>
-                        navigate('/profile')
-                      }
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                      onClick={() => navigate(to('/profile'))}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-ink-400 transition hover:bg-ink-50 hover:text-ink-700"
+                      aria-label="Open profile"
                     >
-                      <i className="bi bi-arrow-up-right text-xs" />
+                      <ArrowUpRight size={13} />
                     </button>
                   </div>
                 </div>
 
-                <div className="border-t border-slate-100 p-4">
-
+                <div className="border-t border-ink-100 p-4">
                   {profile?.email_verified ? (
-                    <div className="flex items-center gap-3 rounded-xl bg-emerald-50 p-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-emerald-600 shadow-sm">
-                        <i className="bi bi-patch-check-fill" />
+                    <div className="flex items-center gap-3 rounded-2xl bg-success-50 p-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white text-success-600 shadow-sm">
+                        <BadgeCheck size={15} />
                       </div>
 
                       <div>
-                        <p className="text-xs font-semibold text-emerald-800">
+                        <p className="text-xs font-extrabold text-success-800">
                           Email verified
                         </p>
 
-                        <p className="mt-0.5 text-[10px] text-emerald-600">
+                        <p className="mt-0.5 text-[10px] font-medium text-success-600">
                           Your account is verified
                         </p>
                       </div>
@@ -1060,316 +874,201 @@ const DashboardPage = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        setPendingAction(
-                          'create'
-                        );
-                        setShowVerificationModal(
-                          true
-                        );
+                        setPendingAction('create');
+                        setShowVerificationModal(true);
                       }}
-                      className="flex w-full items-center gap-3 rounded-xl bg-amber-50 p-3 text-left transition hover:bg-amber-100"
+                      className="flex w-full items-center gap-3 rounded-2xl bg-warning-50 p-3 text-left transition hover:bg-warning-100"
                     >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-amber-600 shadow-sm">
-                        <i className="bi bi-envelope-exclamation" />
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-warning-600 shadow-sm">
+                        <MailWarning size={15} />
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-amber-800">
+                        <p className="text-xs font-extrabold text-warning-800">
                           Verify your email
                         </p>
 
-                        <p className="mt-0.5 text-[10px] leading-4 text-amber-600">
-                          Required to list or
-                          request items
+                        <p className="mt-0.5 text-[10px] font-medium leading-4 text-warning-600">
+                          Required to list or request items
                         </p>
                       </div>
 
-                      <i className="bi bi-chevron-right text-xs text-amber-500" />
+                      <ChevronRight size={13} className="text-warning-500" />
                     </button>
                   )}
                 </div>
               </motion.div>
 
-              {/* =================================================
-                  QUICK ACCESS
-              ================================================== */}
-
+              {/* QUICK ACCESS */}
               <motion.div
-                initial={{
-                  opacity: 0,
-                  x: 8,
-                }}
-                animate={{
-                  opacity: 1,
-                  x: 0,
-                }}
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0 }}
                 transition={{
-                  duration: 0.35,
+                  type: 'spring',
+                  stiffness: 300,
+                  damping: 30,
                   delay: 0.05,
                 }}
-                className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm"
+                className="overflow-hidden rounded-[26px] border border-ink-100 bg-white shadow-sm"
               >
-                <div className="border-b border-slate-100 px-5 py-4">
-                  <h3 className="text-sm font-bold text-slate-900">
+                <div className="border-b border-ink-100 px-5 py-4">
+                  <h3 className="text-sm font-black text-ink-950">
                     Quick access
                   </h3>
 
-                  <p className="mt-1 text-[10px] text-slate-400">
+                  <p className="mt-1 text-[10px] font-bold text-ink-400">
                     Shortcuts to your account
                   </p>
                 </div>
 
                 <div className="p-2">
                   <QuickLink
-                    icon="bi-person"
+                    icon={User}
                     label="My profile"
                     description="Manage your profile"
-                    onClick={() =>
-                      navigate('/profile')
-                    }
+                    onClick={() => navigate(to('/profile'))}
                   />
 
                   <QuickLink
-                    icon="bi-heart"
+                    icon={Heart}
                     label="Saved items"
                     description="Items you've saved"
-                    onClick={() =>
-                      navigate('/favorites')
-                    }
+                    onClick={() => navigate(to('/favorites'))}
                   />
 
                   <QuickLink
-                    icon="bi-box-seam"
+                    icon={Package}
                     label="My listings"
                     description="Manage your listings"
-                    onClick={() =>
-                      navigate(
-                        '/my-listed-items'
-                      )
-                    }
+                    onClick={() => navigate(to('/my-listed-items'))}
                   />
 
                   <QuickLink
-                    icon="bi-send"
+                    icon={Send}
                     label="My requests"
                     description="Track your requests"
-                    onClick={() =>
-                      navigate(
-                        '/my-applications'
-                      )
-                    }
+                    onClick={() => navigate(to('/my-applications'))}
                   />
                 </div>
               </motion.div>
 
-              {/* =================================================
-                  CTA
-              ================================================== */}
-
+              {/* CTA — plain primary color */}
               <motion.div
-                initial={{
-                  opacity: 0,
-                  y: 8,
-                }}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                }}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{
-                  duration: 0.35,
+                  type: 'spring',
+                  stiffness: 300,
+                  damping: 30,
                   delay: 0.1,
                 }}
-                className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-600 to-primary-700 p-5 text-white shadow-lg shadow-primary-500/20"
+                className="rounded-[26px] bg-primary-600 p-5 text-white shadow-sm"
               >
-                <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/10" />
-
-                <div className="relative">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
-                    <i className="bi bi-stars" />
-                  </div>
-
-                  <h3 className="mt-5 text-base font-bold">
-                    Give something a second life.
-                  </h3>
-
-                  <p className="mt-1.5 text-xs leading-5 text-white/70">
-                    Someone in the community might
-                    need what you're no longer using.
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={
-                      handleCreateItem
-                    }
-                    className="mt-5 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-xs font-bold text-primary-700 transition hover:bg-primary-50"
-                  >
-                    List an item
-                    <i className="bi bi-arrow-right" />
-                  </button>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
+                  <Gift size={17} />
                 </div>
+
+                <h3 className="mt-5 text-base font-black">
+                  Give something a second life.
+                </h3>
+
+                <p className="mt-1.5 text-xs font-medium leading-5 text-white/70">
+                  Someone in the community might need what you're no longer
+                  using.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={handleCreateItem}
+                  className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-extrabold text-primary-700 transition hover:bg-primary-50"
+                >
+                  List an item
+                  <ArrowRight size={13} />
+                </button>
               </motion.div>
             </aside>
           </div>
-        </main>
-
-        {/* =====================================================
-            VERIFICATION MODAL
-        ====================================================== */}
-
-        <AnimatePresence>
-          {showVerificationModal && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto px-4 py-6">
-
-              {/* Backdrop */}
-              <motion.button
-                type="button"
-                aria-label="Close verification modal"
-                initial={{
-                  opacity: 0,
-                }}
-                animate={{
-                  opacity: 1,
-                }}
-                exit={{
-                  opacity: 0,
-                }}
-                onClick={() => {
-                  setShowVerificationModal(
-                    false
-                  );
-                  setPendingAction(null);
-                }}
-                className="fixed inset-0 cursor-default bg-slate-950/50 backdrop-blur-sm"
-              />
-
-              {/* Modal */}
-              <motion.div
-                initial={{
-                  opacity: 0,
-                  y: 20,
-                  scale: 0.96,
-                }}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                  scale: 1,
-                }}
-                exit={{
-                  opacity: 0,
-                  y: 15,
-                  scale: 0.97,
-                }}
-                transition={{
-                  type: 'spring',
-                  stiffness: 350,
-                  damping: 28,
-                }}
-                className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
-              >
-                {/* Header */}
-                <div className="border-b border-slate-100 px-6 py-5 sm:px-7">
-                  <div className="flex items-start justify-between">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                      <i className="bi bi-envelope-exclamation text-lg" />
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowVerificationModal(
-                          false
-                        );
-                        setPendingAction(null);
-                      }}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                    >
-                      <i className="bi bi-x-lg text-xs" />
-                    </button>
-                  </div>
-
-                  <h3 className="mt-5 text-xl font-bold tracking-tight text-slate-900">
-                    Verify your email
-                  </h3>
-
-                  <p className="mt-1.5 text-sm leading-6 text-slate-500">
-                    {pendingAction ===
-                    'create'
-                      ? 'Please verify your email before listing an item.'
-                      : 'Please verify your email before requesting an item.'}
-                  </p>
-                </div>
-
-                {/* Body */}
-                <div className="px-6 py-6 sm:px-7">
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                    <div className="flex items-start gap-3">
-                      <i className="bi bi-info-circle mt-0.5 text-amber-600" />
-
-                      <p className="text-xs leading-5 text-amber-900">
-                        We sent a verification
-                        email to{' '}
-                        <strong className="break-all font-semibold">
-                          {user?.email}
-                        </strong>
-                        .
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                    <motion.button
-                      type="button"
-                      onClick={
-                        handleResendVerification
-                      }
-                      disabled={resending}
-                      whileHover={{
-                        y: -1,
-                      }}
-                      whileTap={{
-                        scale: 0.98,
-                      }}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white shadow-sm shadow-primary-500/20 transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {resending ? (
-                        <>
-                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <i className="bi bi-send" />
-                          Resend email
-                        </>
-                      )}
-                    </motion.button>
-
-                    <motion.button
-                      type="button"
-                      onClick={() => {
-                        setShowVerificationModal(
-                          false
-                        );
-                        setPendingAction(null);
-                      }}
-                      whileHover={{
-                        y: -1,
-                      }}
-                      whileTap={{
-                        scale: 0.98,
-                      }}
-                      className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                    >
-                      Maybe later
-                    </motion.button>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
+        </div>
       </div>
+
+      {/* =====================================================
+          VERIFICATION MODAL
+      ====================================================== */}
+
+      <Modal
+        isOpen={showVerificationModal}
+        onClose={() => {
+          setShowVerificationModal(false);
+          setPendingAction(null);
+        }}
+        title="Verify your email"
+        size="sm"
+      >
+        <div className="space-y-6">
+          <div className="flex items-start gap-4 rounded-2xl border border-warning-200 bg-warning-50 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warning-100 text-warning-600">
+              <MailWarning size={18} />
+            </div>
+
+            <div className="min-w-0">
+              <p className="text-sm font-extrabold text-warning-900">
+                Verification required
+              </p>
+
+              <p className="mt-1 text-xs font-medium leading-5 text-warning-700">
+                {pendingAction === 'create'
+                  ? 'Please verify your email before listing an item.'
+                  : 'Please verify your email before requesting an item.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 rounded-2xl border border-ink-100 bg-ink-50 p-3">
+            <Info size={14} className="mt-0.5 shrink-0 text-ink-500" />
+
+            <p className="text-xs font-medium leading-5 text-ink-600">
+              We sent a verification email to{' '}
+              <strong className="break-all font-extrabold text-ink-800">
+                {user?.email}
+              </strong>
+              .
+            </p>
+          </div>
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setShowVerificationModal(false);
+                setPendingAction(null);
+              }}
+              disabled={resending}
+              className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Maybe later
+            </button>
+
+            <button
+              type="button"
+              onClick={handleResendVerification}
+              disabled={resending}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 text-sm font-extrabold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {resending ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send size={16} />
+                  Resend email
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <WinnerNoticeModal />
     </>

@@ -1,19 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Package,
+  Trophy,
+  FileText,
+  User,
+  ShieldAlert,
+  ShieldCheck,
+  Info,
+  Pencil,
+  Lightbulb,
+  Send,
+  Loader2,
+} from 'lucide-react';
+
 import Modal from '@/reusables/Modal';
 import Select from '@/reusables/Select';
 import { supportAPI } from '@/services/api/dtiApi';
 import { useAuth } from '@/context/AuthContext';
 
-// ============================================
-// SUPPORT REASONS - Different for each role
-// ============================================
+/* ============================================================
+   SUPPORT REASONS — one set per role
+============================================================ */
 
 const DONOR_SUPPORT_REASONS = [
   { value: 'winner_unresponsive', label: 'Winner is unresponsive' },
   { value: 'winner_no_show', label: "Winner didn't show up for pickup" },
-  { value: 'winner_dispute', label: 'Dispute with winner over item condition' },
+  {
+    value: 'winner_dispute',
+    label: 'Dispute with winner over item condition',
+  },
   { value: 'shipping_issue', label: 'Issue with shipping/delivery' },
   { value: 'item_damaged', label: 'Item was damaged during shipping' },
   { value: 'other', label: 'Other' },
@@ -45,26 +62,60 @@ const USER_SUPPORT_REASONS = [
   { value: 'other', label: 'Other' },
 ];
 
-// ============================================
-// ROLE OPTIONS
-// ============================================
+/* ============================================================
+   ROLE OPTIONS — icons as lucide components
+============================================================ */
 
 const ROLE_OPTIONS = [
-  { value: 'donor', label: 'Donor', icon: 'bi-box-seam', color: 'sky' },
-  { value: 'winner', label: 'Winner', icon: 'bi-trophy', color: 'amber' },
-  { value: 'applicant', label: 'Applicant', icon: 'bi-file-text', color: 'orange' },
-  { value: 'unknown', label: 'Just a User', icon: 'bi-person', color: 'ink' },
+  { value: 'donor', label: 'Donor', icon: Package, color: 'sky' },
+  { value: 'winner', label: 'Winner', icon: Trophy, color: 'amber' },
+  { value: 'applicant', label: 'Applicant', icon: FileText, color: 'orange' },
+  { value: 'unknown', label: 'Just a User', icon: User, color: 'ink' },
 ];
 
-// ============================================
-// SUPPORT MODAL COMPONENT
-// ============================================
+/* ============================================================
+   ROLE COLOR HELPERS — explicit classes (JIT-safe)
+============================================================ */
 
-const SupportModal = ({ 
-  isOpen, 
-  onClose, 
-  itemId: initialItemId, 
-  applicationId, 
+const getRoleSelectedClasses = (color) => {
+  const map = {
+    sky: 'border-primary-500 bg-primary-50 text-primary-700 shadow-sm',
+    amber: 'border-warning-500 bg-warning-50 text-warning-700 shadow-sm',
+    orange: 'border-warning-500 bg-warning-50 text-warning-700 shadow-sm',
+    ink: 'border-ink-400 bg-ink-50 text-ink-700 shadow-sm',
+  };
+  return map[color] || map.ink;
+};
+
+const getRoleBadgeClasses = (color) => {
+  const map = {
+    sky: 'border-primary-200 bg-primary-50 text-primary-700',
+    amber: 'border-warning-200 bg-warning-50 text-warning-700',
+    orange: 'border-warning-200 bg-warning-50 text-warning-700',
+    ink: 'border-ink-200 bg-ink-50 text-ink-700',
+  };
+  return map[color] || map.ink;
+};
+
+const getRoleIconColorClass = (color) => {
+  const map = {
+    sky: 'text-primary-600',
+    amber: 'text-warning-600',
+    orange: 'text-warning-600',
+    ink: 'text-ink-600',
+  };
+  return map[color] || map.ink;
+};
+
+/* ============================================================
+   SUPPORT MODAL
+============================================================ */
+
+const SupportModal = ({
+  isOpen,
+  onClose,
+  itemId: initialItemId,
+  applicationId,
   applicantId,
   reporterType: initialReporterType,
   onSuccess,
@@ -74,33 +125,61 @@ const SupportModal = ({
   banData = null,
 }) => {
   const { user, profile } = useAuth();
+
   const [reason, setReason] = useState(defaultReason);
   const [description, setDescription] = useState(defaultDescription);
   const [itemId, setItemId] = useState(initialItemId || '');
   const [loading, setLoading] = useState(false);
-  const [reporterType, setReporterType] = useState(initialReporterType || 'unknown');
-  const [showRoleSelector, setShowRoleSelector] = useState(initialReporterType === 'unknown');
+  const [reporterType, setReporterType] = useState(
+    initialReporterType || 'unknown'
+  );
+  const [showRoleSelector, setShowRoleSelector] = useState(
+    initialReporterType === 'unknown'
+  );
 
-  // Reset form when modal opens
+  /* --------------------------------------------------------
+     RESET ON OPEN
+  -------------------------------------------------------- */
+
   useEffect(() => {
-    if (isOpen) {
-      if (isBanAppeal) {
-        setReason('ban_appeal');
-        const banDetails = banData 
-          ? `Ban Reason: ${banData.reason || 'Not specified'}\nBanned On: ${banData.bannedAt ? new Date(banData.bannedAt).toLocaleDateString() : 'N/A'}\nDuration: ${banData.duration || 'Permanent'}\n\nPlease review my account ban. I would like to appeal this decision.`
-          : 'I would like to appeal my account ban. Please review my case.';
-        setDescription(defaultDescription || banDetails);
-      } else {
-        setReason(defaultReason);
-        setDescription(defaultDescription);
-      }
-      setItemId(initialItemId || '');
-      setReporterType(initialReporterType || 'unknown');
-      setShowRoleSelector(initialReporterType === 'unknown');
-    }
-  }, [isOpen, defaultReason, defaultDescription, initialItemId, initialReporterType, isBanAppeal, banData]);
+    if (!isOpen) return;
 
-  // Get the appropriate reasons based on reporter type
+    if (isBanAppeal) {
+      setReason('ban_appeal');
+
+      const banDetails = banData
+        ? `Ban Reason: ${banData.reason || 'Not specified'}\nBanned On: ${
+            banData.bannedAt
+              ? new Date(banData.bannedAt).toLocaleDateString()
+              : 'N/A'
+          }\nDuration: ${
+            banData.duration || 'Permanent'
+          }\n\nPlease review my account ban. I would like to appeal this decision.`
+        : 'I would like to appeal my account ban. Please review my case.';
+
+      setDescription(defaultDescription || banDetails);
+    } else {
+      setReason(defaultReason);
+      setDescription(defaultDescription);
+    }
+
+    setItemId(initialItemId || '');
+    setReporterType(initialReporterType || 'unknown');
+    setShowRoleSelector(initialReporterType === 'unknown');
+  }, [
+    isOpen,
+    defaultReason,
+    defaultDescription,
+    initialItemId,
+    initialReporterType,
+    isBanAppeal,
+    banData,
+  ]);
+
+  /* --------------------------------------------------------
+     DERIVED
+  -------------------------------------------------------- */
+
   const getSupportReasons = () => {
     switch (reporterType) {
       case 'donor':
@@ -118,28 +197,19 @@ const SupportModal = ({
 
   const supportReasons = getSupportReasons();
 
-  // Get the label for who is reporting
-  const getReporterLabel = () => {
-    const role = ROLE_OPTIONS.find(r => r.value === reporterType);
-    return role?.label || 'User';
-  };
+  const currentRole =
+    ROLE_OPTIONS.find((r) => r.value === reporterType) || ROLE_OPTIONS[3];
 
-  // Get reporter name
-  const getReporterName = () => {
-    return profile?.full_name || user?.full_name || 'User';
-  };
+  const ReporterIcon = currentRole.icon;
 
-  // Get the selected role's icon
-  const getReporterIcon = () => {
-    const role = ROLE_OPTIONS.find(r => r.value === reporterType);
-    return role?.icon || 'bi-person';
-  };
+  const getReporterLabel = () => currentRole.label;
 
-  // Get the selected role's color
-  const getReporterColor = () => {
-    const role = ROLE_OPTIONS.find(r => r.value === reporterType);
-    return role?.color || 'ink';
-  };
+  const getReporterName = () =>
+    profile?.full_name || user?.full_name || 'User';
+
+  /* --------------------------------------------------------
+     HANDLERS
+  -------------------------------------------------------- */
 
   const handleRoleSelect = (roleValue) => {
     setReporterType(roleValue);
@@ -149,6 +219,13 @@ const SupportModal = ({
 
   const handleChangeRole = () => {
     setShowRoleSelector(true);
+  };
+
+  const handleClose = () => {
+    setReason('');
+    setDescription('');
+    setItemId('');
+    onClose();
   };
 
   const handleSubmit = async () => {
@@ -171,19 +248,25 @@ const SupportModal = ({
         reason: reason,
         description: description || null,
         reporter_type: reporterType || 'unknown',
-        ...(isBanAppeal && banData && {
-          metadata: {
-            ban_appeal: true,
-            ban_reason: banData.reason,
-            banned_at: banData.bannedAt,
-            ban_duration: banData.duration,
-          }
-        }),
+        ...(isBanAppeal &&
+          banData && {
+            metadata: {
+              ban_appeal: true,
+              ban_reason: banData.reason,
+              banned_at: banData.bannedAt,
+              ban_duration: banData.duration,
+            },
+          }),
       };
 
       await supportAPI.createTicket(ticketData);
-      
-      toast.success(isBanAppeal ? 'Ban appeal submitted successfully. Our team will review your case.' : 'Issue reported successfully. Our team will follow up shortly.');
+
+      toast.success(
+        isBanAppeal
+          ? 'Ban appeal submitted successfully. Our team will review your case.'
+          : 'Issue reported successfully. Our team will follow up shortly.'
+      );
+
       onSuccess?.();
       handleClose();
     } catch (error) {
@@ -194,35 +277,38 @@ const SupportModal = ({
     }
   };
 
-  const handleClose = () => {
-    setReason('');
-    setDescription('');
-    setItemId('');
-    onClose();
-  };
+  /* --------------------------------------------------------
+     HELPERS
+  -------------------------------------------------------- */
 
-  // Get the color classes for the role badge
-  const getRoleColorClasses = (color) => {
-    const colors = {
-      sky: 'bg-sky-50 text-sky-700 border-sky-200',
-      amber: 'bg-amber-50 text-amber-700 border-amber-200',
-      orange: 'bg-orange-50 text-orange-700 border-orange-200',
-      ink: 'bg-ink-50 text-ink-700 border-ink-200',
-      primary: 'bg-primary-50 text-primary-700 border-primary-200',
-      rose: 'bg-rose-50 text-rose-700 border-rose-200',
-    };
-    return colors[color] || colors.ink;
-  };
-
-  // Format date for display
   const formatDate = (date) => {
     if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString('en-US', { 
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric' 
+    return new Date(date).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
     });
   };
+
+  const getHelpText = () => {
+    if (isBanAppeal) {
+      return 'Please provide a clear explanation of why you believe the ban should be lifted. Include any evidence or context that supports your appeal. Our team will review your case within 24-48 hours.';
+    }
+
+    if (reporterType === 'donor') {
+      return 'Please provide as much detail as possible about the issue with the winner. This helps our team resolve the matter quickly.';
+    }
+
+    if (reporterType === 'winner') {
+      return 'Please provide as much detail as possible about the issue with the donor. This helps our team resolve the matter quickly.';
+    }
+
+    return 'Please provide as much detail as possible about the issue. Including the item ID helps us resolve the matter faster.';
+  };
+
+  /* --------------------------------------------------------
+     RENDER
+  -------------------------------------------------------- */
 
   return (
     <Modal
@@ -231,57 +317,88 @@ const SupportModal = ({
       title={isBanAppeal ? 'Submit Ban Appeal' : 'Report an Issue'}
       size="md"
     >
-      {/* Ban Appeal Banner */}
-      {isBanAppeal && banData && (
-        <div className="bg-rose-50 border border-rose-200/60 rounded-xl p-4 mb-4">
-          <div className="flex items-start gap-3">
-            <i className="bi bi-shield-exclamation text-rose-500 text-lg mt-0.5"></i>
-            <div>
-              <h4 className="text-sm font-extrabold text-rose-700">Account Ban Details</h4>
-              <div className="mt-1 space-y-1 text-sm text-rose-600">
-                <p><span className="font-bold">Reason:</span> {banData.reason || 'Not specified'}</p>
-                <p><span className="font-bold">Banned On:</span> {formatDate(banData.bannedAt)}</p>
-                <p><span className="font-bold">Duration:</span> {banData.duration || 'Permanent'}</p>
+      <div className="space-y-5">
+        {/* BAN APPEAL BANNER */}
+        {isBanAppeal && banData && (
+          <div className="flex items-start gap-4 rounded-2xl border border-danger-200 bg-danger-50 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-danger-100 text-danger-600">
+              <ShieldAlert size={18} />
+            </div>
+
+            <div className="min-w-0">
+              <p className="text-sm font-extrabold text-danger-900">
+                Account Ban Details
+              </p>
+
+              <div className="mt-2 space-y-1 text-xs font-medium leading-5 text-danger-700">
+                <p>
+                  <span className="font-extrabold">Reason:</span>{' '}
+                  {banData.reason || 'Not specified'}
+                </p>
+                <p>
+                  <span className="font-extrabold">Banned On:</span>{' '}
+                  {formatDate(banData.bannedAt)}
+                </p>
+                <p>
+                  <span className="font-extrabold">Duration:</span>{' '}
+                  {banData.duration || 'Permanent'}
+                </p>
                 {banData.bannedBy && (
-                  <p><span className="font-bold">Banned By:</span> {banData.bannedBy}</p>
+                  <p>
+                    <span className="font-extrabold">Banned By:</span>{' '}
+                    {banData.bannedBy}
+                  </p>
                 )}
               </div>
-              <p className="mt-2 text-xs text-rose-500 font-bold">
-                <i className="bi bi-info-circle mr-1"></i>
+
+              <p className="mt-2 flex items-start gap-1.5 text-[11px] font-bold text-danger-600">
+                <Info size={11} className="mt-0.5 shrink-0" />
                 Please explain why you believe this ban should be reviewed.
               </p>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="space-y-4">
-        {/* Reporter Type Badge */}
-        <div className="flex items-center justify-between px-3 py-2.5 rounded-xl border border-ink-100/80 bg-ink-50/30 shadow-sm">
-          <div className="flex items-center gap-2">
-            <i className={`bi ${getReporterIcon()} text-${getReporterColor()}-600`}></i>
-            <span className="text-xs font-bold text-ink-700">
-              Reporting as: <span className="font-extrabold text-ink-900">{getReporterLabel()}</span>
+        {/* REPORTER BADGE */}
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-ink-100 bg-ink-50/50 px-3.5 py-3">
+          <div className="flex items-center gap-2.5">
+            <span
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white ${getRoleIconColorClass(
+                currentRole.color
+              )}`}
+            >
+              <ReporterIcon size={14} />
+            </span>
+
+            <span className="text-xs font-bold text-ink-600">
+              Reporting as:{' '}
+              <span className="font-extrabold text-ink-950">
+                {getReporterLabel()}
+              </span>
             </span>
           </div>
+
           {!showRoleSelector && !isBanAppeal && (
             <button
+              type="button"
               onClick={handleChangeRole}
-              className="text-xs font-bold text-primary-600 hover:text-primary-700 transition flex items-center gap-1"
+              className="inline-flex items-center gap-1 text-xs font-extrabold text-primary-600 transition hover:text-primary-700"
             >
-              <i className="bi bi-pencil"></i>
+              <Pencil size={11} />
               Change
             </button>
           )}
+
           {isBanAppeal && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold border border-rose-200/60">
+            <span className="inline-flex items-center gap-1 rounded-full border border-danger-200 bg-danger-50 px-2 py-0.5 text-[10px] font-extrabold text-danger-700">
+              <ShieldAlert size={10} />
               Ban Appeal
             </span>
           )}
         </div>
 
-        {/* Role Selector - Collapsible */}
-        <AnimatePresence>
+        {/* ROLE SELECTOR — collapsible */}
+        <AnimatePresence initial={false}>
           {showRoleSelector && !isBanAppeal && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
@@ -290,75 +407,97 @@ const SupportModal = ({
               transition={{ duration: 0.25, ease: 'easeInOut' }}
               className="overflow-hidden"
             >
-              <div className="pt-2 pb-1">
-                <label className="block text-sm font-bold text-ink-700 mb-2">
-                  Select your role <span className="text-rose-500">*</span>
+              <div>
+                <label className="mb-2 block text-sm font-extrabold text-ink-700">
+                  Select your role{' '}
+                  <span className="text-danger-500">*</span>
                 </label>
+
                 <div className="grid grid-cols-2 gap-2">
-                  {ROLE_OPTIONS.map((role) => (
-                    <button
-                      key={role.value}
-                      onClick={() => handleRoleSelect(role.value)}
-                      className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold transition border-2 ${
-                        reporterType === role.value
-                          ? `border-${role.color}-500 bg-${role.color}-50 text-${role.color}-700 shadow-sm`
-                          : 'border-ink-200 hover:border-ink-300 text-ink-600 hover:bg-ink-50'
-                      }`}
-                    >
-                      <i className={`bi ${role.icon} text-base`}></i>
-                      {role.label}
-                    </button>
-                  ))}
+                  {ROLE_OPTIONS.map((role) => {
+                    const RoleIcon = role.icon;
+                    const isSelected = reporterType === role.value;
+
+                    return (
+                      <button
+                        key={role.value}
+                        type="button"
+                        onClick={() => handleRoleSelect(role.value)}
+                        className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2.5 text-sm font-extrabold transition ${
+                          isSelected
+                            ? getRoleSelectedClasses(role.color)
+                            : 'border-ink-200 text-ink-600 hover:border-ink-300 hover:bg-ink-50'
+                        }`}
+                      >
+                        <RoleIcon size={14} />
+                        {role.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Selected Role Badge (when collapsed) */}
+        {/* SELECTED ROLE BADGE */}
         {!showRoleSelector && reporterType !== 'unknown' && !isBanAppeal && (
-          <div className={`px-3 py-1.5 rounded-xl border text-xs flex items-center gap-2 shadow-sm ${getRoleColorClasses(getReporterColor())}`}>
-            <i className={`bi ${getReporterIcon()}`}></i>
-            <span className="font-extrabold">Reporting as {getReporterLabel()}</span>
+          <div
+            className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs ${getRoleBadgeClasses(
+              currentRole.color
+            )}`}
+          >
+            <ReporterIcon size={12} />
+            <span className="font-extrabold">
+              Reporting as {getReporterLabel()}
+            </span>
             <span className="text-ink-400">•</span>
-            <span className="font-medium text-ink-500">{getReporterName()}</span>
+            <span className="truncate font-medium text-ink-500">
+              {getReporterName()}
+            </span>
           </div>
         )}
 
-        {/* Item ID - Show for all types */}
+        {/* ITEM ID */}
         {!isBanAppeal && (
           <div>
-            <label className="block text-sm font-bold text-ink-700 mb-1.5">
-              Item ID {reporterType === 'unknown' && <span className="text-ink-400 font-normal">(optional)</span>}
+            <label className="mb-1.5 block text-sm font-extrabold text-ink-700">
+              Item ID{' '}
+              {reporterType === 'unknown' && (
+                <span className="text-xs font-medium text-ink-400">
+                  (optional)
+                </span>
+              )}
             </label>
+
             <input
               type="text"
               value={itemId}
               onChange={(e) => setItemId(e.target.value)}
               placeholder="Enter item ID if applicable..."
-              className="w-full px-4 py-2.5 border border-ink-200 rounded-xl text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 transition bg-white"
+              className="input-field text-sm font-medium"
             />
+
             {reporterType === 'unknown' && (
-              <p className="text-xs text-ink-400 mt-1 font-medium">
-                <i className="bi bi-info-circle mr-1"></i>
+              <p className="mt-1.5 flex items-start gap-1.5 text-[11px] font-bold text-ink-400">
+                <Info size={11} className="mt-0.5 shrink-0" />
                 Provide an item ID if this issue is related to a specific item.
               </p>
             )}
           </div>
         )}
 
-        {/* Hidden item ID field for ban appeals */}
-        {isBanAppeal && (
-          <input type="hidden" value={itemId} />
-        )}
+        {isBanAppeal && <input type="hidden" value={itemId} />}
 
+        {/* REASON */}
         <div>
-          <label className="block text-sm font-bold text-ink-700 mb-1.5">
-            Reason <span className="text-rose-500">*</span>
+          <label className="mb-1.5 block text-sm font-extrabold text-ink-700">
+            Reason <span className="text-danger-500">*</span>
           </label>
+
           {isBanAppeal ? (
-            <div className="px-4 py-2.5 border border-primary-200 bg-primary-50 rounded-xl text-sm text-primary-700 font-extrabold shadow-sm">
-              <i className="bi bi-shield-check mr-2"></i>
+            <div className="inline-flex items-center gap-2 rounded-xl border border-primary-200 bg-primary-50 px-4 py-2.5 text-sm font-extrabold text-primary-700">
+              <ShieldCheck size={15} />
               Ban Appeal
             </div>
           ) : (
@@ -372,72 +511,92 @@ const SupportModal = ({
           )}
         </div>
 
+        {/* DESCRIPTION */}
         <div>
-          <label className="block text-sm font-bold text-ink-700 mb-1.5">
-            Description <span className="text-rose-500">*</span>
+          <label className="mb-1.5 block text-sm font-extrabold text-ink-700">
+            Description <span className="text-danger-500">*</span>
           </label>
+
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={isBanAppeal ? 6 : 3}
-            placeholder={isBanAppeal 
-              ? "Please provide details about why your account should be reinstated. Include any relevant information that supports your appeal." 
-              : "Add any relevant details…"
+            placeholder={
+              isBanAppeal
+                ? 'Please provide details about why your account should be reinstated. Include any relevant information that supports your appeal.'
+                : 'Add any relevant details…'
             }
-            className="w-full px-4 py-2.5 border border-ink-200 rounded-xl text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 transition resize-none bg-white"
             required
             minLength={isBanAppeal ? 20 : 10}
+            className="input-field resize-none text-sm font-medium"
           />
+
           {isBanAppeal && (
-            <p className="text-xs text-ink-400 mt-1 font-medium">
-              <i className="bi bi-info-circle mr-1"></i>
+            <p className="mt-1.5 flex items-start gap-1.5 text-[11px] font-bold text-ink-400">
+              <Info size={11} className="mt-0.5 shrink-0" />
               Minimum 20 characters. Please be as detailed as possible.
             </p>
           )}
         </div>
 
-        {/* Helpful tips */}
-        <div className={`p-3.5 rounded-xl border shadow-sm ${isBanAppeal ? 'bg-rose-50 border-rose-200/60' : 'bg-ink-50/50 border-ink-100/60'}`}>
-          <p className={`text-xs flex items-start gap-1.5 font-medium ${isBanAppeal ? 'text-rose-600' : 'text-ink-500'}`}>
-            <i className={`bi ${isBanAppeal ? 'bi-info-circle text-rose-500' : 'bi-lightbulb text-amber-500'} mt-0.5`}></i>
-            <span>
-              {isBanAppeal 
-                ? 'Please provide a clear explanation of why you believe the ban should be lifted. Include any evidence or context that supports your appeal. Our team will review your case within 24-48 hours.'
-                : reporterType === 'donor' 
-                  ? 'Please provide as much detail as possible about the issue with the winner. This helps our team resolve the matter quickly.'
-                  : reporterType === 'winner'
-                  ? 'Please provide as much detail as possible about the issue with the donor. This helps our team resolve the matter quickly.'
-                  : 'Please provide as much detail as possible about the issue. Including the item ID helps us resolve the matter faster.'}
-            </span>
-          </p>
-        </div>
-      </div>
-
-      <div className="flex gap-3 mt-6 pt-4 border-t border-ink-100">
-        <button
-          onClick={handleClose}
-          className="flex-1 px-4 py-2.5 bg-ink-100 hover:bg-ink-200 text-ink-700 rounded-xl font-bold transition"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleSubmit}
-          disabled={loading || !reason || (isBanAppeal && description.length < 20)}
-          className={`flex-1 px-4 py-2.5 rounded-xl font-extrabold transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md ${
-            isBanAppeal 
-              ? 'bg-gradient-to-r from-primary-500 to-brand-600 text-white' 
-              : 'bg-gradient-to-r from-rose-500 to-rose-600 text-white'
+        {/* HELP TEXT */}
+        <div
+          className={`flex items-start gap-3 rounded-2xl border p-4 ${
+            isBanAppeal
+              ? 'border-danger-200 bg-danger-50'
+              : 'border-ink-100 bg-ink-50/50'
           }`}
         >
-          {loading ? (
-            <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
+          {isBanAppeal ? (
+            <Info size={14} className="mt-0.5 shrink-0 text-danger-500" />
           ) : (
-            <>
-              <i className="bi bi-send"></i>
-              {isBanAppeal ? 'Submit Appeal' : 'Submit'}
-            </>
+            <Lightbulb
+              size={14}
+              className="mt-0.5 shrink-0 text-warning-500"
+            />
           )}
-        </button>
+
+          <p
+            className={`text-xs font-medium leading-5 ${
+              isBanAppeal ? 'text-danger-700' : 'text-ink-500'
+            }`}
+          >
+            {getHelpText()}
+          </p>
+        </div>
+
+        {/* FOOTER */}
+        <div className="flex flex-col-reverse gap-2 border-t border-ink-100 pt-5 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={loading}
+            className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={
+              loading || !reason || (isBanAppeal && description.length < 20)
+            }
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 text-sm font-extrabold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              <>
+                <Send size={16} />
+                {isBanAppeal ? 'Submit Appeal' : 'Submit'}
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </Modal>
   );
